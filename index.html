@@ -381,11 +381,9 @@
                 loadIssuedList();
             } else {
                 alert('❌ ' + (data.error || 'فشل حفظ التعديل'));
-                loadIssuedList();
             }
         } catch (err) {
             alert('حدث خطأ أثناء الاتصال لتعديل السجل');
-            loadIssuedList();
         }
     }
 
@@ -518,6 +516,9 @@
                                                     saveBirth();
                                                 }
                                             });
+                                            yIn.addEventListener('blur', () => {
+                                                setTimeout(saveBirth, 200);
+                                            });
                                         }
                                     } else if (f.key !== 'device_details') {
                                         const inputEl = document.getElementById(`input-${cellKey}`);
@@ -530,6 +531,14 @@
                                                     ev.preventDefault();
                                                     updateCellData(item.id, f.key, inputEl.value.trim());
                                                 }
+                                            });
+                                            inputEl.addEventListener('blur', () => {
+                                                // الحفظ التلقائي عند الخروج من الحقل بأمان تام
+                                                setTimeout(() => {
+                                                    if (activeCell === cellKey) {
+                                                        updateCellData(item.id, f.key, inputEl.value.trim());
+                                                    }
+                                                }, 250);
                                             });
                                         }
                                     }
