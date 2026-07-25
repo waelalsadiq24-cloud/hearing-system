@@ -381,9 +381,11 @@
                 loadIssuedList();
             } else {
                 alert('❌ ' + (data.error || 'فشل حفظ التعديل'));
+                loadIssuedList();
             }
         } catch (err) {
             alert('حدث خطأ أثناء الاتصال لتعديل السجل');
+            loadIssuedList();
         }
     }
 
@@ -516,9 +518,6 @@
                                                     saveBirth();
                                                 }
                                             });
-                                            yIn.addEventListener('blur', () => {
-                                                setTimeout(saveBirth, 200);
-                                            });
                                         }
                                     } else if (f.key !== 'device_details') {
                                         const inputEl = document.getElementById(`input-${cellKey}`);
@@ -526,18 +525,11 @@
                                             inputEl.focus();
                                             inputEl.select();
                                             
-                                            const doSave = () => {
-                                                updateCellData(item.id, f.key, inputEl.value.trim());
-                                            };
-
                                             inputEl.addEventListener('keydown', (ev) => {
                                                 if(ev.key === 'Enter') {
                                                     ev.preventDefault();
-                                                    doSave();
+                                                    updateCellData(item.id, f.key, inputEl.value.trim());
                                                 }
-                                            });
-                                            inputEl.addEventListener('blur', () => {
-                                                setTimeout(doSave, 200);
                                             });
                                         }
                                     }
