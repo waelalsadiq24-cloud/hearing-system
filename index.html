@@ -2,567 +2,244 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>نظام سجلات السماعات الطبية</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة وصرف السماعات الطبية</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; direction: rtl; }
-        .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h2 { color: #2c3e50; text-align: center; margin-bottom: 25px; }
-        h3 { color: #34495e; border-bottom: 2px solid #27ae60; padding-bottom: 5px; margin-top: 0; }
-        .card { background: #eef2f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #dcdcdc; }
-        label { display: block; margin-top: 12px; font-weight: bold; color: #333; }
-        input, select, button { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
-        button { background-color: #27ae60; color: white; font-weight: bold; cursor: pointer; border: none; margin-top: 18px; font-size: 16px; }
-        button:hover { background-color: #219150; }
-        .btn-issue { background-color: #2980b9; }
-        .btn-issue:hover { background-color: #1f618d; }
-        
-        .header-bar { display: flex; justify-content: space-between; align-items: center; background: #34495e; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
-        .count-badge { font-weight: bold; font-size: 15px; }
-        .actions-group { display: flex; gap: 10px; align-items: center; width: 100%; justify-content: space-between; }
-        .btn-mode { width: auto; padding: 8px 12px; margin-top: 0; font-size: 13px; }
-        .btn-delete-mode { background-color: #c0392b; }
-        .btn-delete-mode.active { background-color: #e67e22; }
-
-        .table-search-box { width: 250px; padding: 6px 10px; font-size: 13px; border-radius: 4px; border: 1px solid #ccc; margin-top: 0; background: #fff; color: #000; }
-
-        .result-box { padding: 15px; border-radius: 5px; font-weight: bold; margin-top: 15px; display: none; line-height: 1.6; }
-        .eligible { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .not-eligible { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .row { display: flex; gap: 10px; }
-        .row > div { flex: 1; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th, td { padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 13px; color: #333; }
-        th { background-color: #34495e; color: white; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        .editable-cell { cursor: pointer; }
-        .editable-cell:hover { background-color: #e8f8f5; }
-        
-        .cell-input { width: 100%; padding: 4px; font-size: 12px; text-align: center; border: 2px solid #27ae60; border-radius: 3px; background: #ffffd8; }
-
-        .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
-        .birth-group input { text-align: center; margin-top: 0; }
-
-        .custom-dropdown-container { position: relative; width: 100%; }
-        .custom-dropdown-input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; background: #fff; cursor: pointer; text-align: right; }
-        .custom-dropdown-list { position: absolute; top: 100%; right: 0; left: 0; background: #fff; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.15); z-index: 1000; display: none; max-height: 200px; overflow-y: auto; margin-top: 2px; }
-        .custom-dropdown-item { padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 1px solid #f1f1f1; font-size: 14px; }
-        .custom-dropdown-item:hover { background-color: #f1f9f5; }
-        .custom-dropdown-item.add-new { color: #27ae60; font-weight: bold; justify-content: center; }
-        .device-text { flex: 1; text-align: center; }
-        .spacer-side { width: 30px; }
-        .btn-delete-device { background: none; border: none; color: #c0392b; cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 3px; margin-top: 0; width: auto; }
-        .btn-delete-device:hover { background-color: #fadbd8; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        h2, h3 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        th {
+            background-color: #2c3e50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        td[contenteditable="true"] {
+            background-color: #fff9c4;
+            cursor: pointer;
+        }
+        td[contenteditable="true"]:focus {
+            background-color: #ffffff;
+            outline: 2px solid #3498db;
+        }
+        .alert {
+            padding: 10px;
+            background-color: #e74c3c;
+            color: white;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #2ecc71;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية</h2>
+    <h2 id="system-title">نظام إدارة الصرف</h2>
+    <div id="msg" class="alert"></div>
 
-    <div class="card">
-        <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
-        <label>بحث بالرقم الوطني:</label>
-        <input type="text" id="searchId" placeholder="أدخل الرقم الوطني">
-        <button onclick="searchPatient()">بحث وفحص الاستحقاق</button>
-        <div id="searchResult" class="result-box"></div>
+    <div class="form-group">
+        <label>اسم المريض:</label>
+        <input type="text" id="patientName" placeholder="أدخل اسم المريض">
+    </div>
+    <div class="form-group">
+        <label>اسم الأم:</label>
+        <input type="text" id="motherName" placeholder="أدخل اسم الأم">
+    </div>
+    <div class="form-group">
+        <label>الرقم الوطني:</label>
+        <input type="text" id="nationalId" placeholder="أدخل الرقم الوطني">
+    </div>
+    <div class="form-group">
+        <label>تاريخ الولادة:</label>
+        <input type="date" id="birthDate">
+    </div>
+    <div class="form-group">
+        <label>تفاصيل السماعة:</label>
+        <input type="text" id="deviceDetails" placeholder="مثال: oticon xceed 3 up">
+    </div>
+    <div class="form-group">
+        <label>الرقم التسلسلي:</label>
+        <input type="text" id="serialNumber" placeholder="أدخل الرقم التسلسلي">
     </div>
 
-    <div class="card">
-        <h3>➕ 2. تسجيل مريض جديد وصرف سماعة</h3>
-        <div class="row">
-            <div>
-                <label>الرقم الوطني:</label>
-                <input type="text" id="newNationalId" placeholder="الرقم الوطني">
-            </div>
-            <div>
-                <label>اسم المريض:</label>
-                <input type="text" id="fullName" placeholder="الاسم الكامل">
-            </div>
-        </div>
-        <div class="row">
-            <div>
-                <label>اسم الأم:</label>
-                <input type="text" id="motherName" placeholder="اسم الأم">
-            </div>
-            <div>
-                <label>تاريخ الولادة (يوم / شهر / سنة):</label>
-                <div class="birth-group">
-                    <input type="text" id="birthDay" placeholder="اليوم" maxlength="2" oninput="autoTab(this, 'birthMonth', 2)">
-                    <span>/</span>
-                    <input type="text" id="birthMonth" placeholder="الشهر" maxlength="2" oninput="autoTab(this, 'birthYear', 2)">
-                    <span>/</span>
-                    <input type="text" id="birthYear" placeholder="السنة" maxlength="4">
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div style="flex: 1;">
-                <label>تفاصيل السماعة:</label>
-                <div class="custom-dropdown-container">
-                    <div id="selectedDeviceDisplay" class="custom-dropdown-input" onclick="toggleCustomDropdown()">-- اختر السماعة أو أضف جديدة --</div>
-                    <div id="customDropdownList" class="custom-dropdown-list"></div>
-                </div>
-                <input type="hidden" id="deviceDetailsValue" value="">
-            </div>
-            <div style="flex: 1;">
-                <label>الرقم التسلسلي (Serial Number):</label>
-                <input type="text" id="serialNumber" placeholder="أدخل الرقم التسلسلي للسماعة">
-            </div>
-        </div>
+    <button onclick="saveRecord()">حفظ وتسجيل الصرف</button>
 
-        <button class="btn-issue" onclick="registerAndIssue()">حفظ وصرف السماعة</button>
-    </div>
-
-    <div class="card">
-        <h3>📋 سجل الذين تم الصرف لهم</h3>
-        
-        <div class="header-bar">
-            <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
-            <div class="actions-group">
-                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية الجدول..." oninput="filterTableLive()">
-                <button class="btn-mode btn-delete-mode" id="toggleDeleteBtn" onclick="toggleDeleteMode()">🗑️ تفعيل وضع الحذف (معطل)</button>
-            </div>
-        </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>اسم المريض</th>
-                    <th>اسم الأم</th>
-                    <th>الرقم الوطني</th>
-                    <th>تاريخ الولادة</th>
-                    <th>تفاصيل السماعة</th>
-                    <th>الرقم التسلسلي</th>
-                    <th>تاريخ الصرف</th>
-                    <th>المؤسسة / المركز</th>
-                </tr>
-            </thead>
-            <tbody id="issuedTableBody">
-                <tr><td colspan="8">جاري تحميل السجلات...</td></tr>
-            </tbody>
-        </table>
-    </div>
-
+    <h3>سجل الذين تم الصرف لهم (<span id="total-count">0</span>)</h3>
+    <table id="recordsTable">
+        <thead>
+            <tr>
+                <th>اسم المريض</th>
+                <th>اسم الأم</th>
+                <th>الرقم الوطني</th>
+                <th>تاريخ الولادة</th>
+                <th>تفاصيل السماعة</th>
+                <th>الرقم التسلسلي</th>
+                <th>تاريخ الصرف</th>
+                <th>المؤسسة / المركز</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <!-- سيتم تعبئة البيانات ديناميكياً -->
+        </tbody>
+    </table>
 </div>
 
 <script>
-    let deleteModeActive = false;
-    let activeCell = null;
-    let globalDeviceOptions = [];
-    let currentInstitutionId = '';
+    // تحديد الجهة بناءً على الرابط ?code=...
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code') || 'general';
+    
+    let currentCenter = "المؤسسة العامة";
+    if(code === 'yarmok') currentCenter = "مستشفى اليرموك";
+    else if(code === 'medicity') currentCenter = "مدينة الطب";
 
-    function autoTab(current, nextFieldId, maxLen) {
-        if (current.value.length >= maxLen) {
-            const nextEl = document.getElementById(nextFieldId);
-            if (nextEl) nextEl.focus();
-        }
-    }
+    document.getElementById('system-title').innerText = `نظام إدارة الصرف - ${currentCenter}`;
 
-    function getInstitutionCode() {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('code') || 'yarmok';
-    }
-
-    function toggleDeleteMode() {
-        deleteModeActive = !deleteModeActive;
-        const btn = document.getElementById('toggleDeleteBtn');
-        if (deleteModeActive) {
-            btn.classList.add('active');
-            btn.innerText = "🗑️ تفعيل وضع الحذف (مفعل - انقر مزدوجاً للحذف)";
-        } else {
-            btn.classList.remove('active');
-            btn.innerText = "🗑️ تفعيل وضع الحذف (معطل)";
-        }
-        activeCell = null;
-        loadIssuedList();
-    }
-
-    function toggleCustomDropdown() {
-        const list = document.getElementById('customDropdownList');
-        list.style.display = list.style.display === 'block' ? 'none' : 'block';
-    }
-
-    window.onclick = function(event) {
-        if (!event.target.closest('.custom-dropdown-container')) {
-            const list = document.getElementById('customDropdownList');
-            if (list) list.style.display = 'none';
-        }
-    };
-
-    async function loadDeviceOptions(selectedVal = '') {
+    async function loadRecords() {
         try {
-            const code = getInstitutionCode();
-            const res = await fetch(`/api/records?code=${code}`);
+            const res = await fetch('/api/records');
             const data = await res.json();
-            globalDeviceOptions = data.deviceOptions || [];
-            currentInstitutionId = data.currentInstitution ? data.currentInstitution.id : '';
-            
-            const listContainer = document.getElementById('customDropdownList');
-            listContainer.innerHTML = '';
-
-            globalDeviceOptions.forEach(opt => {
-                let itemDiv = document.createElement('div');
-                itemDiv.className = 'custom-dropdown-item';
-                
-                let deleteBtn = document.createElement('button');
-                deleteBtn.className = 'btn-delete-device';
-                deleteBtn.innerHTML = '🗑️';
-                deleteBtn.title = 'حذف هذه السماعة';
-                deleteBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    if (confirm(`هل أنت متأكد من رغبتك في حذف "${opt}" من القائمة؟`)) {
-                        deleteDeviceOption(opt);
-                    }
-                };
-
-                deleteBtn.addEventListener('keydown', (ev) => {
-                    if (ev.key === 'Enter') {
-                        ev.preventDefault();
-                        if (confirm(`هل أنت متأكد من رغبتك في حذف "${opt}" من القائمة؟`)) {
-                            deleteDeviceOption(opt);
-                        }
-                    }
-                });
-
-                let textSpan = document.createElement('span');
-                textSpan.className = 'device-text';
-                textSpan.textContent = opt;
-                textSpan.onclick = () => {
-                    document.getElementById('selectedDeviceDisplay').textContent = opt;
-                    document.getElementById('deviceDetailsValue').value = opt;
-                    listContainer.style.display = 'none';
-                };
-
-                let spacer = document.createElement('div');
-                spacer.className = 'spacer-side';
-
-                itemDiv.appendChild(deleteBtn);
-                itemDiv.appendChild(textSpan);
-                itemDiv.appendChild(spacer);
-                listContainer.appendChild(itemDiv);
-            });
-
-            let addItem = document.createElement('div');
-            addItem.className = 'custom-dropdown-item add-new';
-            addItem.textContent = '➕ إضافة سماعة جديدة للقائمة...';
-            addItem.onclick = () => {
-                listContainer.style.display = 'none';
-                addNewDevicePrompt();
-            };
-            listContainer.appendChild(addItem);
-
-            if (selectedVal) {
-                document.getElementById('selectedDeviceDisplay').textContent = selectedVal;
-                document.getElementById('deviceDetailsValue').value = selectedVal;
-            } else {
-                document.getElementById('selectedDeviceDisplay').textContent = '-- اختر السماعة أو أضف جديدة --';
-                document.getElementById('deviceDetailsValue').value = '';
-            }
-        } catch(err) {
-            console.error('خطأ في تحميل خيارات السماعات', err);
-        }
-    }
-
-    async function addNewDevicePrompt() {
-        const newDeviceName = prompt("أدخل اسم السماعة الجديدة:");
-        if (newDeviceName && newDeviceName.trim() !== "") {
-            const trimmedName = newDeviceName.trim();
-            try {
-                const code = getInstitutionCode();
-                const res = await fetch(`/api/devices-options?code=${code}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device: trimmedName })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    await loadDeviceOptions(trimmedName);
-                } else {
-                    alert('فشل إضافة السماعة');
-                }
-            } catch(e) {
-                alert('حدث خطأ أثناء الإضافة');
-            }
-        }
-    }
-
-    async function deleteDeviceOption(deviceName) {
-        try {
-            const code = getInstitutionCode();
-            const res = await fetch(`/api/devices-options?code=${code}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device: deviceName })
-            });
-            const data = await res.json();
-            if (data.success) {
-                await loadDeviceOptions();
-            } else {
-                alert('فشل حذف السماعة');
-            }
-        } catch(e) {
-            alert('حدث خطأ أثناء الحذف');
-        }
-    }
-
-    async function searchPatient() {
-        const id = document.getElementById('searchId').value.trim();
-        const code = getInstitutionCode();
-
-        if(!id) return alert('يرجى إدخال الرقم الوطني للبحث');
-
-        try {
-            const res = await fetch(`/api/check-patient/${id}?code=${code}`);
-            const data = await res.json();
-            const box = document.getElementById('searchResult');
-            box.style.display = 'block';
-
-            if(!data.received) {
-                box.className = 'result-box eligible';
-                box.innerHTML = `✅ ${data.message}`;
-            } else {
-                box.className = 'result-box not-eligible';
-                box.innerHTML = `⚠️ ${data.message}`;
-            }
-        } catch(err) {
-            alert('حدث خطأ أثناء البحث');
-        }
-    }
-
-    async function registerAndIssue() {
-        const bDay = document.getElementById('birthDay').value.trim();
-        const bMon = document.getElementById('birthMonth').value.trim();
-        const bYear = document.getElementById('birthYear').value.trim();
-        const fullBirth = (bDay && bMon && bYear) ? `${bDay}/${bMon}/${bYear}` : (bYear || '-');
-
-        const body = {
-            national_id: document.getElementById('newNationalId').value.trim(),
-            patient_name: document.getElementById('fullName').value.trim(),
-            mother_name: document.getElementById('motherName').value.trim(),
-            birth_year: fullBirth,
-            device_details: document.getElementById('deviceDetailsValue').value.trim(),
-            serial_number: document.getElementById('serialNumber').value.trim()
-        };
-
-        if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
-            return alert('يرجى تعبئة كافة الحقول المطلوبة واختيار نوع السماعة');
-        }
-
-        try {
-            const code = getInstitutionCode();
-            const res = await fetch(`/api/records?code=${code}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(body)
-            });
-            const data = await res.json();
-            if(data.success) {
-                alert('✅ ' + data.message);
-                document.getElementById('newNationalId').value = '';
-                document.getElementById('fullName').value = '';
-                document.getElementById('motherName').value = '';
-                document.getElementById('birthDay').value = '';
-                document.getElementById('birthMonth').value = '';
-                document.getElementById('birthYear').value = '';
-                document.getElementById('serialNumber').value = '';
-                loadDeviceOptions();
-                loadIssuedList();
-            } else {
-                alert('❌ خطأ: ' + (data.error || 'فشل الحفظ'));
-            }
-        } catch(err) {
-            alert('حدث خطأ أثناء الحفظ وصرف السماعة');
-        }
-    }
-
-    async function updateCellData(id, fieldName, newValue) {
-        try {
-            const code = getInstitutionCode();
-            const res = await fetch(`/api/records/${id}?code=${code}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [fieldName]: newValue })
-            });
-            const data = await res.json();
-            if (data.success) {
-                activeCell = null;
-                loadDeviceOptions();
-                loadIssuedList();
-            } else {
-                alert('❌ ' + (data.error || 'فشل حفظ التعديل'));
-            }
-        } catch (err) {
-            alert('حدث خطأ أثناء الاتصال لتعديل السجل');
-        }
-    }
-
-    function filterTableLive() {
-        loadIssuedList();
-    }
-
-    async function loadIssuedList() {
-        try {
-            const code = getInstitutionCode();
-            const res = await fetch(`/api/records?code=${code}`);
-            const responseData = await res.json();
-            
-            const data = responseData.records || [];
-            currentInstitutionId = responseData.currentInstitution ? responseData.currentInstitution.id : '';
-            const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
-            
-            const filteredData = data.filter(item => {
-                const name = (item.patient_name || '').toLowerCase();
-                const natId = (item.national_id || '').toLowerCase();
-                return name.includes(query) || natId.includes(query);
-            });
-
-            const tbody = document.getElementById('issuedTableBody');
-            document.getElementById('totalCountBadge').innerText = `مجموع الأسماء: ${filteredData.length}`;
+            const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
-
-            if(filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة</td></tr>';
-                return;
-            }
-
-            filteredData.forEach(item => {
-                const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
-                let tr = document.createElement('tr');
-
-                const isMyInstitution = (item.institution_id === currentInstitutionId);
-
-                const fields = [
-                    { key: 'patient_name', val: item.patient_name || 'غير معروف' },
-                    { key: 'mother_name', val: item.mother_name || '-' },
-                    { key: 'national_id', val: item.national_id || '-' },
-                    { key: 'birth_year', val: item.birth_year || '-' },
-                    { key: 'device_details', val: item.device_details || '-' },
-                    { key: 'serial_number', val: item.serial_number || '-' },
-                    { key: 'date', val: dateOnly }
-                ];
-
-                let rowHTML = '';
-                fields.forEach(f => {
-                    const cellKey = `${item.id}-${f.key}`;
-                    if (activeCell === cellKey && !deleteModeActive && isMyInstitution) {
-                        if (f.key === 'device_details') {
-                            let optionsHTML = globalDeviceOptions.map(opt => `<option value="${opt}" ${opt === f.val ? 'selected' : ''}>${opt}</option>`).join('');
-                            rowHTML += `<td><select class="cell-input" id="input-${cellKey}" onchange="updateCellData(${item.id}, 'device_details', this.value)"><option value="">-- اختر --</option>${optionsHTML}</select></td>`;
-                        } else if (f.key === 'birth_year') {
-                            // عند تعديل تاريخ الولادة في الجدول بنقرة مزدوجة تظهر 3 خانات منظمة
-                            let parts = (f.val && f.val !== '-') ? f.val.split('/') : ['', '', ''];
-                            let dVal = parts[0] || '';
-                            let mVal = parts[1] || '';
-                            let yVal = parts[2] || '';
-                            rowHTML += `<td>
-                                <div style="display: flex; gap: 2px; align-items: center; justify-content: center;">
-                                    <input type="text" class="cell-input" style="width:30px;" value="${dVal}" id="ed-${item.id}-d" maxlength="2" placeholder="يوم" oninput="autoTab(this, 'ed-${item.id}-m', 2)">
-                                    <span>/</span>
-                                    <input type="text" class="cell-input" style="width:30px;" value="${mVal}" id="ed-${item.id}-m" maxlength="2" placeholder="شهر" oninput="autoTab(this, 'ed-${item.id}-y', 2)">
-                                    <span>/</span>
-                                    <input type="text" class="cell-input" style="width:50px;" value="${yVal}" id="ed-${item.id}-y" maxlength="4" placeholder="سنة">
-                                </div>
-                            </td>`;
-                        } else {
-                            rowHTML += `<td><input type="text" class="cell-input" value="${f.val === '-' ? '' : f.val}" id="input-${cellKey}"></td>`;
-                        }
-                    } else {
-                        rowHTML += `<td class="${isMyInstitution ? 'editable-cell' : ''}" title="${isMyInstitution ? 'انقر مرتين لتعديل هذه الخلية' : 'لا يمكنك تعديل سجل يتبع لمؤسسة أخرى'}" id="cell-${cellKey}">${f.val}</td>`;
-                    }
-                });
-
-                rowHTML += `<td>${item.institution_name || '-'}</td>`;
-                tr.innerHTML = rowHTML;
-
-                if (deleteModeActive) {
-                    if (isMyInstitution) {
-                        tr.style.cursor = 'pointer';
-                        tr.title = "انقر مرتين لحذف السجل";
-                        tr.ondblclick = async () => {
-                            if (confirm(`هل أنت متأكد من رغبتك في حذف سجل المريض: ${item.patient_name}؟`)) {
-                                try {
-                                    const delRes = await fetch(`/api/records/${item.id}?code=${code}`, { method: 'DELETE' });
-                                    const delData = await delRes.json();
-                                    if (delData.success) {
-                                        loadDeviceOptions();
-                                        loadIssuedList();
-                                    } else {
-                                        alert('❌ ' + (delData.error || 'فشل الحذف'));
-                                    }
-                                } catch(e) { alert('حدث خطأ أثناء الحذف'); }
-                            }
-                        };
-                    } else {
-                        tr.style.opacity = '0.7';
-                        tr.title = "سجل يتبع لمؤسسة أخرى (غير مسموح بحذفه)";
-                    }
-                } else if (isMyInstitution) {
-                    fields.forEach(f => {
-                        const cellKey = `${item.id}-${f.key}`;
-                        const cellEl = tr.querySelector(`#cell-${cellKey}`);
-                        if(cellEl) {
-                            cellEl.ondblclick = (e) => {
-                                e.stopPropagation();
-                                activeCell = cellKey;
-                                loadIssuedList();
-                                setTimeout(() => {
-                                    if (f.key === 'birth_year') {
-                                        const dIn = document.getElementById(`ed-${item.id}-d`);
-                                        const mIn = document.getElementById(`ed-${item.id}-m`);
-                                        const yIn = document.getElementById(`ed-${item.id}-y`);
-                                        
-                                        if (dIn) {
-                                            dIn.focus();
-                                            const saveBirth = () => {
-                                                const d = dIn.value.trim();
-                                                const m = mIn.value.trim();
-                                                const y = yIn.value.trim();
-                                                const combined = (d && m && y) ? `${d}/${m}/${y}` : (y || '-');
-                                                updateCellData(item.id, 'birth_year', combined);
-                                            };
-                                            yIn.addEventListener('keydown', (ev) => {
-                                                if (ev.key === 'Enter') {
-                                                    ev.preventDefault();
-                                                    saveBirth();
-                                                }
-                                            });
-                                            yIn.addEventListener('blur', () => {
-                                                setTimeout(saveBirth, 200);
-                                            });
-                                        }
-                                    } else if (f.key !== 'device_details') {
-                                        const inputEl = document.getElementById(`input-${cellKey}`);
-                                        if(inputEl) {
-                                            inputEl.focus();
-                                            inputEl.select();
-                                            inputEl.addEventListener('keydown', (ev) => {
-                                                if(ev.key === 'Enter') {
-                                                    ev.preventDefault();
-                                                    updateCellData(item.id, f.key, inputEl.value.trim());
-                                                }
-                                            });
-                                            inputEl.addEventListener('blur', () => {
-                                                updateCellData(item.id, f.key, inputEl.value.trim());
-                                            });
-                                        }
-                                    }
-                                }, 50);
-                            };
-                        }
-                    });
-                }
-
+            
+            let count = 0;
+            data.forEach((rec, index) => {
+                count++;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td contenteditable="true" onblur="updateRecord(${index}, 'patientName', this.innerText)">${rec.patientName || ''}</td>
+                    <td contenteditable="true" onblur="updateRecord(${index}, 'motherName', this.innerText)">${rec.motherName || ''}</td>
+                    <td contenteditable="true" onblur="updateRecord(${index}, 'nationalId', this.innerText)">${rec.nationalId || ''}</td>
+                    <td contenteditable="true" onblur="updateRecord(${index}, 'birthDate', this.innerText)">${rec.birthDate || ''}</td>
+                    <td contenteditable="true" onblur="updateRecord(${index}, 'deviceDetails', this.innerText)">${rec.deviceDetails || ''}</td>
+                    <td contenteditable="true" onblur="updateRecord(${index}, 'serialNumber', this.innerText)">${rec.serialNumber || ''}</td>
+                    <td>${rec.date || ''}</td>
+                    <td>${rec.center || currentCenter}</td>
+                `;
                 tbody.appendChild(tr);
             });
-        } catch(err) {
-            console.error(err);
+            document.getElementById('total-count').innerText = count;
+        } catch (e) {
+            console.error("خطأ في جلب البيانات", e);
         }
     }
 
-    window.onload = () => {
-        loadDeviceOptions();
-        loadIssuedList();
-    };
+    async function saveRecord() {
+        const record = {
+            patientName: document.getElementById('patientName').value,
+            motherName: document.getElementById('motherName').value,
+            nationalId: document.getElementById('nationalId').value,
+            birthDate: document.getElementById('birthDate').value,
+            deviceDetails: document.getElementById('deviceDetails').value,
+            serialNumber: document.getElementById('serialNumber').value,
+            date: new Date().toISOString().split('T')[0],
+            center: currentCenter
+        };
+
+        if(!record.patientName || !record.serialNumber) {
+            showAlert("يرجى إدخال اسم المريض والرقم التسلسلي على الأقل", false);
+            return;
+        }
+
+        const res = await fetch('/api/records', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(record)
+        });
+
+        if(res.ok) {
+            showAlert("تم الحفظ بنجاح", true);
+            document.getElementById('patientName').value = '';
+            document.getElementById('motherName').value = '';
+            document.getElementById('nationalId').value = '';
+            document.getElementById('birthDate').value = '';
+            document.getElementById('deviceDetails').value = '';
+            document.getElementById('serialNumber').value = '';
+            loadRecords();
+        } else {
+            showAlert("حدث خطأ أثناء الحفظ", false);
+        }
+    }
+
+    async function updateRecord(index, field, value) {
+        try {
+            await fetch(`/api/records/${index}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ field, value })
+            });
+        } catch (e) {
+            console.error("فشل التحديث", e);
+        }
+    }
+
+    function showAlert(msg, isSuccess) {
+        const m = document.getElementById('msg');
+        m.innerText = msg;
+        m.className = "alert " + (isSuccess ? "success" : "");
+        m.style.display = "block";
+        setTimeout(() => m.style.display = "none", 3000);
+    }
+
+    loadRecords();
 </script>
 
 </body>
