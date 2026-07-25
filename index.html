@@ -37,7 +37,7 @@
         .editable-cell { cursor: pointer; }
         .editable-cell:hover { background-color: #e8f8f5; }
         
-        .cell-input { width: calc(100% - 40px); padding: 4px; font-size: 12px; text-align: center; border: 2px solid #27ae60; border-radius: 3px; background: #ffffd8; display: inline-block; vertical-align: middle; }
+        .cell-input { width: calc(100% - 45px); padding: 4px; font-size: 12px; text-align: center; border: 2px solid #27ae60; border-radius: 3px; background: #ffffd8; display: inline-block; vertical-align: middle; }
         .btn-cell-save { background-color: #27ae60; color: white; border: none; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-top: 0; width: auto; display: inline-block; vertical-align: middle; margin-right: 3px; }
 
         .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
@@ -439,7 +439,7 @@
                     if (activeCell === cellKey && !deleteModeActive && isMyInstitution) {
                         if (f.key === 'device_details') {
                             let optionsHTML = globalDeviceOptions.map(opt => `<option value="${opt}" ${opt === f.val ? 'selected' : ''}>${opt}</option>`).join('');
-                            rowHTML += `<td><select class="cell-input" id="input-${cellKey}"><option value="">-- اختر --</option>${optionsHTML}</select><button class="btn-cell-save" onclick="saveActiveInput(${item.id}, '${f.key}')">حفظ</button></td>`;
+                            rowHTML += `<td><select class="cell-input" id="input-${cellKey}" onchange="updateCellData(${item.id}, 'device_details', this.value)"><option value="">-- اختر --</option>${optionsHTML}</select></td>`;
                         } else if (f.key === 'birth_year') {
                             let parts = (f.val && f.val !== '-') ? f.val.split('/') : ['', '', ''];
                             let dVal = parts[0] || '';
@@ -456,7 +456,7 @@
                                 </div>
                             </td>`;
                         } else {
-                            rowHTML += `<td><input type="text" class="cell-input" value="${f.val === '-' ? '' : f.val}" id="input-${cellKey}"><button class="btn-cell-save" onclick="saveActiveInput(${item.id}, '${f.key}')">حفظ</button></td>`;
+                            rowHTML += `<td><input type="text" class="cell-input" value="${f.val === '-' ? '' : f.val}" id="input-${cellKey}"><button class="btn-cell-save" onclick="updateCellData(${item.id}, '${f.key}', document.getElementById('input-${cellKey}').value.trim())">حفظ</button></td>`;
                         }
                     } else {
                         rowHTML += `<td class="${isMyInstitution ? 'editable-cell' : ''}" title="${isMyInstitution ? 'انقر مرتين لتعديل هذه الخلية' : 'لا يمكنك تعديل سجل يتبع لمؤسسة أخرى'}" id="cell-${cellKey}">${f.val}</td>`;
@@ -509,7 +509,7 @@
                                                 }
                                             });
                                         }
-                                    } else {
+                                    } else if (f.key !== 'device_details') {
                                         const inputEl = document.getElementById(`input-${cellKey}`);
                                         if(inputEl) {
                                             inputEl.focus();
@@ -517,7 +517,7 @@
                                             inputEl.addEventListener('keydown', (ev) => {
                                                 if(ev.key === 'Enter') {
                                                     ev.preventDefault();
-                                                    saveActiveInput(item.id, f.key);
+                                                    updateCellData(item.id, f.key, inputEl.value.trim());
                                                 }
                                             });
                                         }
@@ -532,13 +532,6 @@
             });
         } catch(err) {
             console.error(err);
-        }
-    }
-
-    function saveActiveInput(itemId, fieldKey) {
-        const inputEl = document.getElementById(`input-${itemId}-${fieldKey}`);
-        if (inputEl) {
-            updateCellData(itemId, fieldKey, inputEl.value.trim());
         }
     }
 
