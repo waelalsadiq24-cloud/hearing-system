@@ -525,14 +525,19 @@
                                         if(inputEl) {
                                             inputEl.focus();
                                             inputEl.select();
+                                            
+                                            const doSave = () => {
+                                                updateCellData(item.id, f.key, inputEl.value.trim());
+                                            };
+
                                             inputEl.addEventListener('keydown', (ev) => {
                                                 if(ev.key === 'Enter') {
                                                     ev.preventDefault();
-                                                    updateCellData(item.id, f.key, inputEl.value.trim());
+                                                    doSave();
                                                 }
                                             });
                                             inputEl.addEventListener('blur', () => {
-                                                updateCellData(item.id, f.key, inputEl.value.trim());
+                                                setTimeout(doSave, 200);
                                             });
                                         }
                                     }
