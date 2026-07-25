@@ -1,0 +1,32 @@
+{
+  "devices": [
+    {
+      "id": 1784963819032,
+      "national_id": "1",
+      "patient_name": "وائل",
+      "mother_name": "ايمان",
+      "device_details": "oticon Ria2 pro",
+      "serial_number": "1",
+      "institution_id": "yarmok",
+      "institution_name": "مستشفى اليرموك",
+      "date": "2026-07-25",
+      "birth_year": "16/10/1991"
+    },
+    {
+      "id": 1784963885875,
+      "national_id": "2",
+      "patient_name": "وليد",
+      "mother_name": "ايمان",
+      "device_details": "oticon xceed 3 up",
+      "serial_number": "2",
+      "institution_id": "medicity",
+      "institution_name": "مدينة الطب",
+      "date": "2026-07-25",
+      "birth_year": "10/10/1986"
+    }
+  ],
+  "deviceOptions": [
+    "oticon xceed 3 up",
+    "oticon Ria2 pro"
+  ]
+}
