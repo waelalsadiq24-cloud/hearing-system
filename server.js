@@ -20,8 +20,7 @@ function readDatabase() {
             };
             fs.writeFileSync('./database.json', JSON.stringify(initialData, null, 2));
         }
-        const raw = fs.readFileSync('./database.json', 'utf8');
-        return JSON.parse(raw);
+        return JSON.parse(fs.readFileSync('./database.json', 'utf8'));
     } catch (e) {
         return { institutions: [], records: [], deviceOptions: [] };
     }
