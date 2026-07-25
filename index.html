@@ -215,15 +215,6 @@
                     }
                 };
 
-                deleteBtn.addEventListener('keydown', (ev) => {
-                    if (ev.key === 'Enter') {
-                        ev.preventDefault();
-                        if (confirm(`هل أنت متأكد من رغبتك في حذف "${opt}" من القائمة؟`)) {
-                            deleteDeviceOption(opt);
-                        }
-                    }
-                });
-
                 let textSpan = document.createElement('span');
                 textSpan.className = 'device-text';
                 textSpan.textContent = opt;
@@ -449,16 +440,15 @@
                             let optionsHTML = globalDeviceOptions.map(opt => `<option value="${opt}" ${opt === f.val ? 'selected' : ''}>${opt}</option>`).join('');
                             rowHTML += `<td><select class="cell-input" id="input-${cellKey}" onchange="updateCellData(${item.id}, 'device_details', this.value)"><option value="">-- اختر --</option>${optionsHTML}</select></td>`;
                         } else if (f.key === 'birth_year') {
-                            // عند تعديل تاريخ الولادة في الجدول بنقرة مزدوجة تظهر 3 خانات منظمة
                             let parts = (f.val && f.val !== '-') ? f.val.split('/') : ['', '', ''];
                             let dVal = parts[0] || '';
                             let mVal = parts[1] || '';
                             let yVal = parts[2] || '';
                             rowHTML += `<td>
                                 <div style="display: flex; gap: 2px; align-items: center; justify-content: center;">
-                                    <input type="text" class="cell-input" style="width:30px;" value="${dVal}" id="ed-${item.id}-d" maxlength="2" placeholder="يوم" oninput="autoTab(this, 'ed-${item.id}-m', 2)">
+                                    <input type="text" class="cell-input" style="width:30px;" value="${dVal}" id="ed-${item.id}-d" maxlength="2" placeholder="يوم">
                                     <span>/</span>
-                                    <input type="text" class="cell-input" style="width:30px;" value="${mVal}" id="ed-${item.id}-m" maxlength="2" placeholder="شهر" oninput="autoTab(this, 'ed-${item.id}-y', 2)">
+                                    <input type="text" class="cell-input" style="width:30px;" value="${mVal}" id="ed-${item.id}-m" maxlength="2" placeholder="شهر">
                                     <span>/</span>
                                     <input type="text" class="cell-input" style="width:50px;" value="${yVal}" id="ed-${item.id}-y" maxlength="4" placeholder="سنة">
                                 </div>
