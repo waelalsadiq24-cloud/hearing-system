@@ -7,7 +7,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '.')));
 
-// دالة مساعدة لقراءة قاعدة البيانات
 function readDatabase() {
     try {
         if (!fs.existsSync('./database.json')) {
@@ -21,19 +20,17 @@ function readDatabase() {
             };
             fs.writeFileSync('./database.json', JSON.stringify(initialData, null, 2));
         }
-        return JSON.parse(fs.readFileSync('./database.json', 'utf8'));
+        const raw = fs.readFileSync('./database.json', 'utf8');
+        return JSON.parse(raw);
     } catch (e) {
-        console.error('Error reading database:', e);
         return { institutions: [], records: [], deviceOptions: [] };
     }
 }
 
-// دالة مساعدة لحفظ قاعدة البيانات
 function writeDatabase(data) {
     fs.writeFileSync('./database.json', JSON.stringify(data, null, 2));
 }
 
-// جلب السجلات والخيارات بناءً على كود المؤسسة
 app.get('/api/records', (req, res) => {
     const code = req.query.code || 'yarmok';
     const db = readDatabase();
@@ -50,7 +47,6 @@ app.get('/api/records', (req, res) => {
     });
 });
 
-// إضافة سجل جديد (صرف سماعة)
 app.post('/api/records', (req, res) => {
     const code = req.query.code || 'yarmok';
     const db = readDatabase();
@@ -80,7 +76,6 @@ app.post('/api/records', (req, res) => {
     res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح', record: newRecord });
 });
 
-// تعديل السجل مباشرة عند النقر المزدوج والضغط على Enter (محدث ومباشر بدون قيود)
 app.put('/api/records/:id', (req, res) => {
     const recordId = req.params.id;
     const updates = req.body;
@@ -94,7 +89,6 @@ app.put('/api/records/:id', (req, res) => {
         return res.status(404).json({ success: false, error: 'السجل غير موجود' });
     }
 
-    // تحديث الحقول المرسلة فوراً
     Object.keys(updates).forEach(key => {
         if (updates[key] !== undefined) {
             record[key] = updates[key];
@@ -105,7 +99,6 @@ app.put('/api/records/:id', (req, res) => {
     res.json({ success: true, message: 'تم تعديل السجل وحفظه بنجاح' });
 });
 
-// حذف سجل
 app.delete('/api/records/:id', (req, res) => {
     const recordId = req.params.id;
     const db = readDatabase();
@@ -122,7 +115,6 @@ app.delete('/api/records/:id', (req, res) => {
     res.json({ success: true, message: 'تم الحذف بنجاح' });
 });
 
-// فحص الاستحقاق بالرقم الوطني
 app.get('/api/check-patient/:id', (req, res) => {
     const natId = req.params.id;
     const db = readDatabase();
@@ -143,7 +135,6 @@ app.get('/api/check-patient/:id', (req, res) => {
     }
 });
 
-// إضافة خيار سماعة جديد
 app.post('/api/devices-options', (req, res) => {
     const deviceName = req.body.device;
     if (!deviceName) return res.status(400).json({ success: false, error: 'اسم السماعة مطلوب' });
@@ -158,7 +149,6 @@ app.post('/api/devices-options', (req, res) => {
     res.json({ success: true, deviceOptions: db.deviceOptions });
 });
 
-// حذف خيار سماعة
 app.delete('/api/devices-options', (req, res) => {
     const deviceName = req.body.device;
     const db = readDatabase();
