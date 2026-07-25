@@ -37,8 +37,7 @@
         .editable-cell { cursor: pointer; }
         .editable-cell:hover { background-color: #e8f8f5; }
         
-        .cell-input { width: calc(100% - 45px); padding: 4px; font-size: 12px; text-align: center; border: 2px solid #27ae60; border-radius: 3px; background: #ffffd8; display: inline-block; vertical-align: middle; }
-        .btn-cell-save { background-color: #27ae60; color: white; border: none; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-top: 0; width: auto; display: inline-block; vertical-align: middle; margin-right: 3px; }
+        .cell-input { width: 100%; padding: 6px; font-size: 13px; text-align: center; border: 2px solid #27ae60; border-radius: 3px; background: #ffffd8; box-sizing: border-box; }
 
         .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
         .birth-group input { text-align: center; margin-top: 0; }
@@ -451,12 +450,11 @@
                                     <span>/</span>
                                     <input type="text" class="cell-input" style="width:30px;" value="${mVal}" id="ed-${item.id}-m" maxlength="2" placeholder="شهر">
                                     <span>/</span>
-                                    <input type="text" class="cell-input" style="width:40px;" value="${yVal}" id="ed-${item.id}-y" maxlength="4" placeholder="سنة">
-                                    <button class="btn-cell-save" onclick="saveBirthInput(${item.id})">حفظ</button>
+                                    <input type="text" class="cell-input" style="width:50px;" value="${yVal}" id="ed-${item.id}-y" maxlength="4" placeholder="سنة">
                                 </div>
                             </td>`;
                         } else {
-                            rowHTML += `<td><input type="text" class="cell-input" value="${f.val === '-' ? '' : f.val}" id="input-${cellKey}"><button class="btn-cell-save" onclick="updateCellData(${item.id}, '${f.key}', document.getElementById('input-${cellKey}').value.trim())">حفظ</button></td>`;
+                            rowHTML += `<td><input type="text" class="cell-input" value="${f.val === '-' ? '' : f.val}" id="input-${cellKey}"></td>`;
                         }
                     } else {
                         rowHTML += `<td class="${isMyInstitution ? 'editable-cell' : ''}" title="${isMyInstitution ? 'انقر مرتين لتعديل هذه الخلية' : 'لا يمكنك تعديل سجل يتبع لمؤسسة أخرى'}" id="cell-${cellKey}">${f.val}</td>`;
@@ -499,14 +497,27 @@
                                 loadIssuedList();
                                 setTimeout(() => {
                                     if (f.key === 'birth_year') {
+                                        const dIn = document.getElementById(`ed-${item.id}-d`);
+                                        const mIn = document.getElementById(`ed-${item.id}-m`);
                                         const yIn = document.getElementById(`ed-${item.id}-y`);
-                                        if (yIn) {
+                                        
+                                        if (dIn) {
                                             yIn.focus();
+                                            const saveBirth = () => {
+                                                const d = dIn.value.trim();
+                                                const m = mIn.value.trim();
+                                                const y = yIn.value.trim();
+                                                const combined = (d && m && y) ? `${d}/${m}/${y}` : (y || '-');
+                                                updateCellData(item.id, 'birth_year', combined);
+                                            };
                                             yIn.addEventListener('keydown', (ev) => {
                                                 if (ev.key === 'Enter') {
                                                     ev.preventDefault();
-                                                    saveBirthInput(item.id);
+                                                    saveBirth();
                                                 }
+                                            });
+                                            yIn.addEventListener('blur', () => {
+                                                setTimeout(saveBirth, 200);
                                             });
                                         }
                                     } else if (f.key !== 'device_details') {
@@ -514,11 +525,19 @@
                                         if(inputEl) {
                                             inputEl.focus();
                                             inputEl.select();
+                                            
                                             inputEl.addEventListener('keydown', (ev) => {
                                                 if(ev.key === 'Enter') {
                                                     ev.preventDefault();
                                                     updateCellData(item.id, f.key, inputEl.value.trim());
                                                 }
+                                            });
+                                            inputEl.addEventListener('blur', () => {
+                                                setTimeout(() => {
+                                                    if (activeCell === cellKey) {
+                                                        updateCellData(item.id, f.key, inputEl.value.trim());
+                                                    }
+                                                }, 200);
                                             });
                                         }
                                     }
@@ -532,19 +551,6 @@
             });
         } catch(err) {
             console.error(err);
-        }
-    }
-
-    function saveBirthInput(itemId) {
-        const dIn = document.getElementById(`ed-${itemId}-d`);
-        const mIn = document.getElementById(`ed-${itemId}-m`);
-        const yIn = document.getElementById(`ed-${itemId}-y`);
-        if (dIn && mIn && yIn) {
-            const d = dIn.value.trim();
-            const m = mIn.value.trim();
-            const y = yIn.value.trim();
-            const combined = (d && m && y) ? `${d}/${m}/${y}` : (y || '-');
-            updateCellData(itemId, 'birth_year', combined);
         }
     }
 
