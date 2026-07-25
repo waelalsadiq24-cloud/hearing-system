@@ -7,27 +7,41 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '.')));
 
+const DB_PATH = './database.json';
+
 function readDatabase() {
     try {
-        if (!fs.existsSync('./database.json')) {
+        if (!fs.existsSync(DB_PATH)) {
             const initialData = {
                 institutions: [
                     { id: 'yarmok', name: 'مستشفى اليرموك' },
                     { id: 'medicity', name: 'مدينة الطب' }
                 ],
                 records: [],
-                deviceOptions: ['oticon xceed3 up', 'Phonak Naida', 'Signia Silk']
+                deviceOptions: ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk']
             };
-            fs.writeFileSync('./database.json', JSON.stringify(initialData, null, 2));
+            fs.writeFileSync(DB_PATH, JSON.stringify(initialData, null, 2));
+            return initialData;
         }
-        return JSON.parse(fs.readFileSync('./database.json', 'utf8'));
+        const fileContent = fs.readFileSync(DB_PATH, 'utf8');
+        const data = JSON.parse(fileContent);
+        // ضمان عدم ضياع مصفوفة السجلات أبداً
+        if (!data.records) data.records = [];
+        if (!data.institutions) data.institutions = [];
+        if (!data.deviceOptions) data.deviceOptions = [];
+        return data;
     } catch (e) {
+        console.error("خطأ في قراءة قاعدة البيانات:", e);
         return { institutions: [], records: [], deviceOptions: [] };
     }
 }
 
 function writeDatabase(data) {
-    fs.writeFileSync('./database.json', JSON.stringify(data, null, 2));
+    try {
+        fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+    } catch (e) {
+        console.error("خطأ في الكتابة إلى قاعدة البيانات:", e);
+    }
 }
 
 app.get('/api/records', (req, res) => {
@@ -40,8 +54,8 @@ app.get('/api/records', (req, res) => {
     }
 
     res.json({
-        records: db.records || [],
-        deviceOptions: db.deviceOptions || [],
+        records: db.records,
+        deviceOptions: db.deviceOptions,
         currentInstitution: currentInst
     });
 });
@@ -52,7 +66,7 @@ app.post('/api/records', (req, res) => {
 
     let currentInst = db.institutions.find(i => i.id === code);
     if (!currentInst) {
-        currentInst = { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' };
+        currentInst = { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : (code === 'medicity' ? 'مدينة الطب' : code) };
     }
 
     const newRecord = {
@@ -68,7 +82,6 @@ app.post('/api/records', (req, res) => {
         institution_name: currentInst.name
     };
 
-    if (!db.records) db.records = [];
     db.records.push(newRecord);
     writeDatabase(db);
 
@@ -80,8 +93,6 @@ app.put('/api/records/:id', (req, res) => {
     const updates = req.body;
     
     const db = readDatabase();
-    if (!db.records) db.records = [];
-
     let record = db.records.find(r => r.id == recordId);
     
     if (!record) {
@@ -102,9 +113,7 @@ app.delete('/api/records/:id', (req, res) => {
     const recordId = req.params.id;
     const db = readDatabase();
     
-    if (!db.records) db.records = [];
     const index = db.records.findIndex(r => r.id == recordId);
-    
     if (index === -1) {
         return res.status(404).json({ success: false, error: 'السجل غير موجود' });
     }
@@ -118,8 +127,7 @@ app.get('/api/check-patient/:id', (req, res) => {
     const natId = req.params.id;
     const db = readDatabase();
     
-    const records = db.records || [];
-    const existing = records.find(r => r.national_id === natId);
+    const existing = db.records.find(r => r.national_id === natId);
 
     if (existing) {
         res.json({
@@ -139,8 +147,6 @@ app.post('/api/devices-options', (req, res) => {
     if (!deviceName) return res.status(400).json({ success: false, error: 'اسم السماعة مطلوب' });
 
     const db = readDatabase();
-    if (!db.deviceOptions) db.deviceOptions = [];
-
     if (!db.deviceOptions.includes(deviceName)) {
         db.deviceOptions.push(deviceName);
         writeDatabase(db);
@@ -152,7 +158,6 @@ app.delete('/api/devices-options', (req, res) => {
     const deviceName = req.body.device;
     const db = readDatabase();
     
-    if (!db.deviceOptions) db.deviceOptions = [];
     db.deviceOptions = db.deviceOptions.filter(d => d !== deviceName);
     writeDatabase(db);
     
