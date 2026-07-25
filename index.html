@@ -525,14 +525,21 @@
                                         if(inputEl) {
                                             inputEl.focus();
                                             inputEl.select();
+                                            
+                                            const saveField = () => {
+                                                const val = inputEl.value.trim();
+                                                updateCellData(item.id, f.key, val);
+                                            };
+
                                             inputEl.addEventListener('keydown', (ev) => {
                                                 if(ev.key === 'Enter') {
                                                     ev.preventDefault();
-                                                    updateCellData(item.id, f.key, inputEl.value.trim());
+                                                    saveField();
                                                 }
                                             });
+                                            
                                             inputEl.addEventListener('blur', () => {
-                                                updateCellData(item.id, f.key, inputEl.value.trim());
+                                                saveField();
                                             });
                                         }
                                     }
