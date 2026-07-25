@@ -37,7 +37,7 @@
         .editable-cell { cursor: pointer; }
         .editable-cell:hover { background-color: #e8f8f5; }
         
-        .cell-input { width: 100%; padding: 6px; font-size: 13px; text-align: center; border: 2px solid #27ae60; border-radius: 4px; background: #ffffd8; box-sizing: border-box; }
+        .cell-input { width: 100%; padding: 4px; font-size: 12px; text-align: center; border: 2px solid #27ae60; border-radius: 3px; background: #ffffd8; }
 
         .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
         .birth-group input { text-align: center; margin-top: 0; }
@@ -147,7 +147,7 @@
 
 <script>
     let deleteModeActive = false;
-    let editingCellKey = null;
+    let activeCell = null;
     let globalDeviceOptions = [];
     let currentInstitutionId = '';
 
@@ -173,7 +173,7 @@
             btn.classList.remove('active');
             btn.innerText = "🗑️ تفعيل وضع الحذف (معطل)";
         }
-        editingCellKey = null;
+        activeCell = null;
         loadIssuedList();
     }
 
@@ -376,16 +376,14 @@
             });
             const data = await res.json();
             if (data.success) {
-                editingCellKey = null;
+                activeCell = null;
                 loadDeviceOptions();
                 loadIssuedList();
             } else {
                 alert('❌ ' + (data.error || 'فشل حفظ التعديل'));
-                loadIssuedList();
             }
         } catch (err) {
             alert('حدث خطأ أثناء الاتصال لتعديل السجل');
-            loadIssuedList();
         }
     }
 
@@ -437,67 +435,106 @@
                 let rowHTML = '';
                 fields.forEach(f => {
                     const cellKey = `${item.id}-${f.key}`;
-                    const isEditingThis = (editingCellKey === cellKey && isMyInstitution);
-
-                    if (isEditingThis) {
+                    if (activeCell === cellKey && !deleteModeActive && isMyInstitution) {
                         if (f.key === 'device_details') {
                             let optionsHTML = globalDeviceOptions.map(opt => `<option value="${opt}" ${opt === f.val ? 'selected' : ''}>${opt}</option>`).join('');
-                            rowHTML += `<td><select class="cell-input" id="inline-input-${cellKey}" onchange="updateCellData(${item.id}, 'device_details', this.value)" onblur="updateCellData(${item.id}, 'device_details', this.value)"><option value="">-- اختر --</option>${optionsHTML}</select></td>`;
+                            rowHTML += `<td><select class="cell-input" id="input-${cellKey}" onchange="updateCellData(${item.id}, 'device_details', this.value)"><option value="">-- اختر --</option>${optionsHTML}</select></td>`;
+                        } else if (f.key === 'birth_year') {
+                            let parts = (f.val && f.val !== '-') ? f.val.split('/') : ['', '', ''];
+                            let dVal = parts[0] || '';
+                            let mVal = parts[1] || '';
+                            let yVal = parts[2] || '';
+                            rowHTML += `<td>
+                                <div style="display: flex; gap: 2px; align-items: center; justify-content: center;">
+                                    <input type="text" class="cell-input" style="width:30px;" value="${dVal}" id="ed-${item.id}-d" maxlength="2" placeholder="يوم">
+                                    <span>/</span>
+                                    <input type="text" class="cell-input" style="width:30px;" value="${mVal}" id="ed-${item.id}-m" maxlength="2" placeholder="شهر">
+                                    <span>/</span>
+                                    <input type="text" class="cell-input" style="width:50px;" value="${yVal}" id="ed-${item.id}-y" maxlength="4" placeholder="سنة">
+                                </div>
+                            </td>`;
                         } else {
-                            rowHTML += `<td><input type="text" class="cell-input" id="inline-input-${cellKey}" value="${f.val === '-' ? '' : f.val}"></td>`;
+                            rowHTML += `<td><input type="text" class="cell-input" value="${f.val === '-' ? '' : f.val}" id="input-${cellKey}"></td>`;
                         }
                     } else {
-                        rowHTML += `<td class="${isMyInstitution ? 'editable-cell' : ''}" title="${isMyInstitution ? 'انقر مرتين لتعديل هذه الخلية' : 'لا يمكنك تعديل سجل يتبع لمؤسسة أخرى'}">${f.val}</td>`;
+                        rowHTML += `<td class="${isMyInstitution ? 'editable-cell' : ''}" title="${isMyInstitution ? 'انقر مرتين لتعديل هذه الخلية' : 'لا يمكنك تعديل سجل يتبع لمؤسسة أخرى'}" id="cell-${cellKey}">${f.val}</td>`;
                     }
                 });
 
                 rowHTML += `<td>${item.institution_name || '-'}</td>`;
                 tr.innerHTML = rowHTML;
 
-                if (deleteModeActive && isMyInstitution) {
-                    tr.style.cursor = 'pointer';
-                    tr.title = "انقر مرتين لحذف السجل";
-                    tr.ondblclick = async () => {
-                        if (confirm(`هل أنت متأكد من رغبتك في حذف سجل المريض: ${item.patient_name}؟`)) {
-                            try {
-                                const delRes = await fetch(`/api/records/${item.id}?code=${code}`, { method: 'DELETE' });
-                                const delData = await delRes.json();
-                                if (delData.success) {
-                                    loadDeviceOptions();
-                                    loadIssuedList();
-                                } else {
-                                    alert('❌ ' + (delData.error || 'فشل الحذف'));
-                                }
-                            } catch(e) { alert('حدث خطأ أثناء الحذف'); }
-                        }
-                    };
+                if (deleteModeActive) {
+                    if (isMyInstitution) {
+                        tr.style.cursor = 'pointer';
+                        tr.title = "انقر مرتين لحذف السجل";
+                        tr.ondblclick = async () => {
+                            if (confirm(`هل أنت متأكد من رغبتك في حذف سجل المريض: ${item.patient_name}؟`)) {
+                                try {
+                                    const delRes = await fetch(`/api/records/${item.id}?code=${code}`, { method: 'DELETE' });
+                                    const delData = await delRes.json();
+                                    if (delData.success) {
+                                        loadDeviceOptions();
+                                        loadIssuedList();
+                                    } else {
+                                        alert('❌ ' + (delData.error || 'فشل الحذف'));
+                                    }
+                                } catch(e) { alert('حدث خطأ أثناء الحذف'); }
+                            }
+                        };
+                    } else {
+                        tr.style.opacity = '0.7';
+                        tr.title = "سجل يتبع لمؤسسة أخرى (غير مسموح بحذفه)";
+                    }
                 } else if (isMyInstitution) {
-                    fields.forEach((f, idx) => {
+                    fields.forEach(f => {
                         const cellKey = `${item.id}-${f.key}`;
-                        const tdEl = tr.children[idx];
-                        if (tdEl) {
-                            tdEl.ondblclick = (e) => {
+                        const cellEl = tr.querySelector(`#cell-${cellKey}`);
+                        if(cellEl) {
+                            cellEl.ondblclick = (e) => {
                                 e.stopPropagation();
-                                editingCellKey = cellKey;
+                                activeCell = cellKey;
                                 loadIssuedList();
                                 setTimeout(() => {
-                                    const inputEl = document.getElementById(`inline-input-${cellKey}`);
-                                    if (inputEl) {
-                                        inputEl.focus();
-                                        inputEl.select();
-                                        inputEl.addEventListener('keydown', (ev) => {
-                                            if (ev.key === 'Enter') {
-                                                ev.preventDefault();
-                                                updateCellData(item.id, f.key, inputEl.value.trim());
-                                            }
-                                        });
-                                        inputEl.addEventListener('blur', () => {
-                                            setTimeout(() => {
-                                                if (editingCellKey === cellKey) {
+                                    if (f.key === 'birth_year') {
+                                        const dIn = document.getElementById(`ed-${item.id}-d`);
+                                        const mIn = document.getElementById(`ed-${item.id}-m`);
+                                        const yIn = document.getElementById(`ed-${item.id}-y`);
+                                        
+                                        if (dIn) {
+                                            dIn.focus();
+                                            const saveBirth = () => {
+                                                const d = dIn.value.trim();
+                                                const m = mIn.value.trim();
+                                                const y = yIn.value.trim();
+                                                const combined = (d && m && y) ? `${d}/${m}/${y}` : (y || '-');
+                                                updateCellData(item.id, 'birth_year', combined);
+                                            };
+                                            yIn.addEventListener('keydown', (ev) => {
+                                                if (ev.key === 'Enter') {
+                                                    ev.preventDefault();
+                                                    saveBirth();
+                                                }
+                                            });
+                                            yIn.addEventListener('blur', () => {
+                                                setTimeout(saveBirth, 200);
+                                            });
+                                        }
+                                    } else if (f.key !== 'device_details') {
+                                        const inputEl = document.getElementById(`input-${cellKey}`);
+                                        if(inputEl) {
+                                            inputEl.focus();
+                                            inputEl.select();
+                                            inputEl.addEventListener('keydown', (ev) => {
+                                                if(ev.key === 'Enter') {
+                                                    ev.preventDefault();
                                                     updateCellData(item.id, f.key, inputEl.value.trim());
                                                 }
-                                            }, 200);
-                                        });
+                                            });
+                                            inputEl.addEventListener('blur', () => {
+                                                updateCellData(item.id, f.key, inputEl.value.trim());
+                                            });
+                                        }
                                     }
                                 }, 50);
                             };
