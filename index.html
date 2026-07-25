@@ -516,9 +516,6 @@
                                                     saveBirth();
                                                 }
                                             });
-                                            yIn.addEventListener('blur', () => {
-                                                setTimeout(saveBirth, 200);
-                                            });
                                         }
                                     } else if (f.key !== 'device_details') {
                                         const inputEl = document.getElementById(`input-${cellKey}`);
@@ -531,13 +528,6 @@
                                                     ev.preventDefault();
                                                     updateCellData(item.id, f.key, inputEl.value.trim());
                                                 }
-                                            });
-                                            inputEl.addEventListener('blur', () => {
-                                                setTimeout(() => {
-                                                    if (activeCell === cellKey) {
-                                                        updateCellData(item.id, f.key, inputEl.value.trim());
-                                                    }
-                                                }, 200);
                                             });
                                         }
                                     }
