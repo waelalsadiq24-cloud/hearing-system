@@ -120,7 +120,7 @@
         <div class="header-bar">
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
-                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية الجدول..." oninput="filterTableLive()">
+                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة (الاسم، الأم، الرقم...)" oninput="filterTableLive()">
                 <button class="btn-mode btn-delete-mode" id="toggleDeleteBtn" onclick="toggleDeleteMode()">🗑️ تفعيل وضع الحذف (معطل)</button>
             </div>
         </div>
@@ -402,10 +402,15 @@
             currentInstitutionId = responseData.currentInstitution ? responseData.currentInstitution.id : '';
             const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
             
+            // البحث الشامل في جميع الحقول
             const filteredData = data.filter(item => {
                 const name = (item.patient_name || '').toLowerCase();
+                const mother = (item.mother_name || '').toLowerCase();
                 const natId = (item.national_id || '').toLowerCase();
-                return name.includes(query) || natId.includes(query);
+                const device = (item.device_details || '').toLowerCase();
+                const serial = (item.serial_number || '').toLowerCase();
+                
+                return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
             });
 
             const tbody = document.getElementById('issuedTableBody');
