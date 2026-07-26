@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '.')));
 
-const MONGODB_URI = "mongodb+srv://waelalsadiq24_db_user:2tbFWqOTp3XcDtA@cluster0.gribvlx.mongodb.net/?retryWrites=true&w=majority";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://waelalsadiq24_db_user:2tbFWqOTp3XcDtA@cluster0.gribvlx.mongodb.net/?retryWrites=true&w=majority";
 const DB_NAME = "hearingSystemDB";
 
 let client;
@@ -43,8 +43,8 @@ app.get('/api/records', async (req, res) => {
             currentInstitution: currentInst
         });
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'خطأ في جلب السجلات' });
+        console.error("DETAILED SERVER ERROR:", e);
+        res.status(500).json({ error: 'خطأ تفصيلي: ' + e.message });
     }
 });
 
@@ -76,8 +76,8 @@ app.post('/api/records', async (req, res) => {
         await recordsCollection.insertOne(newRecord);
         res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح في السحاب', record: { ...newRecord, id: newRecord._id } });
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'خطأ أثناء الحفظ' });
+        console.error("DETAILED SERVER ERROR:", e);
+        res.status(500).json({ error: 'خطأ أثناء الحفظ: ' + e.message });
     }
 });
 
@@ -99,8 +99,8 @@ app.put('/api/records/:id', async (req, res) => {
 
         res.json({ success: true, message: 'تم تعديل السجل وحفظه بنجاح' });
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'خطأ أثناء التعديل' });
+        console.error("DETAILED SERVER ERROR:", e);
+        res.status(500).json({ error: 'خطأ أثناء التعديل: ' + e.message });
     }
 });
 
@@ -116,8 +116,8 @@ app.delete('/api/records/:id', async (req, res) => {
         }
         res.json({ success: true, message: 'تم الحذف بنجاح' });
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'خطأ أثناء الحذف' });
+        console.error("DETAILED SERVER ERROR:", e);
+        res.status(500).json({ error: 'خطأ أثناء الحذف: ' + e.message });
     }
 });
 
@@ -140,8 +140,8 @@ app.get('/api/check-patient/:id', async (req, res) => {
             });
         }
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'خطأ أثناء فحص المريض' });
+        console.error("DETAILED SERVER ERROR:", e);
+        res.status(500).json({ error: 'خطأ أثناء فحص المريض: ' + e.message });
     }
 });
 
@@ -160,8 +160,8 @@ app.post('/api/devices-options', async (req, res) => {
         const devicesCursor = await deviceOptionsCollection.find({}).toArray();
         res.json({ success: true, deviceOptions: devicesCursor.map(d => d.name) });
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'خطأ في إضافة السماعة' });
+        console.error("DETAILED SERVER ERROR:", e);
+        res.status(500).json({ error: 'خطأ في إضافة السماعة: ' + e.message });
     }
 });
 
@@ -175,8 +175,8 @@ app.delete('/api/devices-options', async (req, res) => {
         const devicesCursor = await deviceOptionsCollection.find({}).toArray();
         res.json({ success: true, deviceOptions: devicesCursor.map(d => d.name) });
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'خطأ في حذف السماعة' });
+        console.error("DETAILED SERVER ERROR:", e);
+        res.status(500).json({ error: 'خطأ في حذف السماعة: ' + e.message });
     }
 });
 
