@@ -32,8 +32,8 @@
         .row { display: flex; gap: 10px; }
         .row > div { flex: 1; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th, td { padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 13px; color: #333; }
-        th { background-color: #34495e; color: white; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 13px; color: #333; cursor: pointer; }
+        th { background-color: #34495e; color: white; cursor: default; }
         tr:nth-child(even) { background-color: #f9f9f9; }
         
         .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
@@ -49,17 +49,18 @@
         .spacer-side { width: 30px; }
         .btn-delete-device { background: none; border: none; color: #c0392b; cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 3px; margin-top: 0; width: auto; }
         .btn-delete-device:hover { background-color: #fadbd8; }
+        .inline-edit-input { width: 100%; padding: 4px; font-size: 13px; text-align: center; border: 2px solid #27ae60; border-radius: 4px; background: #fff; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية</h2>
+    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية (السحابي)</h2>
 
     <div class="card">
         <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
-        <label>بحث بالرقم الوطني:</label>
-        <input type="text" id="searchId" placeholder="أدخل الرقم الوطني">
+        <label>بحث بالرقم الوطني أو اسم المريض:</label>
+        <input type="text" id="searchId" placeholder="أدخل الرقم الوطني أو اسم المريض">
         <button onclick="searchPatient()">بحث وفحص الاستحقاق</button>
         <div id="searchResult" class="result-box"></div>
     </div>
@@ -117,18 +118,18 @@
         </div>
 
         <div id="registrationWarning" class="result-box" style="margin-top: 10px;"></div>
-        <button class="btn-issue" id="issueBtn" onclick="registerAndIssue()">حفظ وصرف السماعة</button>
+        <button class="btn-issue" id="issueBtn" onclick="registerAndIssue()">حفظ وصرف السماعة في السحابة</button>
     </div>
 
     <div class="card">
-        <h3>📋 سجل الذين تم الصرف لهم</h3>
+        <h3>📋 سجل الذين تم الصرف لهم (انقر دبل كلك على أي خلية للتعديل واضغط Enter للحفظ)</h3>
         
         <div class="header-bar">
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                     <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvSafely(event)">
-                    <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV</button>
+                    <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV إلى السحابة</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
                 <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
@@ -149,7 +150,7 @@
                 </tr>
             </thead>
             <tbody id="issuedTableBody">
-                <tr><td colspan="8">جاري تحميل السجلات...</td></tr>
+                <tr><td colspan="8">جاري تحميل السجلات من السحابة...</td></tr>
             </tbody>
         </table>
     </div>
@@ -157,7 +158,8 @@
 </div>
 
 <script>
-    let globalDeviceOptions = ['oticon xceed 3 up', 'oticon get', 'oticon ria2 105', 'oticon ria2 85', 'oticon kit 75', 'Signia Silk', 'Interton BTE Gan290'];
+    let globalDeviceOptions = [];
+    let cachedRecords = [];
 
     function autoTab(current, nextFieldId, maxLen) {
         if (current.value.length >= maxLen) {
@@ -183,70 +185,87 @@
         }
     };
 
-    function loadDeviceOptions(selectedVal = '') {
-        const listContainer = document.getElementById('customDropdownList');
-        listContainer.innerHTML = '';
-
-        globalDeviceOptions.forEach(opt => {
-            let itemDiv = document.createElement('div');
-            itemDiv.className = 'custom-dropdown-item';
+    async function loadDeviceOptions(selectedVal = '') {
+        try {
+            const code = getInstitutionCode();
+            const res = await fetch(`/api/records?code=${code}`);
+            const data = await res.json();
+            globalDeviceOptions = data.deviceOptions || ['oticon xceed 3 up'];
             
-            let deleteBtn = document.createElement('button');
-            deleteBtn.className = 'btn-delete-device';
-            deleteBtn.innerHTML = '🗑️';
-            deleteBtn.onclick = (e) => {
-                e.stopPropagation();
-                if (confirm(`هل أنت متأكد من حذف "${opt}"؟`)) {
-                    globalDeviceOptions = globalDeviceOptions.filter(d => d !== opt);
-                    loadDeviceOptions();
-                }
-            };
+            const listContainer = document.getElementById('customDropdownList');
+            listContainer.innerHTML = '';
 
-            let textSpan = document.createElement('span');
-            textSpan.className = 'device-text';
-            textSpan.textContent = opt;
-            textSpan.onclick = () => {
-                document.getElementById('selectedDeviceDisplay').textContent = opt;
-                document.getElementById('deviceDetailsValue').value = opt;
+            globalDeviceOptions.forEach(opt => {
+                let itemDiv = document.createElement('div');
+                itemDiv.className = 'custom-dropdown-item';
+                
+                let deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-delete-device';
+                deleteBtn.innerHTML = '🗑️';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (confirm(`هل أنت متأكد من حذف "${opt}"؟`)) deleteDeviceOption(opt);
+                };
+
+                let textSpan = document.createElement('span');
+                textSpan.className = 'device-text';
+                textSpan.textContent = opt;
+                textSpan.onclick = () => {
+                    document.getElementById('selectedDeviceDisplay').textContent = opt;
+                    document.getElementById('deviceDetailsValue').value = opt;
+                    listContainer.style.display = 'none';
+                };
+
+                let spacer = document.createElement('div');
+                spacer.className = 'spacer-side';
+
+                itemDiv.appendChild(deleteBtn);
+                itemDiv.appendChild(textSpan);
+                itemDiv.appendChild(spacer);
+                listContainer.appendChild(itemDiv);
+            });
+
+            let addItem = document.createElement('div');
+            addItem.className = 'custom-dropdown-item add-new';
+            addItem.textContent = '➕ إضافة سماعة جديدة للقائمة...';
+            addItem.onclick = () => {
                 listContainer.style.display = 'none';
+                addNewDevicePrompt();
             };
+            listContainer.appendChild(addItem);
 
-            let spacer = document.createElement('div');
-            spacer.className = 'spacer-side';
-
-            itemDiv.appendChild(deleteBtn);
-            itemDiv.appendChild(textSpan);
-            itemDiv.appendChild(spacer);
-            listContainer.appendChild(itemDiv);
-        });
-
-        let addItem = document.createElement('div');
-        addItem.className = 'custom-dropdown-item add-new';
-        addItem.textContent = '➕ إضافة سماعة جديدة للقائمة...';
-        addItem.onclick = () => {
-            listContainer.style.display = 'none';
-            addNewDevicePrompt();
-        };
-        listContainer.appendChild(addItem);
-
-        if (selectedVal) {
-            document.getElementById('selectedDeviceDisplay').textContent = selectedVal;
-            document.getElementById('deviceDetailsValue').value = selectedVal;
-        } else if (globalDeviceOptions.length > 0 && !document.getElementById('deviceDetailsValue').value) {
-            document.getElementById('selectedDeviceDisplay').textContent = globalDeviceOptions[0];
-            document.getElementById('deviceDetailsValue').value = globalDeviceOptions[0];
-        }
+            if (selectedVal) {
+                document.getElementById('selectedDeviceDisplay').textContent = selectedVal;
+                document.getElementById('deviceDetailsValue').value = selectedVal;
+            } else if (globalDeviceOptions.length > 0 && !document.getElementById('deviceDetailsValue').value) {
+                document.getElementById('selectedDeviceDisplay').textContent = globalDeviceOptions[0];
+                document.getElementById('deviceDetailsValue').value = globalDeviceOptions[0];
+            }
+        } catch(err) {}
     }
 
-    function addNewDevicePrompt() {
+    async function addNewDevicePrompt() {
         const newDeviceName = prompt("أدخل اسم السماعة الجديدة:");
         if (newDeviceName && newDeviceName.trim() !== "") {
             const trimmedName = newDeviceName.trim();
-            if (!globalDeviceOptions.includes(trimmedName)) {
-                globalDeviceOptions.push(trimmedName);
-            }
+            const code = getInstitutionCode();
+            await fetch(`/api/devices-options?code=${code}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device: trimmedName })
+            });
             loadDeviceOptions(trimmedName);
         }
+    }
+
+    async function deleteDeviceOption(deviceName) {
+        const code = getInstitutionCode();
+        await fetch(`/api/devices-options?code=${code}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device: deviceName })
+        });
+        loadDeviceOptions();
     }
 
     function calculateAge(birthStr) {
@@ -267,67 +286,70 @@
         return 3;
     }
 
-    function searchPatient() {
-        const id = document.getElementById('searchId').value.trim();
+    async function searchPatient() {
+        const queryText = document.getElementById('searchId').value.trim().toLowerCase();
         const code = getInstitutionCode();
-        if(!id) return alert('يرجى إدخال الرقم الوطني للبحث');
+        if(!queryText) return alert('يرجى إدخال الرقم الوطني أو اسم المريض للبحث');
 
-        let storageKey = `local_records_${code}`;
-        let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        let record = localRecords.find(r => String(r.national_id) === String(id));
+        // البحث في السجلات المحملة محلياً أو من السحابة بالرقم الوطني أو اسم المريض
+        const foundRecord = cachedRecords.find(r => 
+            (r.national_id && String(r.national_id).toLowerCase() === queryText) || 
+            (r.patient_name && String(r.patient_name).toLowerCase().includes(queryText))
+        );
 
         const box = document.getElementById('searchResult');
         box.style.display = 'block';
 
-        if(!record) {
+        if(!foundRecord) {
             box.className = 'result-box eligible';
             box.innerHTML = `✅ المريض غير مسجل مسبقاً ويمكنه الاستلام.`;
         } else {
-            let birthVal = record.birth_year || '-';
-            let studentVal = record.is_student || 'yes';
+            let birthVal = foundRecord.birth_year || '-';
+            let studentVal = foundRecord.is_student || 'yes';
             let age = calculateAge(birthVal);
             let requiredYears = getRequiredYears(age, studentVal);
-            let diffYears = (new Date() - new Date(record.date)) / (1000 * 60 * 60 * 24 * 365.25);
+            let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
             if (diffYears >= requiredYears) {
                 box.className = 'result-box eligible';
-                box.innerHTML = `✅ المريض مستحق! آخر صرف كان بتاريخ ${record.date.split('T')[0]} وفترة الاستحقاق هي ${requiredYears} سنوات.`;
+                box.innerHTML = `✅ المريض (${foundRecord.patient_name}) مستحق! آخر صرف كان بتاريخ ${foundRecord.date.split('T')[0]} وفترة الاستحقاق هي ${requiredYears} سنوات.`;
             } else {
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 box.className = 'result-box not-eligible';
-                box.innerHTML = `⚠️ المريض غير مستحق حالياً! استلم بتاريخ ${record.date.split('T')[0]}. متبقي حوالي ${remainingYears} سنة.`;
+                box.innerHTML = `⚠️ المريض (${foundRecord.patient_name}) غير مستحق حالياً! استلم بتاريخ ${foundRecord.date.split('T')[0]}. متبقي حوالي ${remainingYears} سنة.`;
             }
         }
     }
 
-    function checkPatientEligibilityLive() {
+    async function checkPatientEligibilityLive() {
         const id = document.getElementById('newNationalId').value.trim();
+        const fullName = document.getElementById('fullName').value.trim().toLowerCase();
         const warningBox = document.getElementById('registrationWarning');
         const issueBtn = document.getElementById('issueBtn');
-        const code = getInstitutionCode();
 
-        if (id.length < 3) {
+        if (id.length < 3 && fullName.length < 3) {
             warningBox.style.display = 'none';
             issueBtn.disabled = false;
             issueBtn.style.opacity = '1';
             return;
         }
 
-        let storageKey = `local_records_${code}`;
-        let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        let record = localRecords.find(r => String(r.national_id) === String(id));
+        const foundRecord = cachedRecords.find(r => 
+            (id && r.national_id && String(r.national_id).toLowerCase() === id.toLowerCase()) || 
+            (fullName && r.patient_name && String(r.patient_name).toLowerCase().includes(fullName))
+        );
 
-        if (record) {
-            let age = calculateAge(record.birth_year || '-');
+        if (foundRecord) {
+            let age = calculateAge(foundRecord.birth_year || '-');
             let studentVal = document.getElementById('isStudent').value;
             let requiredYears = getRequiredYears(age, studentVal);
-            let diffYears = (new Date() - new Date(record.date)) / (1000 * 60 * 60 * 24 * 365.25);
+            let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
             if (diffYears < requiredYears) {
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 warningBox.style.display = 'block';
                 warningBox.className = 'result-box not-eligible';
-                warningBox.innerHTML = `⚠️ تنبيه منع الصرف: غير مستحق! استلم بتاريخ ${record.date.split('T')[0]}. متبقي ${remainingYears} سنة.`;
+                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${foundRecord.patient_name}): غير مستحق! استلم بتاريخ ${foundRecord.date.split('T')[0]}. متبقي ${remainingYears} سنة.`;
                 issueBtn.disabled = true;
                 issueBtn.style.opacity = '0.5';
                 return;
@@ -339,7 +361,7 @@
         issueBtn.style.opacity = '1';
     }
 
-    function registerAndIssue() {
+    async function registerAndIssue() {
         const body = {
             national_id: document.getElementById('newNationalId').value.trim(),
             patient_name: document.getElementById('fullName').value.trim(),
@@ -347,9 +369,7 @@
             birth_year: (document.getElementById('birthDay').value && document.getElementById('birthMonth').value && document.getElementById('birthYear').value) ? `${document.getElementById('birthDay').value}/${document.getElementById('birthMonth').value}/${document.getElementById('birthYear').value}` : (document.getElementById('birthYear').value || '-'),
             is_student: document.getElementById('isStudent').value,
             device_details: document.getElementById('deviceDetailsValue').value || document.getElementById('selectedDeviceDisplay').textContent,
-            serial_number: document.getElementById('serialNumber').value.trim(),
-            date: new Date().toISOString(),
-            institution_name: getInstitutionCode() === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب'
+            serial_number: document.getElementById('serialNumber').value.trim()
         };
 
         if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
@@ -357,23 +377,28 @@
         }
 
         const code = getInstitutionCode();
-        let storageKey = `local_records_${code}`;
-        let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        localRecords.unshift(body);
-        localStorage.setItem(storageKey, JSON.stringify(localRecords));
-
-        alert('✅ تم حفظ وصرف السماعة بنجاح');
-        document.getElementById('newNationalId').value = '';
-        document.getElementById('fullName').value = '';
-        document.getElementById('motherName').value = '';
-        document.getElementById('birthDay').value = '';
-        document.getElementById('birthMonth').value = '';
-        document.getElementById('birthYear').value = '';
-        document.getElementById('serialNumber').value = '';
-        document.getElementById('registrationWarning').style.display = 'none';
-        document.getElementById('issueBtn').disabled = false;
-        document.getElementById('issueBtn').style.opacity = '1';
-        loadIssuedList();
+        const res = await fetch(`/api/records?code=${code}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if(data.success) {
+            alert('✅ ' + data.message);
+            document.getElementById('newNationalId').value = '';
+            document.getElementById('fullName').value = '';
+            document.getElementById('motherName').value = '';
+            document.getElementById('birthDay').value = '';
+            document.getElementById('birthMonth').value = '';
+            document.getElementById('birthYear').value = '';
+            document.getElementById('serialNumber').value = '';
+            document.getElementById('registrationWarning').style.display = 'none';
+            document.getElementById('issueBtn').disabled = false;
+            document.getElementById('issueBtn').style.opacity = '1';
+            loadIssuedList();
+        } else {
+            alert('❌ ' + (data.error || 'فشل الحفظ'));
+        }
     }
 
     function importCsvSafely(event) {
@@ -383,7 +408,7 @@
         const reader = new FileReader();
         reader.readAsText(file, 'UTF-8');
         
-        reader.onload = function(e) {
+        reader.onload = async function(e) {
             try {
                 const text = e.target.result;
                 const lines = text.split(/\r\n|\n/);
@@ -409,17 +434,15 @@
 
                     let patName = cols[0] || '';
                     let momName = cols[1] || '-';
-                    let natId = cols[2] && !cols[2].includes('/') && cols[2].length > 5 ? cols[2] : ('ID-' + Math.floor(Math.random() * 90000000 + 10000000));
+                    let natId = cols[2] && !cols[2].includes('/') && cols[2].length > 1 ? cols[2] : '-';
                     let birth = cols[3] && cols[3].includes('/') ? cols[3] : '-';
-                    
                     let device = cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -'))) || cols[4] || 'oticon xceed 3 up';
-                    
                     let serial = cols.find(c => c && !isNaN(c) && c.length >= 6) || '0000';
-                    let dateVal = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)) || '2022-01-02';
+                    let dateVal = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)) || new Date().toISOString();
 
                     if (patName && patName !== 'undefined' && patName !== '' && !patName.includes('???')) {
                         parsedRecords.push({
-                            national_id: String(natId) + '-' + counter++,
+                            national_id: String(natId),
                             patient_name: patName,
                             mother_name: momName,
                             birth_year: birth,
@@ -438,43 +461,87 @@
                     return;
                 }
 
-                let storageKey = `local_records_${code}`;
-                let existingLocal = JSON.parse(localStorage.getItem(storageKey) || '[]');
-                let combined = [...parsedRecords, ...existingLocal];
-                localStorage.setItem(storageKey, JSON.stringify(combined));
+                const importBtn = document.getElementById('importBtn');
+                importBtn.disabled = true;
 
-                alert(`🎉 تم استيراد وعرض جميع الأسماء (${parsedRecords.length} سجل) في الجدول بنجاح تام!`);
+                const chunkSize = 200;
+                let uploadedCount = 0;
+                const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
+
+                for (let i = 0; i < parsedRecords.length; i += chunkSize) {
+                    const chunk = parsedRecords.slice(i, i + chunkSize);
+                    let currentChunkNum = Math.floor(i / chunkSize) + 1;
+                    importBtn.innerText = `⏳ رفع السحابة (${currentChunkNum}/${totalChunks})...`;
+
+                    try {
+                        const res = await fetch(`/api/import-csv?code=${code}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ records: chunk })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            uploadedCount += chunk.length;
+                        }
+                    } catch (err) {}
+                    
+                    await new Promise(r => setTimeout(r, 50));
+                }
+
+                importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
+                importBtn.disabled = false;
+
+                alert(`🎉 تم رفع وحفظ جميع السجلات (${uploadedCount} سجل) في السحابة بنجاح تام!`);
                 loadIssuedList();
             } catch (err) {
                 console.error(err);
-                alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
+                alert('⚠️ حدث خطأ أثناء معالجة رفع الملف للسحابة.');
+                document.getElementById('importBtn').innerText = '📥 استيراد ملف CSV إلى السحابة';
+                document.getElementById('importBtn').disabled = false;
             }
             event.target.value = '';
         };
     }
 
-    function clearAllRecords() {
-        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات؟")) {
+    async function clearAllRecords() {
+        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات من السحابة نهائياً؟")) {
             const code = getInstitutionCode();
-            localStorage.removeItem(`local_records_${code}`);
-            alert('✅ تم حذف كافة السجلات بنجاح.');
-            loadIssuedList();
+            try {
+                const res = await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ تم حذف كافة السجلات السحابية بنجاح.');
+                    loadIssuedList();
+                } else {
+                    alert('❌ فشل حذف السجلات');
+                }
+            } catch(e) {
+                alert('حدث خطأ أثناء الاتصال بالحذف');
+            }
         }
     }
 
     function filterTableLive() {
-        loadIssuedList();
+        renderTable(cachedRecords);
     }
 
-    function loadIssuedList() {
+    async function loadIssuedList() {
         const code = getInstitutionCode();
-        let storageKey = `local_records_${code}`;
-        let data = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        try {
+            const res = await fetch(`/api/records?code=${code}`);
+            const responseData = await res.json();
+            cachedRecords = responseData.records || [];
+        } catch (e) {
+            cachedRecords = [];
+        }
+        renderTable(cachedRecords);
+    }
 
+    function renderTable(data) {
         const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
         
         const filteredData = data.filter(item => {
-            const name = (item.patient_name || item.name || '').toLowerCase();
+            const name = (item.patient_name || '').toLowerCase();
             const mother = (item.mother_name || '').toLowerCase();
             const natId = (item.national_id || '').toLowerCase();
             const device = (item.device_details || '').toLowerCase();
@@ -493,25 +560,18 @@
 
         const displayData = filteredData.slice(0, 500);
 
-        displayData.forEach(item => {
+        displayData.forEach((item, index) => {
             const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
             let tr = document.createElement('tr');
 
-            let nameValue = item.patient_name || item.name || 'غير معروف';
-            let motherValue = item.mother_name || '-';
-            let natIdValue = item.national_id || '-';
-            let birthValue = item.birth_year || '-';
-            let deviceValue = item.device_details || '-';
-            let serialValue = item.serial_number || '-';
-
             tr.innerHTML = `
-                <td>${nameValue}</td>
-                <td>${motherValue}</td>
-                <td>${natIdValue.includes('-ID-') || natIdValue.startsWith('ID-') ? '-' : natIdValue}</td>
-                <td>${birthValue}</td>
-                <td>${deviceValue}</td>
-                <td>${serialValue}</td>
-                <td>${dateOnly}</td>
+                <td ondblclick="makeEditable(this, '${item._id}', 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
+                <td ondblclick="makeEditable(this, '${item._id}', 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id}', 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id}', 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id}', 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id}', 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id}', 'date', '${dateOnly}')">${dateOnly}</td>
                 <td>${item.institution_name || '-'}</td>
             `;
 
@@ -523,6 +583,54 @@
             noteTr.innerHTML = `<td colspan="8" style="background-color: #fff3cd; color: #856404; font-weight: bold;">ملاحظة: يتم عرض أول 500 سجل من أصل ${filteredData.length} لتسريع التصفح. يمكنك استخدام خانة البحث لتصفية النتائج بدقة.</td>`;
             tbody.appendChild(noteTr);
         }
+    }
+
+    // 🚀 ميزة التعديل المباشر عند النقر المزدوج (Double Click) والحفظ بالضغط على Enter
+    function makeEditable(cell, recordId, fieldName, currentValue) {
+        if (cell.querySelector('input')) return; // إذا كانت الخلية قيد التعديل بالفعل
+
+        cell.innerHTML = `<input type="text" class="inline-edit-input" value="${currentValue === '-' ? '' : currentValue}">`;
+        const input = cell.querySelector('input');
+        input.focus();
+        input.select();
+
+        input.onkeydown = async function(e) {
+            if (e.key === 'Enter') {
+                const newValue = input.value.trim();
+                cell.innerHTML = newValue === '' ? '-' : newValue;
+
+                // إرسال التعديل للسيرفر والسحابة
+                try {
+                    const code = getInstitutionCode();
+                    const res = await fetch(`/api/records/update?code=${code}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: recordId, field: fieldName, value: newValue })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        // تحديث القيمة في الذاكرة المؤقتة محلياً
+                        const rec = cachedRecords.find(r => r._id === recordId);
+                        if (rec) rec[fieldName] = newValue;
+                    } else {
+                        alert('❌ فشل حفظ التعديل في السحابة');
+                    }
+                } catch (err) {
+                    alert('⚠️ حدث خطأ أثناء الاتصال بالسحابة للحفظ.');
+                }
+            } else if (e.key === 'Escape') {
+                cell.innerHTML = currentValue === '' ? '-' : currentValue;
+            }
+        };
+
+        // عند الخروج من الحقل بدون حفظ
+        input.onblur = function() {
+            setTimeout(() => {
+                if (cell.querySelector('input')) {
+                    cell.innerHTML = currentValue === '' ? '-' : currentValue;
+                }
+            }, 200);
+        };
     }
 
     window.onload = () => {
