@@ -595,7 +595,6 @@
 
             rowHTML += `<td>${item.institution_name || '-'}</td>`;
             
-            // إضافة زر الحذف في العمود الأخير لكل صف يتبع لمؤسستك
             if (isMyInstitution) {
                 rowHTML += `<td><button class="btn-row-delete" onclick="deleteRecord('${recordId}', '${item.patient_name}')">🗑️ حذف</button></td>`;
             } else {
