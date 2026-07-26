@@ -131,20 +131,20 @@ app.post('/api/import-csv', async (req, res) => {
     }
 });
 
-app.delete('/api/clear-records', async (req, res) => {
+// تحويل حذف كافة السجلات إلى POST لضمان عدم حدوث خطأ 502
+app.post('/api/clear-records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     try {
         const db = await getDB();
         await db.collection('records').deleteMany({ institution_id: code });
         res.json({ success: true, message: 'تم حذف كافة السجلات بنجاح' });
     } catch (e) {
-        // في حال فشل قاعدة البيانات، نقوم بالتنظيف محلياً لضمان عدم حدوث خطأ 500 أبداً
         memoryRecords = memoryRecords.filter(r => r.institution_id !== code);
         res.json({ success: true, message: 'تم حذف السجلات محلياً' });
     }
 });
 
-// مسار الحذف الآمن والمحمي كلياً ضد الأخطاء
+// مسار حذف سجل فردي باستخدام POST الآمن
 app.post('/api/records-safe-delete', async (req, res) => {
     const { national_id } = req.body;
     try {
