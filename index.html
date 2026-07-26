@@ -400,7 +400,7 @@
         }
     }
 
-    // 🚀 دالة الاستيراد الذكية المحدثة لقراءة وفهرسة أعمدة ملفك بدقة متناهية
+    // 🚀 دالة استيراد مخصصة تقرأ كافة السجلات وتمنع تكرار المفاتيح لضمان عرض جميع الأسماء (8000+ اسم)
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -415,6 +415,7 @@
                 let parsedRecords = [];
                 const code = getInstitutionCode();
                 const institutionName = code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب';
+                let counter = 1;
 
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i] ? lines[i].trim() : '';
@@ -433,17 +434,17 @@
 
                     let patName = cols[0] || '';
                     let momName = cols[1] || '-';
-                    let natId = cols[2] && !cols[2].includes('/') && cols[2].length > 5 ? cols[2] : 'غير متوفر';
-                    let birth = cols[3] && cols[3].includes('/') ? cols[3] : (cols[2] && cols.find(c => c.includes('/')) || '-');
+                    let natId = cols[2] && !cols[2].includes('/') && cols[2].length > 5 ? cols[2] : ('ID-' + Math.floor(Math.random() * 90000000 + 10000000));
+                    let birth = cols[3] && cols[3].includes('/') ? cols[3] : '-';
                     
                     let device = cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -'))) || cols[4] || 'oticon xceed 3 up';
                     
                     let serial = cols.find(c => c && !isNaN(c) && c.length >= 6) || '0000';
-                    let dateVal = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)) || new Date().toISOString();
+                    let dateVal = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)) || '2022-01-02';
 
                     if (patName && patName !== 'undefined' && patName !== '' && !patName.includes('???')) {
                         parsedRecords.push({
-                            national_id: String(natId !== 'غير متوفر' ? natId : 'ID-' + Math.floor(Math.random() * 1000000)),
+                            national_id: String(natId) + '-' + counter++,
                             patient_name: patName,
                             mother_name: momName,
                             birth_year: birth,
@@ -464,10 +465,11 @@
 
                 let storageKey = `local_records_${code}`;
                 let existingLocal = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                // إضافة السجلات الجديدة للمتصفح مباشرة
                 let combined = [...parsedRecords, ...existingLocal];
                 localStorage.setItem(storageKey, JSON.stringify(combined));
 
-                alert(`🎉 تم استيراد وعرض ${parsedRecords.length} سجل في الجدول بنجاح تام!`);
+                alert(`🎉 تم استيراد وعرض جميع الأسماء (${parsedRecords.length} سجل) في الجدول بنجاح تام!`);
                 loadIssuedList();
             } catch (err) {
                 console.error(err);
@@ -525,11 +527,8 @@
         let storageKey = `local_records_${code}`;
         let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
         
-        let allMap = new Map();
-        [...localRecords, ...serverRecords].forEach(r => {
-            if (r.national_id) allMap.set(String(r.national_id), r);
-        });
-        let data = Array.from(allMap.values());
+        // دمج القوائم بشكل مصفوفة كاملة بدون ضياع أي سجل
+        let data = [...localRecords, ...serverRecords];
 
         const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
         
@@ -567,7 +566,7 @@
             tr.innerHTML = `
                 <td>${nameValue}</td>
                 <td>${motherValue}</td>
-                <td>${natIdValue}</td>
+                <td>${natIdValue.includes('-ID-') || natIdValue.startsWith('ID-') ? '-' : natIdValue}</td>
                 <td>${birthValue}</td>
                 <td>${deviceValue}</td>
                 <td>${serialValue}</td>
