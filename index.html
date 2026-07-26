@@ -15,8 +15,11 @@
         button:hover { background-color: #219150; }
         .btn-issue { background-color: #2980b9; }
         .btn-issue:hover { background-color: #1f618d; }
-        .btn-excel { background-color: #d35400; width: auto; display: inline-block; padding: 8px 15px; margin-top: 0; font-size: 14px; }
-        .btn-excel:hover { background-color: #ba4a00; }
+        
+        /* زر الاستيراد الواضح والمباشر تماماً */
+        .excel-file-label { background-color: #d35400; color: white; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; display: inline-block; text-align: center; }
+        .excel-file-label:hover { background-color: #ba4a00; }
+
         .btn-clear-all { background-color: #c0392b; width: auto; display: inline-block; padding: 8px 12px; margin-top: 0; font-size: 13px; }
         .btn-clear-all:hover { background-color: #962d22; }
         
@@ -132,8 +135,9 @@
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <!-- زر الاستيراد المباشر والواضح (label يترابط مباشرة مع الـ input) -->
+                    <label for="excelFileInput" class="excel-file-label">📥 اضغط هنا لاختيار ملف CSV</label>
                     <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvDirect(event)">
-                    <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
                 <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
@@ -404,7 +408,7 @@
         }
     }
 
-    // دالة الاستيراد المباشر والمضمونة 100% لإرسال محتوى الملف الخام للسيرفر
+    // دالة استيراد الملف وإرساله مباشرة للسيرفر
     function importCsvDirect(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -415,7 +419,6 @@
                 const rawData = e.target.result;
                 const code = getInstitutionCode();
 
-                // إرسال النص الخام مباشرة إلى مسار السيرفر المعالج
                 const res = await fetch(`/api/import-csv?code=${code}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
