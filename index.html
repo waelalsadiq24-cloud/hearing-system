@@ -422,7 +422,7 @@
         }
     }
 
-    // دالة استيراد ذكية تطابق الأعمدة بالأسماء بغض النظر عن ترتيبها أو أعمدة السريال المتكررة
+    // دالة استيراد قوية جداً تقرأ جميع الصفوف بدون استثناء أو توقف
     function importExcelFile(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -435,47 +435,51 @@
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
-                // قراءة البيانات ككائنات بأسماء العناوين
-                const rows = XLSX.utils.sheet_to_json(worksheet);
+                // قراءة الصفوف كمصفوفات مباشرة لتجاوز مشاكل اختلاف أسماء الأعمدة أو الصفوف الفارغة
+                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
                 if (rows.length === 0) {
-                    return alert('ملف الاكسل فارغ أو لا يحتوي على صفوف بيانات!');
+                    return alert('ملف الاكسل فارغ!');
                 }
 
                 let successCount = 0;
                 const code = getInstitutionCode();
 
-                for (let row of rows) {
-                    // البحث الذكي عن المفتاح بغض النظر عن المسافات أو التسمية الدقيقة
-                    let keys = Object.keys(row);
-                    
-                    let getVal = (keywords) => {
-                        for (let k of keys) {
-                            for (let kw of keywords) {
-                                if (k.trim().includes(kw)) {
-                                    return String(row[k] || '').trim();
-                                }
-                            }
-                        }
-                        return '';
-                    };
+                // نبدأ البحث من الصف الثاني (تخطي رأس الصفحة إذا وجد)
+                let startIndex = 0;
+                let firstRow = rows[0];
+                if (firstRow && (String(firstRow[0]).includes('الاسم') || String(firstRow[0]).includes('المريض') || String(firstRow[1]).includes('الأم'))) {
+                    startIndex = 1;
+                }
 
-                    const patName = getVal(['اسم المريض', 'الاسم', 'المريض']);
-                    const momName = getVal(['اسم الأم', 'الأم']);
-                    const natId = getVal(['الرقم الوطني', 'الرقم', 'وطني']);
-                    const birth = getVal(['تاريخ الولادة', 'المواليد', 'الولادة']);
-                    const device = getVal(['تفاصيل السماعة', 'السماعة', 'نوع']);
-                    const serial = getVal(['الرقم السري', 'سري', 'S.N', 'الرقم التسلسلي', 'السيريال']);
+                for (let i = startIndex; i < rows.length; i++) {
+                    let r = rows[i];
+                    if (!r || r.length === 0) continue;
 
-                    if (patName) {
+                    // قراءة الأعمدة بناءً على ترتيبها في ملفك:
+                    // العمود 0 (A): اسم المريض
+                    // العمود 1 (B): اسم الأم
+                    // العمود 2 (C): الرقم الوطني
+                    // العمود 3 (D): تاريخ الولادة
+                    // العمود 4 (E): تفاصيل السماعة
+                    // العمود 5 أو 6 (F/G): الرقم التسلسلي
+                    const patName = String(r[0] || '').trim();
+                    const momName = String(r[1] || '-').trim();
+                    const natId = String(r[2] || '').trim();
+                    const birth = String(r[3] || '-').trim();
+                    const device = String(r[4] || 'oticon xceed 3 up').trim();
+                    const serial = String(r[5] || r[6] || '0000').trim();
+
+                    // إذا وُجد اسم مريض في الصف، يتم استيراده حتى لو كانت بعض الحقول الأخرى فارغة
+                    if (patName && patName !== 'undefined' && patName !== 'اسم المريض') {
                         const recordBody = {
                             national_id: natId || 'غير متوفر',
                             patient_name: patName,
-                            mother_name: momName || '-',
-                            birth_year: birth || '-',
+                            mother_name: momName,
+                            birth_year: birth,
                             is_student: 'yes',
-                            device_details: device || 'oticon xceed 3 up',
-                            serial_number: serial || '0000'
+                            device_details: device,
+                            serial_number: serial
                         };
 
                         const res = await fetch(`/api/records?code=${code}`, {
@@ -488,7 +492,7 @@
                     }
                 }
 
-                alert(`✅ تم استيراد وحفظ ${successCount} سجل بنجاح من ملف الاكسل!`);
+                alert(`✅ تم استيراد وحفظ ${successCount} سجل بنجاح من إجمالي الملف!`);
                 loadIssuedList();
             } catch (err) {
                 alert('حدث خطأ أثناء قراءة ملف الاكسل.');
