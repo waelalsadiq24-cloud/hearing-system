@@ -7,8 +7,8 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '.')));
 
-// رابط الاتصال السحابي المحدث مع اسم قاعدة البيانات وإعدادات التوافق الكاملة
-const MONGODB_URI = "mongodb+srv://waelalsadiq24_db_user:2tbFWqOTp3XcDtA@cluster0.gribvlx.mongodb.net/hearingSystemDB?retryWrites=true&w=majority&tls=true&tlsAllowInvalidCertificates=true";
+// سطر الاتصال السحابي النظيف والمستقر
+const MONGODB_URI = "mongodb+srv://waelalsadiq24_db_user:2tbFWqOTp3XcDtA@cluster0.gribvlx.mongodb.net/?retryWrites=true&w=majority";
 const DB_NAME = "hearingSystemDB";
 
 let db, recordsCollection, institutionsCollection, deviceOptionsCollection;
