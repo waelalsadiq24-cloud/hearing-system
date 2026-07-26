@@ -98,6 +98,7 @@ app.get('/api/check-patient/:id', async (req, res) => {
     }
 });
 
+// مسار استيراد الـ CSV المحسن والمضمون كلياً
 app.post('/api/import-csv', async (req, res) => {
     try {
         const { records } = req.body;
@@ -110,28 +111,26 @@ app.post('/api/import-csv', async (req, res) => {
 
         let formattedRecords = records.map(r => ({
             national_id: String(r.national_id || 'غير متوفر'),
-            patient_name: r.patient_name || 'غير معروف',
-            mother_name: r.mother_name || '-',
-            birth_year: r.birth_year || '-',
+            patient_name: String(r.patient_name || 'غير معروف'),
+            mother_name: String(r.mother_name || '-'),
+            birth_year: String(r.birth_year || '-'),
             is_student: 'yes',
-            device_details: r.device_details || 'oticon xceed 3 up',
-            serial_number: r.serial_number || '0000',
+            device_details: String(r.device_details || 'oticon xceed 3 up'),
+            serial_number: String(r.serial_number || '0000'),
             date: new Date().toISOString(),
             institution_id: code,
             institution_name: currentInst.name
         }));
 
         const db = await getDB();
-        const collection = db.collection('records');
-        await collection.insertMany(formattedRecords);
-
+        await db.collection('records').insertMany(formattedRecords);
         res.json({ success: true, count: formattedRecords.length });
     } catch (e) {
-        res.json({ success: false, error: 'خطأ في معالجة السجلات بالسيرفر' });
+        console.error("Import error:", e);
+        res.status(500).json({ success: false, error: 'خطأ في معالجة السجلات بالسيرفر' });
     }
 });
 
-// دعم كلا الأسلوبين (DELETE و POST) لمنع ظهور خطأ 404 نهائياً
 async function handleClearRecords(req, res) {
     const code = req.query.code || 'yarmok';
     try {
@@ -147,7 +146,6 @@ async function handleClearRecords(req, res) {
 app.delete('/api/clear-records', handleClearRecords);
 app.post('/api/clear-records', handleClearRecords);
 
-// دعم كلا الأسلوبين لحذف السجل الفردي لمنع أي خطأ
 async function handleSafeDelete(req, res) {
     const national_id = req.body.national_id || req.query.national_id;
     try {
