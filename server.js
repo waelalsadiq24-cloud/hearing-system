@@ -29,20 +29,27 @@ app.get('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     const currentInst = institutions[code] || institutions['yarmok'];
 
+    let allRecords = [...memoryRecords];
     try {
         const db = await getDB();
-        const records = await db.collection('records').find({}).sort({ date: -1 }).toArray();
-        
+        const dbRecords = await db.collection('records').find({}).sort({ date: -1 }).toArray();
+        if (dbRecords && dbRecords.length > 0) {
+            allRecords = dbRecords;
+        }
+    } catch (e) {}
+
+    try {
+        const db = await getDB();
         let devices = await db.collection('devices').findOne({ code: code });
         let deviceOptions = devices ? devices.options : ['oticon xceed 3 up', 'oticon get', 'oticon ria2 105', 'oticon ria2 85', 'oticon kit 75', 'Signia Silk', 'Interton BTE Gan290'];
 
         res.json({
-            records: records.length > 0 ? records : memoryRecords,
+            records: allRecords,
             deviceOptions: deviceOptions,
             currentInstitution: currentInst
         });
     } catch (e) {
-        res.json({ records: memoryRecords, deviceOptions: ['oticon xceed 3 up'], currentInstitution: currentInst });
+        res.json({ records: allRecords, deviceOptions: ['oticon xceed 3 up'], currentInstitution: currentInst });
     }
 });
 
@@ -91,7 +98,7 @@ app.get('/api/check-patient/:id', async (req, res) => {
     }
 });
 
-// مسار الاستيراد الآمن والمضمون الذي لا يعيد خطأ 500 أبداً
+// مسار الاستيراد المضمون الذي يحفظ في الذاكرة وقاعدة البيانات معاً
 app.post('/api/import-csv', async (req, res) => {
     const { records } = req.body;
     if (!records || !Array.isArray(records)) {
@@ -103,21 +110,20 @@ app.post('/api/import-csv', async (req, res) => {
 
     let formattedRecords = records.map(r => ({
         national_id: String(r.national_id || 'غير متوفر'),
-        patient_name: String(r.patient_name || 'غير معروف'),
+        patient_name: String(r.patient_name || r.name || 'غير معروف'),
         mother_name: String(r.mother_name || '-'),
         birth_year: String(r.birth_year || '-'),
         is_student: 'yes',
         device_details: String(r.device_details || 'oticon xceed 3 up'),
         serial_number: String(r.serial_number || '0000'),
-        date: new Date().toISOString(),
+        date: r.date || new Date().toISOString(),
         institution_id: code,
         institution_name: currentInst.name
     }));
 
-    // حفظ في الذاكرة المحلية فوراً لضمان عدم الفشل
+    // إضافة السجلات مباشرة لمقدمة المصفوفة المحلية لضمان ظهورها الفوري
     memoryRecords.unshift(...formattedRecords);
 
-    // محاولة الحفظ في قاعدة البيانات بدون إيقاف الطلب لو حدث خطأ
     try {
         const db = await getDB();
         await db.collection('records').insertMany(formattedRecords);
