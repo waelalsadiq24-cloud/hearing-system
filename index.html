@@ -404,7 +404,6 @@
         }
     }
 
-    // معالجة ملف الـ CSV محلياً وتفكيكه بأمان تام وإرساله للسيرفر
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -421,11 +420,11 @@
                     let line = lines[i] ? lines[i].trim() : '';
                     if (!line) continue;
 
-                    if (i === 0 && (line.includes('اسم') || line.includes('المريض') || line.includes('الرقم') || line.includes('الأم'))) {
+                    if (i === 0 && (line.includes('اسم') || line.includes('المريض') || line.includes('الرقم') || line.includes('الأم') || line.includes('patient'))) {
                         continue;
                     }
 
-                    let cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    let cols = line.split(/,|;|\t/);
                     cols = cols.map(c => (c ? c.replace(/^"|"$/g, '').trim() : ''));
 
                     let patName = cols[0] || '';
@@ -433,7 +432,7 @@
                     let natId = cols[2] || 'غير متوفر';
                     let birth = cols[3] || '-';
                     let device = cols[4] || 'oticon xceed 3 up';
-                    let serial = cols[5] || '0000';
+                    let serial = cols[5] || cols[6] || '0000';
 
                     if (patName && patName !== 'undefined' && patName !== '') {
                         parsedRecords.push({
@@ -448,7 +447,7 @@
                 }
 
                 if (parsedRecords.length === 0) {
-                    return alert('⚠️ لم يتم العثور على بيانات صالحة في الملف.');
+                    return alert('⚠️ لم يتم قراءة أي بيانات. تأكد أن الأعمدة مفصولة بفواصل صحيحة.');
                 }
 
                 const chunkSize = 100;
@@ -470,7 +469,7 @@
                 alert(`✅ تم استيراد وحفظ ${totalImported} سجل بنجاح تام وفوري!`);
                 loadIssuedList();
             } catch (err) {
-                alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
+                alert('⚠️ حدث خطأ أثناء معالجة الملف.');
             }
             event.target.value = '';
         };
