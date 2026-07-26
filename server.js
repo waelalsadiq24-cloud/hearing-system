@@ -31,19 +31,28 @@ app.get('/api/records', async (req, res) => {
         let currentInst = await institutionsCollection.findOne({ id: code });
         if (!currentInst) {
             currentInst = { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' };
+            await institutionsCollection.updateOne({ id: code }, { $set: currentInst }, { upsert: true });
         }
 
         const records = await recordsCollection.find({}).toArray();
-        const devicesCursor = await deviceOptionsCollection.find({}).toArray();
+        let devicesCursor = await deviceOptionsCollection.find({}).toArray();
+        if (devicesCursor.length === 0) {
+            await deviceOptionsCollection.insertMany([
+                { name: 'oticon xceed 3 up' },
+                { name: 'Phonak Naida' },
+                { name: 'Signia Silk' }
+            ]);
+            devicesCursor = await deviceOptionsCollection.find({}).toArray();
+        }
         const deviceOptions = devicesCursor.map(d => d.name);
 
         res.json({
             records: records.map(r => ({ ...r, id: r._id })), 
-            deviceOptions: deviceOptions.length > 0 ? deviceOptions : ['oticon xceed 3 up', 'Phonak Naida'],
+            deviceOptions: deviceOptions,
             currentInstitution: currentInst
         });
     } catch (e) {
-        console.error("Database connection fallback:", e.message);
+        console.error("Database Error:", e.message);
         res.json({
             records: [],
             deviceOptions: ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'],
