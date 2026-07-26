@@ -546,8 +546,8 @@
             const isMyInstitution = (item.institution_id === currentInstitutionId);
             const recordId = item.id || item._id;
 
-            // ضمان التقاط اسم المريض بغض النظر عن طريقة حفظه في قاعدة البيانات
-            const patientNameVal = item.patient_name || item.name || 'غير معروف';
+            // التقاط الاسم بأي شكل متاح لتجنب أي فراغ في الجدول
+            const patientNameVal = item.patient_name || item.name || item.patientName || 'غير معروف';
 
             const fields = [
                 { key: 'patient_name', val: patientNameVal },
