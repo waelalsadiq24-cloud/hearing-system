@@ -52,7 +52,7 @@ app.post('/api/records', async (req, res) => {
     const body = req.body;
 
     if (!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
-        return res.status(400).json({ success: false, error: 'يرجى تعبئة الحقول المطلوبة' });
+        return.status(400).json({ success: false, error: 'يرجى تعبئة الحقول المطلوبة' });
     }
 
     const newRecord = {
@@ -145,8 +145,8 @@ app.delete('/api/clear-records', async (req, res) => {
     }
 });
 
-// مسار حذف آمن ومبسط للغاية يعتمد على الرقم الوطني بدقة
-app.delete('/api/records-safe-delete', async (req, res) => {
+// تحويل مسار الحذف إلى POST لضمان العمل 100% دون أي اعتراض من السيرفر
+app.post('/api/records-safe-delete', async (req, res) => {
     const { national_id } = req.body;
     try {
         const db = await getDB();
