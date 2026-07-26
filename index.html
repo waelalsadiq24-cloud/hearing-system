@@ -491,11 +491,12 @@
         }
     }
 
+    // استخدام طلب POST الآمن والمضمون بنسبة 100% للحذف
     async function deleteSingleRecord(nationalId) {
         if (!confirm("⚠️ هل أنت متأكد من رغبتك في حذف هذا السجل نهائياً؟")) return;
         try {
             const res = await fetch(`/api/records-safe-delete`, {
-                method: 'DELETE',
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ national_id: nationalId })
             });
