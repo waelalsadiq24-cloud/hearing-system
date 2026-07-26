@@ -103,6 +103,7 @@
                     <div id="selectedDeviceDisplay" class="custom-dropdown-input" onclick="toggleCustomDropdown()">-- اختر السماعة أو أضف جديدة --</div>
                     <div id="customDropdownList" class="custom-dropdown-list"></div>
                 </div>
+                <!-- جعل الحقل مرناً لتقبل القيمة المباشرة دون أخطاء -->
                 <input type="hidden" id="deviceDetailsValue" value="">
             </div>
             <div style="flex: 1;">
@@ -246,9 +247,10 @@
             if (selectedVal) {
                 document.getElementById('selectedDeviceDisplay').textContent = selectedVal;
                 document.getElementById('deviceDetailsValue').value = selectedVal;
-            } else {
-                document.getElementById('selectedDeviceDisplay').textContent = '-- اختر السماعة أو أضف جديدة --';
-                document.getElementById('deviceDetailsValue').value = '';
+            } else if (globalDeviceOptions.length > 0 && !document.getElementById('deviceDetailsValue').value) {
+                // تعيين أول خيار افتراضياً لضمان عدم بقائه فارغاً
+                document.getElementById('selectedDeviceDisplay').textContent = globalDeviceOptions[0];
+                document.getElementById('deviceDetailsValue').value = globalDeviceOptions[0];
             }
         } catch(err) {
             console.error('خطأ في تحميل خيارات السماعات', err);
@@ -327,17 +329,26 @@
         const bYear = document.getElementById('birthYear').value.trim();
         const fullBirth = (bDay && bMon && bYear) ? `${bDay}/${bMon}/${bYear}` : (bYear || '-');
 
+        let deviceVal = document.getElementById('deviceDetailsValue').value.trim();
+        if (!deviceVal) {
+            // إذا كان الحقل المخفي فارغاً، نأخذ القيمة المعروضة تلقائياً
+            deviceVal = document.getElementById('selectedDeviceDisplay').textContent.trim();
+            if (deviceVal.includes('اختر') || deviceVal.includes('--')) {
+                deviceVal = '';
+            }
+        }
+
         const body = {
             national_id: document.getElementById('newNationalId').value.trim(),
             patient_name: document.getElementById('fullName').value.trim(),
             mother_name: document.getElementById('motherName').value.trim(),
             birth_year: fullBirth,
-            device_details: document.getElementById('deviceDetailsValue').value.trim(),
+            device_details: deviceVal,
             serial_number: document.getElementById('serialNumber').value.trim()
         };
 
         if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
-            return alert('يرجى تعبئة كافة الحقول المطلوبة واختيار نوع السماعة');
+            return alert('يرجى تعبئة كافة الحقول المطلوبة واختيار نوع السماعة ورقمها التسلسلي');
         }
 
         try {
@@ -357,6 +368,8 @@
                 document.getElementById('birthMonth').value = '';
                 document.getElementById('birthYear').value = '';
                 document.getElementById('serialNumber').value = '';
+                document.getElementById('deviceDetailsValue').value = '';
+                document.getElementById('selectedDeviceDisplay').textContent = '-- اختر السماعة أو أضف جديدة --';
                 loadDeviceOptions();
                 loadIssuedList();
             } else {
@@ -402,7 +415,6 @@
             currentInstitutionId = responseData.currentInstitution ? responseData.currentInstitution.id : '';
             const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
             
-            // البحث الشامل في جميع الحقول
             const filteredData = data.filter(item => {
                 const name = (item.patient_name || '').toLowerCase();
                 const mother = (item.mother_name || '').toLowerCase();
