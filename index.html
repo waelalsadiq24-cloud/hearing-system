@@ -160,8 +160,7 @@
 </div>
 
 <script>
-    let globalDeviceOptions = [];
-    let currentInstitutionId = '';
+    let globalDeviceOptions = ['oticon xceed 3 up', 'oticon get', 'oticon ria2 105', 'oticon ria2 85', 'oticon kit 75', 'Signia Silk', 'Interton BTE Gan290'];
 
     function autoTab(current, nextFieldId, maxLen) {
         if (current.value.length >= maxLen) {
@@ -187,88 +186,70 @@
         }
     };
 
-    async function loadDeviceOptions(selectedVal = '') {
-        try {
-            const code = getInstitutionCode();
-            const res = await fetch(`/api/records?code=${code}`);
-            const data = await res.json();
-            globalDeviceOptions = data.deviceOptions || ['oticon xceed 3 up'];
-            currentInstitutionId = data.currentInstitution ? data.currentInstitution.id : '';
+    function loadDeviceOptions(selectedVal = '') {
+        const listContainer = document.getElementById('customDropdownList');
+        listContainer.innerHTML = '';
+
+        globalDeviceOptions.forEach(opt => {
+            let itemDiv = document.createElement('div');
+            itemDiv.className = 'custom-dropdown-item';
             
-            const listContainer = document.getElementById('customDropdownList');
-            listContainer.innerHTML = '';
-
-            globalDeviceOptions.forEach(opt => {
-                let itemDiv = document.createElement('div');
-                itemDiv.className = 'custom-dropdown-item';
-                
-                let deleteBtn = document.createElement('button');
-                deleteBtn.className = 'btn-delete-device';
-                deleteBtn.innerHTML = '🗑️';
-                deleteBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    if (confirm(`هل أنت متأكد من حذف "${opt}"؟`)) deleteDeviceOption(opt);
-                };
-
-                let textSpan = document.createElement('span');
-                textSpan.className = 'device-text';
-                textSpan.textContent = opt;
-                textSpan.onclick = () => {
-                    document.getElementById('selectedDeviceDisplay').textContent = opt;
-                    document.getElementById('deviceDetailsValue').value = opt;
-                    listContainer.style.display = 'none';
-                };
-
-                let spacer = document.createElement('div');
-                spacer.className = 'spacer-side';
-
-                itemDiv.appendChild(deleteBtn);
-                itemDiv.appendChild(textSpan);
-                itemDiv.appendChild(spacer);
-                listContainer.appendChild(itemDiv);
-            });
-
-            let addItem = document.createElement('div');
-            addItem.className = 'custom-dropdown-item add-new';
-            addItem.textContent = '➕ إضافة سماعة جديدة للقائمة...';
-            addItem.onclick = () => {
-                listContainer.style.display = 'none';
-                addNewDevicePrompt();
+            let deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-delete-device';
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (confirm(`هل أنت متأكد من حذف "${opt}"؟`)) {
+                    globalDeviceOptions = globalDeviceOptions.filter(d => d !== opt);
+                    loadDeviceOptions();
+                }
             };
-            listContainer.appendChild(addItem);
 
-            if (selectedVal) {
-                document.getElementById('selectedDeviceDisplay').textContent = selectedVal;
-                document.getElementById('deviceDetailsValue').value = selectedVal;
-            } else if (globalDeviceOptions.length > 0 && !document.getElementById('deviceDetailsValue').value) {
-                document.getElementById('selectedDeviceDisplay').textContent = globalDeviceOptions[0];
-                document.getElementById('deviceDetailsValue').value = globalDeviceOptions[0];
-            }
-        } catch(err) {}
-    }
+            let textSpan = document.createElement('span');
+            textSpan.className = 'device-text';
+            textSpan.textContent = opt;
+            textSpan.onclick = () => {
+                document.getElementById('selectedDeviceDisplay').textContent = opt;
+                document.getElementById('deviceDetailsValue').value = opt;
+                listContainer.style.display = 'none';
+            };
 
-    async function addNewDevicePrompt() {
-        const newDeviceName = prompt("أدخل اسم السماعة الجديدة:");
-        if (newDeviceName && newDeviceName.trim() !== "") {
-            const trimmedName = newDeviceName.trim();
-            const code = getInstitutionCode();
-            await fetch(`/api/devices-options?code=${code}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device: trimmedName })
-            });
-            loadDeviceOptions(trimmedName);
+            let spacer = document.createElement('div');
+            spacer.className = 'spacer-side';
+
+            itemDiv.appendChild(deleteBtn);
+            itemDiv.appendChild(textSpan);
+            itemDiv.appendChild(spacer);
+            listContainer.appendChild(itemDiv);
+        });
+
+        let addItem = document.createElement('div');
+        addItem.className = 'custom-dropdown-item add-new';
+        addItem.textContent = '➕ إضافة سماعة جديدة للقائمة...';
+        addItem.onclick = () => {
+            listContainer.style.display = 'none';
+            addNewDevicePrompt();
+        };
+        listContainer.appendChild(addItem);
+
+        if (selectedVal) {
+            document.getElementById('selectedDeviceDisplay').textContent = selectedVal;
+            document.getElementById('deviceDetailsValue').value = selectedVal;
+        } else if (globalDeviceOptions.length > 0 && !document.getElementById('deviceDetailsValue').value) {
+            document.getElementById('selectedDeviceDisplay').textContent = globalDeviceOptions[0];
+            document.getElementById('deviceDetailsValue').value = globalDeviceOptions[0];
         }
     }
 
-    async function deleteDeviceOption(deviceName) {
-        const code = getInstitutionCode();
-        await fetch(`/api/devices-options?code=${code}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device: deviceName })
-        });
-        loadDeviceOptions();
+    function addNewDevicePrompt() {
+        const newDeviceName = prompt("أدخل اسم السماعة الجديدة:");
+        if (newDeviceName && newDeviceName.trim() !== "") {
+            const trimmedName = newDeviceName.trim();
+            if (!globalDeviceOptions.includes(trimmedName)) {
+                globalDeviceOptions.push(trimmedName);
+            }
+            loadDeviceOptions(trimmedName);
+        }
     }
 
     function calculateAge(birthStr) {
@@ -289,39 +270,40 @@
         return 3;
     }
 
-    async function searchPatient() {
+    function searchPatient() {
         const id = document.getElementById('searchId').value.trim();
         const code = getInstitutionCode();
         if(!id) return alert('يرجى إدخال الرقم الوطني للبحث');
 
-        const res = await fetch(`/api/check-patient/${id}?code=${code}`);
-        const data = await res.json();
+        let storageKey = `local_records_${code}`;
+        let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        let record = localRecords.find(r => String(r.national_id) === String(id));
+
         const box = document.getElementById('searchResult');
         box.style.display = 'block';
 
-        if(!data.found) {
+        if(!record) {
             box.className = 'result-box eligible';
             box.innerHTML = `✅ المريض غير مسجل مسبقاً ويمكنه الاستلام.`;
         } else {
-            let lastRecord = data.record;
-            let birthVal = lastRecord.birth_year || '-';
-            let studentVal = lastRecord.is_student || 'yes';
+            let birthVal = record.birth_year || '-';
+            let studentVal = record.is_student || 'yes';
             let age = calculateAge(birthVal);
             let requiredYears = getRequiredYears(age, studentVal);
-            let diffYears = (new Date() - new Date(lastRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
+            let diffYears = (new Date() - new Date(record.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
             if (diffYears >= requiredYears) {
                 box.className = 'result-box eligible';
-                box.innerHTML = `✅ المريض مستحق! آخر صرف كان بتاريخ ${lastRecord.date.split('T')[0]} وفترة الاستحقاق هي ${requiredYears} سنوات.`;
+                box.innerHTML = `✅ المريض مستحق! آخر صرف كان بتاريخ ${record.date.split('T')[0]} وفترة الاستحقاق هي ${requiredYears} سنوات.`;
             } else {
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 box.className = 'result-box not-eligible';
-                box.innerHTML = `⚠️ المريض غير مستحق حالياً! استلم بتاريخ ${lastRecord.date.split('T')[0]}. متبقي حوالي ${remainingYears} سنة.`;
+                box.innerHTML = `⚠️ المريض غير مستحق حالياً! استلم بتاريخ ${record.date.split('T')[0]}. متبقي حوالي ${remainingYears} سنة.`;
             }
         }
     }
 
-    async function checkPatientEligibilityLive() {
+    function checkPatientEligibilityLive() {
         const id = document.getElementById('newNationalId').value.trim();
         const warningBox = document.getElementById('registrationWarning');
         const issueBtn = document.getElementById('issueBtn');
@@ -334,21 +316,21 @@
             return;
         }
 
-        const res = await fetch(`/api/check-patient/${id}?code=${code}`);
-        const data = await res.json();
+        let storageKey = `local_records_${code}`;
+        let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        let record = localRecords.find(r => String(r.national_id) === String(id));
 
-        if (data.found) {
-            let lastRecord = data.record;
-            let age = calculateAge(lastRecord.birth_year || '-');
+        if (record) {
+            let age = calculateAge(record.birth_year || '-');
             let studentVal = document.getElementById('isStudent').value;
             let requiredYears = getRequiredYears(age, studentVal);
-            let diffYears = (new Date() - new Date(lastRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
+            let diffYears = (new Date() - new Date(record.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
             if (diffYears < requiredYears) {
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 warningBox.style.display = 'block';
                 warningBox.className = 'result-box not-eligible';
-                warningBox.innerHTML = `⚠️ تنبيه منع الصرف: غير مستحق! استلم بتاريخ ${lastRecord.date.split('T')[0]}. متبقي ${remainingYears} سنة.`;
+                warningBox.innerHTML = `⚠️ تنبيه منع الصرف: غير مستحق! استلم بتاريخ ${record.date.split('T')[0]}. متبقي ${remainingYears} سنة.`;
                 issueBtn.disabled = true;
                 issueBtn.style.opacity = '0.5';
                 return;
@@ -360,7 +342,7 @@
         issueBtn.style.opacity = '1';
     }
 
-    async function registerAndIssue() {
+    function registerAndIssue() {
         const body = {
             national_id: document.getElementById('newNationalId').value.trim(),
             patient_name: document.getElementById('fullName').value.trim(),
@@ -368,7 +350,9 @@
             birth_year: (document.getElementById('birthDay').value && document.getElementById('birthMonth').value && document.getElementById('birthYear').value) ? `${document.getElementById('birthDay').value}/${document.getElementById('birthMonth').value}/${document.getElementById('birthYear').value}` : (document.getElementById('birthYear').value || '-'),
             is_student: document.getElementById('isStudent').value,
             device_details: document.getElementById('deviceDetailsValue').value || document.getElementById('selectedDeviceDisplay').textContent,
-            serial_number: document.getElementById('serialNumber').value.trim()
+            serial_number: document.getElementById('serialNumber').value.trim(),
+            date: new Date().toISOString(),
+            institution_name: getInstitutionCode() === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب'
         };
 
         if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
@@ -376,31 +360,26 @@
         }
 
         const code = getInstitutionCode();
-        const res = await fetch(`/api/records?code=${code}`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        if(data.success) {
-            alert('✅ ' + data.message);
-            document.getElementById('newNationalId').value = '';
-            document.getElementById('fullName').value = '';
-            document.getElementById('motherName').value = '';
-            document.getElementById('birthDay').value = '';
-            document.getElementById('birthMonth').value = '';
-            document.getElementById('birthYear').value = '';
-            document.getElementById('serialNumber').value = '';
-            document.getElementById('registrationWarning').style.display = 'none';
-            document.getElementById('issueBtn').disabled = false;
-            document.getElementById('issueBtn').style.opacity = '1';
-            loadIssuedList();
-        } else {
-            alert('❌ ' + (data.error || 'فشل الحفظ'));
-        }
+        let storageKey = `local_records_${code}`;
+        let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        localRecords.unshift(body);
+        localStorage.setItem(storageKey, JSON.stringify(localRecords));
+
+        alert('✅ تم حفظ وصرف السماعة بنجاح');
+        document.getElementById('newNationalId').value = '';
+        document.getElementById('fullName').value = '';
+        document.getElementById('motherName').value = '';
+        document.getElementById('birthDay').value = '';
+        document.getElementById('birthMonth').value = '';
+        document.getElementById('birthYear').value = '';
+        document.getElementById('serialNumber').value = '';
+        document.getElementById('registrationWarning').style.display = 'none';
+        document.getElementById('issueBtn').disabled = false;
+        document.getElementById('issueBtn').style.opacity = '1';
+        loadIssuedList();
     }
 
-    // 🚀 دالة استيراد مخصصة تقرأ كافة السجلات وتمنع تكرار المفاتيح لضمان عرض جميع الأسماء (8000+ اسم)
+    // 🚀 دالة الاستيراد المحلية الصاروخية الخالية من أي أخطاء سيرفر
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -451,7 +430,7 @@
                             is_student: 'yes',
                             device_details: device,
                             serial_number: serial,
-                            date: typeof dateVal === 'string' && dateVal.includes('/') ? new Date(dateVal).toISOString() : new Date().toISOString(),
+                            date: new Date().toISOString(),
                             institution_name: institutionName
                         });
                     }
@@ -465,7 +444,6 @@
 
                 let storageKey = `local_records_${code}`;
                 let existingLocal = JSON.parse(localStorage.getItem(storageKey) || '[]');
-                // إضافة السجلات الجديدة للمتصفح مباشرة
                 let combined = [...parsedRecords, ...existingLocal];
                 localStorage.setItem(storageKey, JSON.stringify(combined));
 
@@ -479,33 +457,22 @@
         };
     }
 
-    async function clearAllRecords() {
+    function clearAllRecords() {
         if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات؟")) {
             const code = getInstitutionCode();
             localStorage.removeItem(`local_records_${code}`);
-            try {
-                await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
-            } catch(e) {}
             alert('✅ تم حذف كافة السجلات بنجاح.');
             loadIssuedList();
         }
     }
 
-    async function deleteSingleRecord(nationalId) {
+    function deleteSingleRecord(nationalId) {
         if (!confirm("⚠️ هل أنت متأكد من رغبتك في حذف هذا السجل نهائياً؟")) return;
         const code = getInstitutionCode();
         let storageKey = `local_records_${code}`;
         let localData = JSON.parse(localStorage.getItem(storageKey) || '[]');
         localData = localData.filter(r => String(r.national_id) !== String(nationalId));
         localStorage.setItem(storageKey, JSON.stringify(localData));
-
-        try {
-            await fetch(`/api/records-safe-delete`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ national_id: nationalId })
-            });
-        } catch(e) {}
 
         alert('✅ تم حذف السجل بنجاح.');
         loadIssuedList();
@@ -515,20 +482,10 @@
         loadIssuedList();
     }
 
-    async function loadIssuedList() {
+    function loadIssuedList() {
         const code = getInstitutionCode();
-        let serverRecords = [];
-        try {
-            const res = await fetch(`/api/records?code=${code}`);
-            const responseData = await res.json();
-            serverRecords = responseData.records || [];
-        } catch (e) {}
-
         let storageKey = `local_records_${code}`;
-        let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        
-        // دمج القوائم بشكل مصفوفة كاملة بدون ضياع أي سجل
-        let data = [...localRecords, ...serverRecords];
+        let data = JSON.parse(localStorage.getItem(storageKey) || '[]');
 
         const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
         
