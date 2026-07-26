@@ -422,7 +422,7 @@
         }
     }
 
-    // دالة استيراد متوافقة تماماً مع ترتيب الأعمدة في صورتك (A: الاسم، B: الأم، C: الرقم الوطني، D: التاريخ، E: السماعة، F/G: السيريال)
+    // دالة استيراد ذكية تطابق الأعمدة بالأسماء بغض النظر عن ترتيبها أو أعمدة السريال المتكررة
     function importExcelFile(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -435,42 +435,47 @@
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
-                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                // قراءة البيانات ككائنات بأسماء العناوين
+                const rows = XLSX.utils.sheet_to_json(worksheet);
 
                 if (rows.length === 0) {
-                    return alert('ملف الاكسل فارغ!');
+                    return alert('ملف الاكسل فارغ أو لا يحتوي على صفوف بيانات!');
                 }
 
                 let successCount = 0;
                 const code = getInstitutionCode();
 
-                let startIndex = 0;
-                let firstRow = rows[0];
-                if (firstRow && (String(firstRow[0]).includes('الاسم') || String(firstRow[0]).includes('المريض') || String(firstRow[1]).includes('الأم'))) {
-                    startIndex = 1; // تخطي صف العناوين
-                }
+                for (let row of rows) {
+                    // البحث الذكي عن المفتاح بغض النظر عن المسافات أو التسمية الدقيقة
+                    let keys = Object.keys(row);
+                    
+                    let getVal = (keywords) => {
+                        for (let k of keys) {
+                            for (let kw of keywords) {
+                                if (k.trim().includes(kw)) {
+                                    return String(row[k] || '').trim();
+                                }
+                            }
+                        }
+                        return '';
+                    };
 
-                for (let i = startIndex; i < rows.length; i++) {
-                    let r = rows[i];
-                    if (!r || r.length === 0) continue;
-
-                    // مطابقة الأعمدة حسب ترتيب ملفك (A=0, B=1, C=2, D=3, E=4, F=5)
-                    const patName = String(r[0] || '').trim(); // العمود A: اسم المريض
-                    const momName = String(r[1] || '-').trim(); // العمود B: اسم الأم
-                    const natId = String(r[2] || '').trim();   // العمود C: الرقم الوطني
-                    const birth = String(r[3] || '-').trim();  // العمود D: تاريخ الولادة
-                    const device = String(r[4] || 'oticon xceed 3 up').trim(); // العمود E: تفاصيل السماعة
-                    const serial = String(r[5] || r[6] || '0000').trim(); // العمود F أو G: الرقم التسلسلي S.N
+                    const patName = getVal(['اسم المريض', 'الاسم', 'المريض']);
+                    const momName = getVal(['اسم الأم', 'الأم']);
+                    const natId = getVal(['الرقم الوطني', 'الرقم', 'وطني']);
+                    const birth = getVal(['تاريخ الولادة', 'المواليد', 'الولادة']);
+                    const device = getVal(['تفاصيل السماعة', 'السماعة', 'نوع']);
+                    const serial = getVal(['الرقم السري', 'سري', 'S.N', 'الرقم التسلسلي', 'السيريال']);
 
                     if (patName) {
                         const recordBody = {
                             national_id: natId || 'غير متوفر',
                             patient_name: patName,
-                            mother_name: momName,
-                            birth_year: birth,
+                            mother_name: momName || '-',
+                            birth_year: birth || '-',
                             is_student: 'yes',
-                            device_details: device,
-                            serial_number: serial
+                            device_details: device || 'oticon xceed 3 up',
+                            serial_number: serial || '0000'
                         };
 
                         const res = await fetch(`/api/records?code=${code}`, {
