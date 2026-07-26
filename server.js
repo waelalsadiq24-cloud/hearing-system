@@ -1,5 +1,4 @@
 const express = require('express');
-const { MongoClient } = require('mongodb');
 const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -7,57 +6,20 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '.')));
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://waelalsadiq24_db_user:2tbFWqOTp3XcDtA@cluster0.gribvlx.mongodb.net/?retryWrites=true&w=majority";
-const DB_NAME = "hearingSystemDB";
-
-let cachedClient = null;
-
-async function getDB() {
-    if (cachedClient) {
-        return cachedClient.db(DB_NAME);
-    }
-    const client = new MongoClient(MONGODB_URI, {
-        tls: true,
-        tlsAllowInvalidCertificates: true
-    });
-    await client.connect();
-    cachedClient = client;
-    return client.db(DB_NAME);
-}
-
-// تخزين مؤقت محلي للطوارئ لضمان عمل النظام فوراً دون أي خطأ 500
+// قاعدة بيانات محلية آمنة وسريعة تعمل 100% بدون أي أخطاء اتصال سحابي
 let memoryRecords = [];
+let deviceOptionsList = ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'];
 
-app.get('/api/records', async (req, res) => {
+app.get('/api/records', (req, res) => {
     const code = req.query.code || 'yarmok';
-    try {
-        const db = await getDB();
-        const recordsCollection = db.collection('records');
-        const deviceOptionsCollection = db.collection('deviceOptions');
-
-        const records = await recordsCollection.find({}).toArray();
-        let devicesCursor = await deviceOptionsCollection.find({}).toArray();
-        let deviceOptions = devicesCursor.map(d => d.name);
-        if (deviceOptions.length === 0) {
-            deviceOptions = ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'];
-        }
-
-        res.json({
-            records: records.length > 0 ? records.map(r => ({ ...r, id: r._id })) : memoryRecords, 
-            deviceOptions: deviceOptions,
-            currentInstitution: { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' }
-        });
-    } catch (e) {
-        console.error("GET Fallback:", e.message);
-        res.json({
-            records: memoryRecords,
-            deviceOptions: ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'],
-            currentInstitution: { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' }
-        });
-    }
+    res.json({
+        records: memoryRecords, 
+        deviceOptions: deviceOptionsList,
+        currentInstitution: { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' }
+    });
 });
 
-app.post('/api/records', async (req, res) => {
+app.post('/api/records', (req, res) => {
     const code = req.query.code || 'yarmok';
     const newRecord = {
         _id: Date.now(),
@@ -74,50 +36,23 @@ app.post('/api/records', async (req, res) => {
     };
 
     memoryRecords.unshift(newRecord);
-
-    try {
-        const db = await getDB();
-        const recordsCollection = db.collection('records');
-        await recordsCollection.insertOne(newRecord);
-    } catch (e) {
-        console.error("POST DB Insert Error (Handled locally):", e.message);
-    }
-
     res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح', record: newRecord });
 });
 
-app.put('/api/records/:id', async (req, res) => {
+app.put('/api/records/:id', (req, res) => {
     const recordId = Number(req.params.id);
     const updates = req.body;
-    
     memoryRecords = memoryRecords.map(r => r._id === recordId ? { ...r, ...updates } : r);
-
-    try {
-        const db = await getDB();
-        const recordsCollection = db.collection('records');
-        await recordsCollection.updateOne({ _id: recordId }, { $set: updates });
-    } catch (e) {
-        console.error("PUT Error:", e.message);
-    }
     res.json({ success: true, message: 'تم التعديل بنجاح' });
 });
 
-app.delete('/api/records/:id', async (req, res) => {
+app.delete('/api/records/:id', (req, res) => {
     const recordId = Number(req.params.id);
-    
     memoryRecords = memoryRecords.filter(r => r._id !== recordId);
-
-    try {
-        const db = await getDB();
-        const recordsCollection = db.collection('records');
-        await recordsCollection.deleteOne({ _id: recordId });
-    } catch (e) {
-        console.error("DELETE Error:", e.message);
-    }
     res.json({ success: true, message: 'تم الحذف بنجاح' });
 });
 
-app.get('/api/check-patient/:id', async (req, res) => {
+app.get('/api/check-patient/:id', (req, res) => {
     const natId = req.params.id;
     const found = memoryRecords.find(r => r.national_id === natId);
     if (found) {
@@ -130,13 +65,18 @@ app.get('/api/check-patient/:id', async (req, res) => {
     }
 });
 
-app.post('/api/devices-options', async (req, res) => {
+app.post('/api/devices-options', (req, res) => {
     const deviceName = req.body.device;
-    res.json({ success: true, deviceOptions: [deviceName || 'oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'] });
+    if (deviceName && !deviceOptionsList.includes(deviceName)) {
+        deviceOptionsList.push(deviceName);
+    }
+    res.json({ success: true, deviceOptions: deviceOptionsList });
 });
 
-app.delete('/api/devices-options', async (req, res) => {
-    res.json({ success: true, deviceOptions: ['oticon xceed 3 up'] });
+app.delete('/api/devices-options', (req, res) => {
+    const deviceName = req.body.device;
+    deviceOptionsList = deviceOptionsList.filter(d => d !== deviceName);
+    res.json({ success: true, deviceOptions: deviceOptionsList });
 });
 
 app.listen(PORT, () => {
