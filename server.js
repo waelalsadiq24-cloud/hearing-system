@@ -51,11 +51,8 @@ app.get('/api/records', async (req, res) => {
             currentInstitution: currentInst
         });
     } catch (e) {
-        res.json({
-            records: [],
-            deviceOptions: ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'],
-            currentInstitution: { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' }
-        });
+        console.error("GET Error:", e.message);
+        res.status(500).json({ error: 'خطأ في الاتصال بقاعدة البيانات' });
     }
 });
 
@@ -82,21 +79,7 @@ app.post('/api/records', async (req, res) => {
         res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح في السحاب', record: { ...newRecord, id: newRecord._id } });
     } catch (e) {
         console.error("POST Error:", e.message);
-        // حفظ احتياطي مؤقت لضمان عدم توقف النظام حتى لو حدث ضغط على الاتصال
-        res.json({ 
-            success: true, 
-            message: 'تم حفظ وصرف السماعة بنجاح', 
-            record: { 
-                _id: Date.now(),
-                national_id: req.body.national_id,
-                patient_name: req.body.patient_name,
-                device_details: req.body.device_details,
-                serial_number: req.body.serial_number,
-                date: new Date().toISOString(),
-                institution_name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب',
-                id: Date.now()
-            } 
-        });
+        res.status(500).json({ success: false, error: 'خطأ أثناء الحفظ في قاعدة البيانات: ' + e.message });
     }
 });
 
@@ -109,7 +92,7 @@ app.put('/api/records/:id', async (req, res) => {
         await recordsCollection.updateOne({ _id: recordId }, { $set: updates });
         res.json({ success: true, message: 'تم التعديل بنجاح' });
     } catch (e) {
-        res.json({ success: true, message: 'تم التعديل بنجاح' });
+        res.status(500).json({ success: false, error: 'خطأ أثناء التعديل' });
     }
 });
 
@@ -121,7 +104,7 @@ app.delete('/api/records/:id', async (req, res) => {
         await recordsCollection.deleteOne({ _id: recordId });
         res.json({ success: true, message: 'تم الحذف بنجاح' });
     } catch (e) {
-        res.json({ success: true, message: 'تم الحذف بنجاح' });
+        res.status(500).json({ success: false, error: 'خطأ أثناء الحذف' });
     }
 });
 
@@ -140,7 +123,7 @@ app.get('/api/check-patient/:id', async (req, res) => {
             res.json({ received: false, message: 'المريض غير مسجل مسبقاً ويمكنه الاستلام.' });
         }
     } catch (e) {
-        res.json({ received: false, message: 'المريض غير مسجل مسبقاً ويمكنه الاستلام.' });
+        res.json({ received: false, message: 'المريض غير مسجل مسبقاً.' });
     }
 });
 
@@ -158,7 +141,7 @@ app.post('/api/devices-options', async (req, res) => {
         const devicesCursor = await deviceOptionsCollection.find({}).toArray();
         res.json({ success: true, deviceOptions: devicesCursor.map(d => d.name) });
     } catch (e) {
-        res.json({ success: true, deviceOptions: [deviceName || 'oticon xceed 3 up'] });
+        res.status(500).json({ success: false });
     }
 });
 
@@ -171,7 +154,7 @@ app.delete('/api/devices-options', async (req, res) => {
         const devicesCursor = await deviceOptionsCollection.find({}).toArray();
         res.json({ success: true, deviceOptions: devicesCursor.map(d => d.name) });
     } catch (e) {
-        res.json({ success: true, deviceOptions: [] });
+        res.status(500).json({ success: false });
     }
 });
 
