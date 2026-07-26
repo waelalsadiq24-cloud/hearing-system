@@ -73,7 +73,7 @@
         <div class="row">
             <div>
                 <label>الرقم الوطني:</label>
-                <input type="text" id="newNationalId" placeholder="الرقم الوطني">
+                <input type="text" id="newNationalId" placeholder="الرقم الوطني" oninput="checkPatientEligibilityLive()">
             </div>
             <div>
                 <label>اسم المريض:</label>
@@ -92,14 +92,14 @@
                     <span>/</span>
                     <input type="text" id="birthMonth" placeholder="الشهر" maxlength="2" oninput="autoTab(this, 'birthYear', 2)">
                     <span>/</span>
-                    <input type="text" id="birthYear" placeholder="السنة" maxlength="4">
+                    <input type="text" id="birthYear" placeholder="السنة" maxlength="4" oninput="checkPatientEligibilityLive()">
                 </div>
             </div>
         </div>
         <div class="row">
             <div>
                 <label>هل المريض طالب؟</label>
-                <select id="isStudent">
+                <select id="isStudent" onchange="checkPatientEligibilityLive()">
                     <option value="yes">نعم (طالب)</option>
                     <option value="no">ليس طالب</option>
                 </select>
@@ -120,7 +120,8 @@
             </div>
         </div>
 
-        <button class="btn-issue" onclick="registerAndIssue()">حفظ وصرف السماعة</button>
+        <div id="registrationWarning" class="result-box" style="margin-top: 10px;"></div>
+        <button class="btn-issue" id="issueBtn" onclick="registerAndIssue()">حفظ وصرف السماعة</button>
     </div>
 
     <div class="card">
@@ -307,7 +308,6 @@
         }
     }
 
-    // حساب العمر بدقة من تاريخ الولادة (يوم/شهر/سنة أو سنة فقط)
     function calculateAge(birthStr) {
         if (!birthStr || birthStr === '-') return 0;
         let year = 0;
@@ -322,23 +322,12 @@
         return currentYear - year;
     }
 
-    // حساب فترة الاستحقاق بناءً على القواعد الجديدة
     function getRequiredYears(age, isStudent) {
-        // إذا كان عمره 7 سنوات فما فوق وليس طالبا -> 4 سنوات
-        if (age >= 7 && isStudent === 'no') {
-            return 4;
-        }
-        // إذا كان العمر أقل من 7 سنوات (أو حتى 7 سنوات وطالب)
-        // ولكن إذا وصل لعمر 7 سنوات وليس طالبا تحولت إلى 4، أما إذا كان طالبا أو أصغر فتبقى 3 سنوات
-        if (age >= 7 && isStudent === 'yes') {
-            return 3; // الطالب يبقى على الـ 3 سنوات
-        }
-        if (age < 7) {
-            return 3; // أقل من 7 سنوات الاستحقاق 3 سنوات
-        }
+        if (age >= 7 && isStudent === 'no') return 4;
         return 3;
     }
 
+    // فحص الاستحقاق للبخش الأول
     async function searchPatient() {
         const id = document.getElementById('searchId').value.trim();
         const code = getInstitutionCode();
@@ -357,7 +346,7 @@
             } else {
                 let lastRecord = data.record;
                 let birthVal = lastRecord.birth_year || '-';
-                let studentVal = lastRecord.is_student || 'yes';
+                let studentVal = document.getElementById('isStudent') ? document.getElementById('isStudent').value : (lastRecord.is_student || 'yes');
                 let age = calculateAge(birthVal);
                 let requiredYears = getRequiredYears(age, studentVal);
 
@@ -368,11 +357,11 @@
 
                 if (diffYears >= requiredYears) {
                     box.className = 'result-box eligible';
-                    box.innerHTML = `✅ المريض مستحق! آخر صرف كان بتاريخ ${lastRecord.date.split('T')[0]} (مضت ${Math.فloor ? Math.floor(diffYears) : parseInt(diffYears)} سنوات، وفترة الاستحقاق المطلوبة لعمره/حالته هي ${requiredYears} سنوات).`;
+                    box.innerHTML = `✅ المريض مستحق! آخر صرف كان بتاريخ ${lastRecord.date.split('T')[0]} وفترة الاستحقاق هي ${requiredYears} سنوات.`;
                 } else {
                     let remainingYears = (requiredYears - diffYears).toFixed(1);
                     box.className = 'result-box not-eligible';
-                    box.innerHTML = `⚠️ المريض غير مستحق حالياً! استلم سماعة بتاريخ ${lastRecord.date.split('T')[0]}. الشروط تنص على استحقاق كل ${requiredYears} سنوات لعمره وحالته، ويتبقى على استحقاقه حوالي ${remainingYears} سنة.`;
+                    box.innerHTML = `⚠️ المريض غير مستحق حالياً! استلم سماعة بتاريخ ${lastRecord.date.split('T')[0]}. الشروط تنص على استحقاق كل ${requiredYears} سنوات، ويتبقى حوالي ${remainingYears} سنة.`;
                 }
             }
         } catch(err) {
@@ -380,7 +369,59 @@
         }
     }
 
+    // فحص الاستحقاق التلقائي أثناء كتابة الرقم الوطني في قسم التسجيل لمنع الصرف المخالف
+    async function checkPatientEligibilityLive() {
+        const id = document.getElementById('newNationalId').value.trim();
+        const warningBox = document.getElementById('registrationWarning');
+        const issueBtn = document.getElementById('issueBtn');
+        const code = getInstitutionCode();
+
+        if (id.length < 3) {
+            warningBox.style.display = 'none';
+            issueBtn.disabled = false;
+            issueBtn.style.opacity = '1';
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/check-patient/${id}?code=${code}`);
+            const data = await res.json();
+
+            if (data.found) {
+                let lastRecord = data.record;
+                let birthVal = lastRecord.birth_year || '-';
+                let studentVal = document.getElementById('isStudent').value;
+                let age = calculateAge(birthVal);
+                let requiredYears = getRequiredYears(age, studentVal);
+
+                let lastDate = new Date(lastRecord.date);
+                let currentDate = new Date();
+                let diffTime = currentDate - lastDate;
+                let diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+
+                if (diffYears < requiredYears) {
+                    let remainingYears = (requiredYears - diffYears).toFixed(1);
+                    warningBox.style.display = 'block';
+                    warningBox.className = 'result-box not-eligible';
+                    warningBox.innerHTML = `⚠️ تنبيه منع الصرف: هذا المريض غير مستحق! استلم مسبقاً بتاريخ ${lastRecord.date.split('T')[0]} ولا تحل مدة استحقاقه (${requiredYears} سنوات). متبقي ${remainingYears} سنة.`;
+                    issueBtn.disabled = true;
+                    issueBtn.style.opacity = '0.5';
+                    issueBtn.title = "ممنوع الصرف - المريض غير مستحق";
+                    return;
+                }
+            }
+
+            warningBox.style.display = 'none';
+            issueBtn.disabled = false;
+            issueBtn.style.opacity = '1';
+            issueBtn.title = "";
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
     async function registerAndIssue() {
+        const natId = document.getElementById('newNationalId').value.trim();
         const bDay = document.getElementById('birthDay').value.trim();
         const bMon = document.getElementById('birthMonth').value.trim();
         const bYear = document.getElementById('birthYear').value.trim();
@@ -395,7 +436,7 @@
         }
 
         const body = {
-            national_id: document.getElementById('newNationalId').value.trim(),
+            national_id: natId,
             patient_name: document.getElementById('fullName').value.trim(),
             mother_name: document.getElementById('motherName').value.trim(),
             birth_year: fullBirth,
@@ -408,8 +449,22 @@
             return alert('يرجى تعبئة كافة الحقول المطلوبة واختيار نوع السماعة ورقمها التسلسلي');
         }
 
+        // التحقق الإضافي المانع قبل الإرسال النهائي
+        const code = getInstitutionCode();
         try {
-            const code = getInstitutionCode();
+            const checkRes = await fetch(`/api/check-patient/${natId}?code=${code}`);
+            const checkData = await checkRes.json();
+            if (checkData.found) {
+                let lastRecord = checkData.record;
+                let age = calculateAge(lastRecord.birth_year || '-');
+                let requiredYears = getRequiredYears(age, body.is_student);
+                let diffYears = (new Date() - new Date(lastRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
+                if (diffYears < requiredYears) {
+                    alert('❌ عذراً، لا يمكن صرف سماعة جديدة لأن المريض غير مستحق بناءً على شروط المدة الزمنية!');
+                    return;
+                }
+            }
+
             const res = await fetch(`/api/records?code=${code}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -427,6 +482,9 @@
                 document.getElementById('serialNumber').value = '';
                 document.getElementById('deviceDetailsValue').value = '';
                 document.getElementById('selectedDeviceDisplay').textContent = '-- اختر السماعة أو أضف جديدة --';
+                document.getElementById('registrationWarning').style.display = 'none';
+                document.getElementById('issueBtn').disabled = false;
+                document.getElementById('issueBtn').style.opacity = '1';
                 loadDeviceOptions();
                 loadIssuedList();
             } else {
