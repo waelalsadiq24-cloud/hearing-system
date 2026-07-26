@@ -400,6 +400,7 @@
         }
     }
 
+    // دالة استيراد مقسمة إلى دفعات صغيرة جداً (10 سجلات) مع فترة انتظار لتجاوز قيود Render تماماً
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -451,7 +452,7 @@
                     return;
                 }
 
-                const batchSize = 50;
+                const batchSize = 10; // 10 سجلات في كل دفعة لمنع خطأ 502 Bad Gateway نهائياً
                 let totalImported = 0;
 
                 for (let i = 0; i < parsedRecords.length; i += batchSize) {
@@ -467,6 +468,9 @@
                     if (result.success) {
                         totalImported += batch.length;
                     }
+
+                    // الانتظار 100 ميلي ثانية بين كل دفعة وأخرى لراحة السيرفر
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
 
                 alert(`🎉 تم استيراد وحفظ ${totalImported} سجل بنجاح تام وعرضها في الجدول!`);
