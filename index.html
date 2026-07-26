@@ -35,12 +35,7 @@
         th, td { padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 13px; color: #333; }
         th { background-color: #34495e; color: white; }
         tr:nth-child(even) { background-color: #f9f9f9; }
-        .editable-cell { cursor: pointer; }
-        .editable-cell:hover { background-color: #e8f8f5; }
         
-        .cell-input { width: calc(100% - 45px); padding: 4px; font-size: 12px; text-align: center; border: 2px solid #27ae60; border-radius: 3px; background: #ffffd8; display: inline-block; vertical-align: middle; }
-        .btn-cell-save { background-color: #27ae60; color: white; border: none; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-top: 0; width: auto; display: inline-block; vertical-align: middle; margin-right: 3px; }
-
         .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
         .birth-group input { text-align: center; margin-top: 0; }
 
@@ -162,7 +157,6 @@
 </div>
 
 <script>
-    let activeCell = null;
     let globalDeviceOptions = [];
     let currentInstitutionId = '';
 
@@ -195,7 +189,7 @@
             const code = getInstitutionCode();
             const res = await fetch(`/api/records?code=${code}`);
             const data = await res.json();
-            globalDeviceOptions = data.deviceOptions || [];
+            globalDeviceOptions = data.deviceOptions || ['oticon xceed 3 up'];
             currentInstitutionId = data.currentInstitution ? data.currentInstitution.id : '';
             
             const listContainer = document.getElementById('customDropdownList');
@@ -311,7 +305,6 @@
             let studentVal = lastRecord.is_student || 'yes';
             let age = calculateAge(birthVal);
             let requiredYears = getRequiredYears(age, studentVal);
-
             let diffYears = (new Date() - new Date(lastRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
             if (diffYears >= requiredYears) {
@@ -436,10 +429,11 @@
 
                     if (patName && patName !== 'undefined' && patName !== '') {
                         parsedRecords.push({
+                            national_id: natId,
                             patient_name: patName,
                             mother_name: momName,
-                            national_id: natId,
                             birth_year: birth,
+                            is_student: 'yes',
                             device_details: device,
                             serial_number: serial
                         });
@@ -447,7 +441,7 @@
                 }
 
                 if (parsedRecords.length === 0) {
-                    return alert('⚠️ لم يتم قراءة أي بيانات. تأكد أن الأعمدة مفصولة بفواصل صحيحة.');
+                    return alert('⚠️ لم يتم قراءة أي بيانات. تأكد من صيغة الملف.');
                 }
 
                 const chunkSize = 100;
@@ -494,20 +488,6 @@
         }
     }
 
-    async function updateCellData(id, fieldName, newValue) {
-        const code = getInstitutionCode();
-        const res = await fetch(`/api/records/${id}?code=${code}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ [fieldName]: newValue })
-        });
-        const data = await res.json();
-        if (data.success) {
-            activeCell = null;
-            loadIssuedList();
-        }
-    }
-
     function filterTableLive() {
         loadIssuedList();
     }
@@ -518,7 +498,6 @@
         const responseData = await res.json();
         
         const data = responseData.records || [];
-        currentInstitutionId = responseData.currentInstitution ? responseData.currentInstitution.id : '';
         const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
         
         const filteredData = data.filter(item => {
@@ -543,57 +522,24 @@
             const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
             let tr = document.createElement('tr');
 
-            const isMyInstitution = (item.institution_id === currentInstitutionId);
-            const recordId = item.id || item._id;
+            // التقاط الاسم بشكل مؤكد وبصرف النظر عن المفتاح المخزن
+            let nameValue = item.patient_name || item.name || item.patientName || 'غير معروف';
+            let motherValue = item.mother_name || item.motherName || '-';
+            let natIdValue = item.national_id || item.nationalId || '-';
+            let birthValue = item.birth_year || item.birthYear || '-';
+            let deviceValue = item.device_details || item.deviceDetails || '-';
+            let serialValue = item.serial_number || item.serialNumber || '-';
 
-            // التقاط الاسم بأي شكل متاح لتجنب أي فراغ في الجدول
-            const patientNameVal = item.patient_name || item.name || item.patientName || 'غير معروف';
-
-            const fields = [
-                { key: 'patient_name', val: patientNameVal },
-                { key: 'mother_name', val: item.mother_name || '-' },
-                { key: 'national_id', val: item.national_id || '-' },
-                { key: 'birth_year', val: item.birth_year || '-' },
-                { key: 'device_details', val: item.device_details || '-' },
-                { key: 'serial_number', val: item.serial_number || '-' },
-                { key: 'date', val: dateOnly }
-            ];
-
-            let rowHTML = '';
-            fields.forEach(f => {
-                const cellKey = `${recordId}-${f.key}`;
-                if (activeCell === cellKey && isMyInstitution) {
-                    if (f.key === 'device_details') {
-                        let optionsHTML = globalDeviceOptions.map(opt => `<option value="${opt}" ${opt === f.val ? 'selected' : ''}>${opt}</option>`).join('');
-                        rowHTML += `<td><select class="cell-input" id="input-${cellKey}" onchange="updateCellData(${recordId}, 'device_details', this.value)"><option value="">-- اختر --</option>${optionsHTML}</select></td>`;
-                    } else {
-                        rowHTML += `<td><input type="text" class="cell-input" value="${f.val === '-' ? '' : f.val}" id="input-${cellKey}"><button class="btn-cell-save" onclick="updateCellData(${recordId}, '${f.key}', document.getElementById('input-${cellKey}').value.trim())">حفظ</button></td>`;
-                    }
-                } else {
-                    rowHTML += `<td class="${isMyInstitution ? 'editable-cell' : ''}" id="cell-${cellKey}">${f.val}</td>`;
-                }
-            });
-
-            rowHTML += `<td>${item.institution_name || '-'}</td>`;
-            tr.innerHTML = rowHTML;
-
-            if (isMyInstitution) {
-                fields.forEach(f => {
-                    const cellKey = `${recordId}-${f.key}`;
-                    const cellEl = tr.querySelector(`#cell-${cellKey}`);
-                    if(cellEl && f.key !== 'date') {
-                        cellEl.ondblclick = (e) => {
-                            e.stopPropagation();
-                            activeCell = cellKey;
-                            loadIssuedList();
-                            setTimeout(() => {
-                                const inputEl = document.getElementById(`input-${cellKey}`);
-                                if(inputEl) { inputEl.focus(); inputEl.select(); }
-                            }, 50);
-                        };
-                    }
-                });
-            }
+            tr.innerHTML = `
+                <td>${nameValue}</td>
+                <td>${motherValue}</td>
+                <td>${natIdValue}</td>
+                <td>${birthValue}</td>
+                <td>${deviceValue}</td>
+                <td>${serialValue}</td>
+                <td>${dateOnly}</td>
+                <td>${item.institution_name || '-'}</td>
+            `;
 
             tbody.appendChild(tr);
         });
