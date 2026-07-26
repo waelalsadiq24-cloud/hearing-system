@@ -400,7 +400,6 @@
         }
     }
 
-    // دالة استيراد متطورة ومرنة ومضمونة 100%
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -417,12 +416,10 @@
                     let line = lines[i] ? lines[i].trim() : '';
                     if (!line) continue;
 
-                    // تخطي صف العناوين بذكاء
                     if (i === 0 && (line.includes('اسم') || line.includes('المريض') || line.includes('الرقم') || line.includes('الأم') || line.toLowerCase().includes('patient') || line.toLowerCase().includes('name'))) {
                         continue;
                     }
 
-                    // تقسيم الأعمدة بأي فاصل (فواصل، فواصل منقوطة، أو Tabs)
                     let cols = line.split(/,|;|\t/);
                     cols = cols.map(c => (c ? c.replace(/^["']|["']$/g, '').trim() : ''));
 
@@ -441,13 +438,15 @@
                             birth_year: birth,
                             is_student: 'yes',
                             device_details: device,
-                            serial_number: serial
+                            serial_number: serial,
+                            date: new Date().toISOString(),
+                            institution_name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب'
                         });
                     }
                 }
 
                 if (parsedRecords.length === 0) {
-                    alert('⚠️ لم يتم قراءة أي سجلات. تأكد أن الملف يحتوي على بيانات مفصولة بفواصل صحيحة.');
+                    alert('⚠️ لم يتم قراءة أي سجلات من الملف.');
                     event.target.value = '';
                     return;
                 }
@@ -460,10 +459,10 @@
                 const result = await res.json();
 
                 if (result.success) {
-                    alert(`🎉 تم استيراد وحفظ ${result.count} سجل بنجاح تام وعرضها في الجدول!`);
+                    alert(`🎉 تم استيراد وحفظ ${parsedRecords.length} سجل بنجاح تام وعرضها في الجدول!`);
                     loadIssuedList();
                 } else {
-                    alert('❌ فشل الاستيراد من السيرفر.');
+                    alert('❌ فشل حفظ السجلات في السيرفر.');
                 }
             } catch (err) {
                 console.error(err);
@@ -518,55 +517,68 @@
 
     async function loadIssuedList() {
         const code = getInstitutionCode();
-        const res = await fetch(`/api/records?code=${code}`);
-        const responseData = await res.json();
-        
-        const data = responseData.records || [];
-        const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
-        
-        const filteredData = data.filter(item => {
-            const name = (item.patient_name || item.name || '').toLowerCase();
-            const mother = (item.mother_name || '').toLowerCase();
-            const natId = (item.national_id || '').toLowerCase();
-            const device = (item.device_details || '').toLowerCase();
-            const serial = (item.serial_number || '').toLowerCase();
-            return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
-        });
+        try {
+            const res = await fetch(`/api/records?code=${code}`);
+            const responseData = await res.json();
+            
+            const data = responseData.records || [];
+            const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
+            
+            const filteredData = data.filter(item => {
+                const name = (item.patient_name || item.name || '').toLowerCase();
+                const mother = (item.mother_name || '').toLowerCase();
+                const natId = (item.national_id || '').toLowerCase();
+                const device = (item.device_details || '').toLowerCase();
+                const serial = (item.serial_number || '').toLowerCase();
+                return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
+            });
 
-        const tbody = document.getElementById('issuedTableBody');
-        document.getElementById('totalCountBadge').innerText = `مجموع الأسماء: ${filteredData.length}`;
-        tbody.innerHTML = '';
+            const tbody = document.getElementById('issuedTableBody');
+            document.getElementById('totalCountBadge').innerText = `مجموع الأسماء: ${filteredData.length}`;
+            tbody.innerHTML = '';
 
-        if(filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة</td></tr>';
-            return;
+            if(filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة</td></tr>';
+                return;
+            }
+
+            const displayData = filteredData.slice(0, 500);
+
+            displayData.forEach(item => {
+                const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
+                let tr = document.createElement('tr');
+
+                let nameValue = item.patient_name || item.name || 'غير معروف';
+                let motherValue = item.mother_name || '-';
+                let natIdValue = item.national_id || '-';
+                let birthValue = item.birth_year || '-';
+                let deviceValue = item.device_details || '-';
+                let serialValue = item.serial_number || '-';
+
+                tr.innerHTML = `
+                    <td>${nameValue}</td>
+                    <td>${motherValue}</td>
+                    <td>${natIdValue}</td>
+                    <td>${birthValue}</td>
+                    <td>${deviceValue}</td>
+                    <td>${serialValue}</td>
+                    <td>${dateOnly}</td>
+                    <td>${item.institution_name || '-'}</td>
+                    <td><button class="btn-delete-record" onclick="deleteSingleRecord('${natIdValue}')">🗑️ حذف</button></td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+
+            if (filteredData.length > 500) {
+                let noteTr = document.createElement('tr');
+                noteTr.innerHTML = `<td colspan="9" style="background-color: #fff3cd; color: #856404; font-weight: bold;">ملاحظة: يتم عرض أول 500 سجل من أصل ${filteredData.length} لتسريع التصفح. يمكنك استخدام خانة البحث لتصفية النتائج بدقة.</td>`;
+                tbody.appendChild(noteTr);
+            }
+
+        } catch (e) {
+            console.error("Error loading records:", e);
         }
-
-        filteredData.forEach(item => {
-            const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
-            let tr = document.createElement('tr');
-
-            let nameValue = item.patient_name || item.name || item.patientName || 'غير معروف';
-            let motherValue = item.mother_name || item.motherName || '-';
-            let natIdValue = item.national_id || item.nationalId || '-';
-            let birthValue = item.birth_year || item.birthYear || '-';
-            let deviceValue = item.device_details || item.deviceDetails || '-';
-            let serialValue = item.serial_number || item.serialNumber || '-';
-
-            tr.innerHTML = `
-                <td>${nameValue}</td>
-                <td>${motherValue}</td>
-                <td>${natIdValue}</td>
-                <td>${birthValue}</td>
-                <td>${deviceValue}</td>
-                <td>${serialValue}</td>
-                <td>${dateOnly}</td>
-                <td>${item.institution_name || '-'}</td>
-                <td><button class="btn-delete-record" onclick="deleteSingleRecord('${natIdValue}')">🗑️ حذف</button></td>
-            `;
-
-            tbody.appendChild(tr);
-        });
     }
 
     window.onload = () => {
