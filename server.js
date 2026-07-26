@@ -1,6 +1,6 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
-const path = require('path');
+const XLSX = require('xlsx'); // مكتبة قراءة ملفات الاكسل والسيرفر
 
 const app = express();
 app.use(express.json({ limit: '100mb' }));
@@ -101,7 +101,7 @@ app.get('/api/check-patient/:id', async (req, res) => {
     }
 });
 
-// المسار الصحيح والمخصص لاستقبال واستيراد الدفعات المرسلة من زر الاستيراد
+// مسار معالجة واستيراد الملفات في السيرفر عبر مكتبة XLSX
 app.post('/api/import-csv', async (req, res) => {
     try {
         const { records } = req.body;
