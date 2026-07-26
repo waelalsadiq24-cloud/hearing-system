@@ -7,8 +7,8 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '.')));
 
-// رابط الاتصال السحابي المحدث لحل مشكلة الأمان والتوافق
-const MONGODB_URI = "mongodb+srv://waelalsadiq24_db_user:2tbFWqOTp3XcDtA@cluster0.gribvlx.mongodb.net/?retryWrites=true&w=majority&tls=true";
+// رابط الاتصال السحابي مع تجاوز قيود شهادة الأمان للاتصال الفوري
+const MONGODB_URI = "mongodb+srv://waelalsadiq24_db_user:2tbFWqOTp3XcDtA@cluster0.gribvlx.mongodb.net/?retryWrites=true&w=majority&tlsAllowInvalidCertificates=true";
 const DB_NAME = "hearingSystemDB";
 
 let db, recordsCollection, institutionsCollection, deviceOptionsCollection;
@@ -62,7 +62,7 @@ app.get('/api/records', async (req, res) => {
         const deviceOptions = devicesCursor.map(d => d.name);
 
         res.json({
-            records: records.map(r => ({ ...r, id: r._id })), // توافق مع المعرّفات
+            records: records.map(r => ({ ...r, id: r._id })), 
             deviceOptions: deviceOptions,
             currentInstitution: currentInst
         });
