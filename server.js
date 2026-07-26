@@ -1,5 +1,5 @@
 const express = require('express');
-const { MongoClient, ObjectId } = require('mongodb');
+const { MongoClient } = require('mongodb');
 
 const app = express();
 app.use(express.json({ limit: '100mb' }));
@@ -70,12 +70,10 @@ app.post('/api/records', async (req, res) => {
 
     try {
         const db = await getDB();
-        const result = await db.collection('records').insertOne(newRecord);
-        newRecord._id = result.insertedId;
+        await db.collection('records').insertOne(newRecord);
         memoryRecords.unshift(newRecord);
         res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح' });
     } catch (e) {
-        newRecord._id = Date.now() + Math.random();
         memoryRecords.unshift(newRecord);
         res.json({ success: true, message: 'تم الحفظ محلياً بنجاح' });
     }
@@ -148,30 +146,12 @@ app.delete('/api/clear-records', async (req, res) => {
     }
 });
 
-// مسار حذف سجل فردي مطور يدعم كافة أنواع المعرفات
-app.delete('/api/records/:id', async (req, res) => {
-    const recordId = req.params.id;
+// مسار الحذف المضمون بالاعتماد على الرقم الوطني وتاريخ الصرف
+app.delete('/api/records-delete', async (req, res) => {
+    const { national_id, date } = req.body;
     try {
         const db = await getDB();
-        let queryList = [];
-        
-        // محاولة البحث بالـ ObjectId إذا كان صالحاً
-        if (ObjectId.isValid(recordId)) {
-            queryList.push({ _id: new ObjectId(recordId) });
-        }
-        // محاولة البحث كرقم
-        if (!isNaN(recordId)) {
-            queryList.push({ _id: Number(recordId) });
-            queryList.push({ id: Number(recordId) });
-        }
-        // البحث كنص عادي
-        queryList.push({ _id: recordId });
-        queryList.push({ id: recordId });
-
-        const result = await db.collection('records').deleteOne({ $or: queryList });
-        
-        memoryRecords = memoryRecords.filter(r => String(r._id) !== String(recordId) && String(r.id) !== String(recordId));
-
+        await db.collection('records').deleteOne({ national_id: String(national_id), date: String(date) });
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: 'فشل حذف السجل' });
