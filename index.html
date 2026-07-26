@@ -132,7 +132,6 @@
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <!-- زر الاستيراد المباشر والمفעל لملفات الـ CSV -->
                     <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importExcelFile(event)">
                     <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
@@ -405,7 +404,7 @@
         }
     }
 
-    // الدالة الأصلية الفعالة لإرسال محتوى الملف الخام للسيرفر
+    // دالة الاستيراد المباشر عبر زر الملفات
     function importExcelFile(event) {
         const file = event.target.files[0];
         if (!file) return;
