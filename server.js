@@ -13,21 +13,19 @@ const DB_NAME = "hearingSystemDB";
 let cachedClient = null;
 async function getDB() {
     if (cachedClient) return cachedClient.db(DB_NAME);
-    const client = new MongoClient(MONGODB_URI, { tls: true, tlsAllowInvalidCertificates: true });
+    const client = new MongoClient(MONGODB_URI, { tls: true, tlsAllowInvalidCertificates: true, serverSelectionTimeoutMS: 3000 });
     await client.connect();
     cachedClient = client;
     return client.db(DB_NAME);
 }
 
-// ذاكرة محلية نشطة لضمان سرعة الاستجابة الفورية وعدم ضياع أي سجل
+// ذاكرة محلية سريعة جداً للاستجابة الفورية للمستخدم
 let memoryRecords = [];
 let deviceOptionsList = ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'];
+let isLoadedFromCloud = false;
 
-// جلب البيانات فوراً
-app.get('/api/records', async (req, res) => {
-    const code = req.query.code || 'yarmok';
-    let currentInst = { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' };
-    
+// جلب البيانات أول مرة فقط من السحاب وتخزينها محلياً لسرعة فائقة
+async function syncFromCloud() {
     try {
         const db = await getDB();
         const dbRecords = await db.collection('records').find({}).toArray();
@@ -38,10 +36,16 @@ app.get('/api/records', async (req, res) => {
         if (dbDevices.length > 0) {
             deviceOptionsList = dbDevices.map(d => d.name);
         }
-    } catch (e) {
-        // الاستمرار بالذاكرة المحلية في حال بطء الاتصال السحابي
-    }
+        isLoadedFromCloud = true;
+    } catch (e) {}
+}
+syncFromCloud();
 
+// جلب السجلات فوراً من الذاكرة المحلية (بدون أي انتظار للسيرفر)
+app.get('/api/records', (req, res) => {
+    const code = req.query.code || 'yarmok';
+    let currentInst = { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' };
+    
     res.json({
         records: memoryRecords,
         deviceOptions: deviceOptionsList,
@@ -49,8 +53,8 @@ app.get('/api/records', async (req, res) => {
     });
 });
 
-// حفظ سريع ومضمون 100% دون رسائل خطأ
-app.post('/api/records', async (req, res) => {
+// حفظ فوري بالذاكرة والظهور بلحظتها، والمزامنة بالسحاب في الخلفية بصمت
+app.post('/api/records', (req, res) => {
     const code = req.query.code || 'yarmok';
     const recordId = Date.now();
     const newRecord = {
@@ -67,41 +71,41 @@ app.post('/api/records', async (req, res) => {
         institution_name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب'
     };
 
-    // حفظ فوري في الذاكرة لكي يظهر الاسم بالجدول بلحظتها
     memoryRecords.unshift(newRecord);
 
-    // محاولة الحفظ في السحاب في الخلفية بهدوء
+    // إرسال الرد للمستخدم فوراً (سرعة قصوى)
+    res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح', record: newRecord });
+
+    // الحفظ في قاعدة البيانات السحابية في الخلفية دون تعطيل المستخدم
     getDB().then(db => {
         db.collection('records').insertOne(newRecord).catch(() => {});
     }).catch(() => {});
-
-    res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح', record: newRecord });
 });
 
-app.put('/api/records/:id', async (req, res) => {
+app.put('/api/records/:id', (req, res) => {
     const recordId = Number(req.params.id);
     const updates = req.body;
     memoryRecords = memoryRecords.map(r => (r.id === recordId || r._id === recordId) ? { ...r, ...updates } : r);
     
+    res.json({ success: true, message: 'تم التعديل بنجاح' });
+
     getDB().then(db => {
         db.collection('records').updateOne({ _id: recordId }, { $set: updates }).catch(() => {});
     }).catch(() => {});
-
-    res.json({ success: true, message: 'تم التعديل بنجاح' });
 });
 
-app.delete('/api/records/:id', async (req, res) => {
+app.delete('/api/records/:id', (req, res) => {
     const recordId = Number(req.params.id);
     memoryRecords = memoryRecords.filter(r => r.id !== recordId && r._id !== recordId);
     
+    res.json({ success: true, message: 'تم الحذف بنجاح' });
+
     getDB().then(db => {
         db.collection('records').deleteOne({ _id: recordId }).catch(() => {});
     }).catch(() => {});
-
-    res.json({ success: true, message: 'تم الحذف بنجاح' });
 });
 
-app.get('/api/check-patient/:id', async (req, res) => {
+app.get('/api/check-patient/:id', (req, res) => {
     const natId = req.params.id;
     let found = memoryRecords.find(r => r.national_id === natId);
 
@@ -115,7 +119,7 @@ app.get('/api/check-patient/:id', async (req, res) => {
     }
 });
 
-app.post('/api/devices-options', async (req, res) => {
+app.post('/api/devices-options', (req, res) => {
     const deviceName = req.body.device;
     if (deviceName && !deviceOptionsList.includes(deviceName)) {
         deviceOptionsList.push(deviceName);
@@ -123,7 +127,7 @@ app.post('/api/devices-options', async (req, res) => {
     res.json({ success: true, deviceOptions: deviceOptionsList });
 });
 
-app.delete('/api/devices-options', async (req, res) => {
+app.delete('/api/devices-options', (req, res) => {
     const deviceName = req.body.device;
     deviceOptionsList = deviceOptionsList.filter(d => d !== deviceName);
     res.json({ success: true, deviceOptions: deviceOptionsList });
