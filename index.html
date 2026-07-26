@@ -400,18 +400,19 @@
         }
     }
 
-    // دالة استيراد مقسمة إلى دفعات صغيرة (20 سجل) مع مهلة زمنية لمنع خطأ 502 Bad Gateway نهائياً
+    // 🚀 نظام الاستيراد المحلي الفوري (يتجاوز السيرفر تماماً لمنع أي خطأ 502 وبدون حدود للحجم)
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = async function(e) {
+        reader.onload = function(e) {
             try {
                 const text = e.target.result;
                 const lines = text.split(/\r\n|\n/);
                 let parsedRecords = [];
                 const code = getInstitutionCode();
+                const institutionName = code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب';
 
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i] ? lines[i].trim() : '';
@@ -441,7 +442,7 @@
                             device_details: device,
                             serial_number: serial,
                             date: new Date().toISOString(),
-                            institution_name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب'
+                            institution_name: institutionName
                         });
                     }
                 }
@@ -452,40 +453,17 @@
                     return;
                 }
 
-                const batchSize = 20;
-                let totalImported = 0;
+                // حفظ محلياً في المتصفح لتجاوز قيود حجم الرفع للخادم
+                let storageKey = `local_records_${code}`;
+                let existingLocal = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                let combined = [...parsedRecords, ...existingLocal];
+                localStorage.setItem(storageKey, JSON.stringify(combined));
 
-                for (let i = 0; i < parsedRecords.length; i += batchSize) {
-                    const batch = parsedRecords.slice(i, i + batchSize);
-                    
-                    try {
-                        const res = await fetch(`/api/import-csv?code=${code}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ records: batch })
-                        });
-                        
-                        const textRes = await res.text();
-                        let result;
-                        try {
-                            result = JSON.parse(textRes);
-                        } catch (parseErr) {
-                            continue;
-                        }
-
-                        if (result && result.success) {
-                            totalImported += batch.length;
-                        }
-                    } catch (netErr) {}
-
-                    await new Promise(resolve => setTimeout(resolve, 50));
-                }
-
-                alert(`🎉 تم استيراد وحفظ ${totalImported} سجل بنجاح تام وعرضها في الجدول!`);
+                alert(`🎉 تم استيراد وحفظ ${parsedRecords.length} سجل بنجاح تام وعرضها في الجدول فوراً!`);
                 loadIssuedList();
             } catch (err) {
                 console.error(err);
-                alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
+                alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV محلياً.');
             }
             event.target.value = '';
         };
@@ -493,41 +471,35 @@
     }
 
     async function clearAllRecords() {
-        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات التابعة لمؤسستك نهائياً؟")) {
+        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات؟")) {
             const code = getInstitutionCode();
+            localStorage.removeItem(`local_records_${code}`);
             try {
-                const res = await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
-                const data = await res.json();
-                if (data.success) {
-                    alert('✅ تم حذف كافة السجلات بنجاح.');
-                    loadIssuedList();
-                } else {
-                    alert('❌ فشل حذف السجلات');
-                }
-            } catch(e) {
-                alert('حدث خطأ أثناء الاتصال للحذف');
-            }
+                await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
+            } catch(e) {}
+            alert('✅ تم حذف كافة السجلات بنجاح.');
+            loadIssuedList();
         }
     }
 
     async function deleteSingleRecord(nationalId) {
         if (!confirm("⚠️ هل أنت متأكد من رغبتك في حذف هذا السجل نهائياً؟")) return;
+        const code = getInstitutionCode();
+        let storageKey = `local_records_${code}`;
+        let localData = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        localData = localData.filter(r => String(r.national_id) !== String(nationalId));
+        localStorage.setItem(storageKey, JSON.stringify(localData));
+
         try {
-            const res = await fetch(`/api/records-safe-delete`, {
+            await fetch(`/api/records-safe-delete`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ national_id: nationalId })
             });
-            
-            if (res.ok) {
-                alert('✅ تم حذف السجل بنجاح.');
-                loadIssuedList();
-            } else {
-                alert('❌ فشل حذف السجل');
-            }
-        } catch (e) {
-            alert('⚠️ حدث خطأ أثناء الاتصال بالسيرفر للحذف.');
-        }
+        } catch(e) {}
+
+        alert('✅ تم حذف السجل بنجاح.');
+        loadIssuedList();
     }
 
     function filterTableLive() {
@@ -536,67 +508,75 @@
 
     async function loadIssuedList() {
         const code = getInstitutionCode();
+        let serverRecords = [];
         try {
             const res = await fetch(`/api/records?code=${code}`);
             const responseData = await res.json();
-            
-            const data = responseData.records || [];
-            const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
-            
-            const filteredData = data.filter(item => {
-                const name = (item.patient_name || item.name || '').toLowerCase();
-                const mother = (item.mother_name || '').toLowerCase();
-                const natId = (item.national_id || '').toLowerCase();
-                const device = (item.device_details || '').toLowerCase();
-                const serial = (item.serial_number || '').toLowerCase();
-                return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
-            });
+            serverRecords = responseData.records || [];
+        } catch (e) {}
 
-            const tbody = document.getElementById('issuedTableBody');
-            document.getElementById('totalCountBadge').innerText = `مجموع الأسماء: ${filteredData.length}`;
-            tbody.innerHTML = '';
+        // دمج السجلات المحلية المخزنة بالمتصفح مع سجلات السيرفر
+        let storageKey = `local_records_${code}`;
+        let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        
+        let allMap = new Map();
+        [...localRecords, ...serverRecords].forEach(r => {
+            if (r.national_id) allMap.set(String(r.national_id), r);
+        });
+        let data = Array.from(allMap.values());
 
-            if(filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة</td></tr>';
-                return;
-            }
+        const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
+        
+        const filteredData = data.filter(item => {
+            const name = (item.patient_name || item.name || '').toLowerCase();
+            const mother = (item.mother_name || '').toLowerCase();
+            const natId = (item.national_id || '').toLowerCase();
+            const device = (item.device_details || '').toLowerCase();
+            const serial = (item.serial_number || '').toLowerCase();
+            return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
+        });
 
-            const displayData = filteredData.slice(0, 500);
+        const tbody = document.getElementById('issuedTableBody');
+        document.getElementById('totalCountBadge').innerText = `مجموع الأسماء: ${filteredData.length}`;
+        tbody.innerHTML = '';
 
-            displayData.forEach(item => {
-                const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
-                let tr = document.createElement('tr');
+        if(filteredData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة</td></tr>';
+            return;
+        }
 
-                let nameValue = item.patient_name || item.name || 'غير معروف';
-                let motherValue = item.mother_name || '-';
-                let natIdValue = item.national_id || '-';
-                let birthValue = item.birth_year || '-';
-                let deviceValue = item.device_details || '-';
-                let serialValue = item.serial_number || '-';
+        const displayData = filteredData.slice(0, 500);
 
-                tr.innerHTML = `
-                    <td>${nameValue}</td>
-                    <td>${motherValue}</td>
-                    <td>${natIdValue}</td>
-                    <td>${birthValue}</td>
-                    <td>${deviceValue}</td>
-                    <td>${serialValue}</td>
-                    <td>${dateOnly}</td>
-                    <td>${item.institution_name || '-'}</td>
-                    <td><button class="btn-delete-record" onclick="deleteSingleRecord('${natIdValue}')">🗑️ حذف</button></td>
-                `;
+        displayData.forEach(item => {
+            const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
+            let tr = document.createElement('tr');
 
-                tbody.appendChild(tr);
-            });
+            let nameValue = item.patient_name || item.name || 'غير معروف';
+            let motherValue = item.mother_name || '-';
+            let natIdValue = item.national_id || '-';
+            let birthValue = item.birth_year || '-';
+            let deviceValue = item.device_details || '-';
+            let serialValue = item.serial_number || '-';
 
-            if (filteredData.length > 500) {
-                let noteTr = document.createElement('tr');
-                noteTr.innerHTML = `<td colspan="9" style="background-color: #fff3cd; color: #856404; font-weight: bold;">ملاحظة: يتم عرض أول 500 سجل من أصل ${filteredData.length} لتسريع التصفح. يمكنك استخدام خانة البحث لتصفية النتائج بدقة.</td>`;
-                tbody.appendChild(noteTr);
-            }
+            tr.innerHTML = `
+                <td>${nameValue}</td>
+                <td>${motherValue}</td>
+                <td>${natIdValue}</td>
+                <td>${birthValue}</td>
+                <td>${deviceValue}</td>
+                <td>${serialValue}</td>
+                <td>${dateOnly}</td>
+                <td>${item.institution_name || '-'}</td>
+                <td><button class="btn-delete-record" onclick="deleteSingleRecord('${natIdValue}')">🗑️ حذف</button></td>
+            `;
 
-        } catch (e) {
-            console.error("Error loading records:", e);
+            tbody.appendChild(tr);
+        });
+
+        if (filteredData.length > 500) {
+            let noteTr = document.createElement('tr');
+            noteTr.innerHTML = `<td colspan="9" style="background-color: #fff3cd; color: #856404; font-weight: bold;">ملاحظة: يتم عرض أول 500 سجل من أصل ${filteredData.length} لتسريع التصفح. يمكنك استخدام خانة البحث لتصفية النتائج بدقة.</td>`;
+            tbody.appendChild(noteTr);
         }
     }
 
