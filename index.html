@@ -97,6 +97,19 @@
             </div>
         </div>
         <div class="row">
+            <div>
+                <label>هل المريض طالب؟</label>
+                <select id="isStudent">
+                    <option value="yes">نعم (طالب)</option>
+                    <option value="no">ليس طالب</option>
+                </select>
+            </div>
+            <div>
+                <label>الرقم التسلسلي (Serial Number):</label>
+                <input type="text" id="serialNumber" placeholder="أدخل الرقم التسلسلي للسماعة">
+            </div>
+        </div>
+        <div class="row">
             <div style="flex: 1;">
                 <label>تفاصيل السماعة:</label>
                 <div class="custom-dropdown-container">
@@ -104,10 +117,6 @@
                     <div id="customDropdownList" class="custom-dropdown-list"></div>
                 </div>
                 <input type="hidden" id="deviceDetailsValue" value="">
-            </div>
-            <div style="flex: 1;">
-                <label>الرقم التسلسلي (Serial Number):</label>
-                <input type="text" id="serialNumber" placeholder="أدخل الرقم التسلسلي للسماعة">
             </div>
         </div>
 
@@ -132,6 +141,7 @@
                     <th>اسم الأم</th>
                     <th>الرقم الوطني</th>
                     <th>تاريخ الولادة</th>
+                    <th>الحالة الدراسية</th>
                     <th>تفاصيل السماعة</th>
                     <th>الرقم التسلسلي</th>
                     <th>تاريخ الصرف</th>
@@ -139,7 +149,7 @@
                 </tr>
             </thead>
             <tbody id="issuedTableBody">
-                <tr><td colspan="8">جاري تحميل السجلات...</td></tr>
+                <tr><td colspan="9">جاري تحميل السجلات...</td></tr>
             </tbody>
         </table>
     </div>
@@ -169,7 +179,7 @@
         const btn = document.getElementById('toggleDeleteBtn');
         if (deleteModeActive) {
             btn.classList.add('active');
-            btn.innerText = "🗑️ تفعيل وضع الحذف (مفعل - انقر مزدوجاً للحذف)";
+            btn.innerText = "🗑️ تفعيل وضع الحذف (مفعل - انقر مزدوجاً لحذف)";
         } else {
             btn.classList.remove('active');
             btn.innerText = "🗑️ تفعيل وضع الحذف (معطل)";
@@ -297,6 +307,38 @@
         }
     }
 
+    // حساب العمر بدقة من تاريخ الولادة (يوم/شهر/سنة أو سنة فقط)
+    function calculateAge(birthStr) {
+        if (!birthStr || birthStr === '-') return 0;
+        let year = 0;
+        if (birthStr.includes('/')) {
+            let parts = birthStr.split('/');
+            year = parseInt(parts[2]) || 0;
+        } else {
+            year = parseInt(birthStr) || 0;
+        }
+        if (!year) return 0;
+        let currentYear = new Date().getFullYear();
+        return currentYear - year;
+    }
+
+    // حساب فترة الاستحقاق بناءً على القواعد الجديدة
+    function getRequiredYears(age, isStudent) {
+        // إذا كان عمره 7 سنوات فما فوق وليس طالبا -> 4 سنوات
+        if (age >= 7 && isStudent === 'no') {
+            return 4;
+        }
+        // إذا كان العمر أقل من 7 سنوات (أو حتى 7 سنوات وطالب)
+        // ولكن إذا وصل لعمر 7 سنوات وليس طالبا تحولت إلى 4، أما إذا كان طالبا أو أصغر فتبقى 3 سنوات
+        if (age >= 7 && isStudent === 'yes') {
+            return 3; // الطالب يبقى على الـ 3 سنوات
+        }
+        if (age < 7) {
+            return 3; // أقل من 7 سنوات الاستحقاق 3 سنوات
+        }
+        return 3;
+    }
+
     async function searchPatient() {
         const id = document.getElementById('searchId').value.trim();
         const code = getInstitutionCode();
@@ -309,12 +351,29 @@
             const box = document.getElementById('searchResult');
             box.style.display = 'block';
 
-            if(!data.received) {
+            if(!data.found) {
                 box.className = 'result-box eligible';
-                box.innerHTML = `✅ ${data.message}`;
+                box.innerHTML = `✅ المريض غير مسجل مسبقاً ويمكنه الاستلام.`;
             } else {
-                box.className = 'result-box not-eligible';
-                box.innerHTML = `⚠️ ${data.message}`;
+                let lastRecord = data.record;
+                let birthVal = lastRecord.birth_year || '-';
+                let studentVal = lastRecord.is_student || 'yes';
+                let age = calculateAge(birthVal);
+                let requiredYears = getRequiredYears(age, studentVal);
+
+                let lastDate = new Date(lastRecord.date);
+                let currentDate = new Date();
+                let diffTime = currentDate - lastDate;
+                let diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+
+                if (diffYears >= requiredYears) {
+                    box.className = 'result-box eligible';
+                    box.innerHTML = `✅ المريض مستحق! آخر صرف كان بتاريخ ${lastRecord.date.split('T')[0]} (مضت ${Math.فloor ? Math.floor(diffYears) : parseInt(diffYears)} سنوات، وفترة الاستحقاق المطلوبة لعمره/حالته هي ${requiredYears} سنوات).`;
+                } else {
+                    let remainingYears = (requiredYears - diffYears).toFixed(1);
+                    box.className = 'result-box not-eligible';
+                    box.innerHTML = `⚠️ المريض غير مستحق حالياً! استلم سماعة بتاريخ ${lastRecord.date.split('T')[0]}. الشروط تنص على استحقاق كل ${requiredYears} سنوات لعمره وحالته، ويتبقى على استحقاقه حوالي ${remainingYears} سنة.`;
+                }
             }
         } catch(err) {
             alert('حدث خطأ أثناء البحث');
@@ -340,6 +399,7 @@
             patient_name: document.getElementById('fullName').value.trim(),
             mother_name: document.getElementById('motherName').value.trim(),
             birth_year: fullBirth,
+            is_student: document.getElementById('isStudent').value,
             device_details: deviceVal,
             serial_number: document.getElementById('serialNumber').value.trim()
         };
@@ -427,7 +487,7 @@
             tbody.innerHTML = '';
 
             if(filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة</td></tr>';
                 return;
             }
 
@@ -437,12 +497,14 @@
 
                 const isMyInstitution = (item.institution_id === currentInstitutionId);
                 const recordId = item.id || item._id;
+                const studentText = (item.is_student === 'no') ? 'ليس طالب' : 'طالب';
 
                 const fields = [
                     { key: 'patient_name', val: item.patient_name || 'غير معروف' },
                     { key: 'mother_name', val: item.mother_name || '-' },
                     { key: 'national_id', val: item.national_id || '-' },
                     { key: 'birth_year', val: item.birth_year || '-' },
+                    { key: 'is_student', val: studentText, rawVal: item.is_student || 'yes' },
                     { key: 'device_details', val: item.device_details || '-' },
                     { key: 'serial_number', val: item.serial_number || '-' },
                     { key: 'date', val: dateOnly }
@@ -455,18 +517,17 @@
                         if (f.key === 'device_details') {
                             let optionsHTML = globalDeviceOptions.map(opt => `<option value="${opt}" ${opt === f.val ? 'selected' : ''}>${opt}</option>`).join('');
                             rowHTML += `<td><select class="cell-input" id="input-${cellKey}" onchange="updateCellData(${recordId}, 'device_details', this.value)"><option value="">-- اختر --</option>${optionsHTML}</select></td>`;
+                        } else if (f.key === 'is_student') {
+                            rowHTML += `<td><select class="cell-input" id="input-${cellKey}"><option value="yes" ${f.rawVal === 'yes' ? 'selected' : ''}>طالب</option><option value="no" ${f.rawVal === 'no' ? 'selected' : ''}>ليس طالب</option></select><button class="btn-cell-save" onclick="updateCellData(${recordId}, 'is_student', document.getElementById('input-${cellKey}').value)">حفظ</button></td>`;
                         } else if (f.key === 'birth_year') {
                             let parts = (f.val && f.val !== '-') ? f.val.split('/') : ['', '', ''];
-                            let dVal = parts[0] || '';
-                            let mVal = parts[1] || '';
-                            let yVal = parts[2] || '';
                             rowHTML += `<td>
                                 <div style="display: flex; gap: 2px; align-items: center; justify-content: center;">
-                                    <input type="text" class="cell-input" style="width:30px;" value="${dVal}" id="ed-${recordId}-d" maxlength="2" placeholder="يوم">
+                                    <input type="text" class="cell-input" style="width:30px;" value="${parts[0] || ''}" id="ed-${recordId}-d" maxlength="2" placeholder="يوم">
                                     <span>/</span>
-                                    <input type="text" class="cell-input" style="width:30px;" value="${mVal}" id="ed-${recordId}-m" maxlength="2" placeholder="شهر">
+                                    <input type="text" class="cell-input" style="width:30px;" value="${parts[1] || ''}" id="ed-${recordId}-m" maxlength="2" placeholder="شهر">
                                     <span>/</span>
-                                    <input type="text" class="cell-input" style="width:40px;" value="${yVal}" id="ed-${recordId}-y" maxlength="4" placeholder="سنة">
+                                    <input type="text" class="cell-input" style="width:40px;" value="${parts[2] || ''}" id="ed-${recordId}-y" maxlength="4" placeholder="سنة">
                                     <button class="btn-cell-save" onclick="saveBirthInput(${recordId})">حفظ</button>
                                 </div>
                             </td>`;
@@ -518,22 +579,16 @@
                                         if (yIn) {
                                             yIn.focus();
                                             yIn.addEventListener('keydown', (ev) => {
-                                                if (ev.key === 'Enter') {
-                                                    ev.preventDefault();
-                                                    saveBirthInput(recordId);
-                                                }
+                                                if (ev.key === 'Enter') { ev.preventDefault(); saveBirthInput(recordId); }
                                             });
                                         }
-                                    } else if (f.key !== 'device_details') {
+                                    } else if (f.key !== 'device_details' && f.key !== 'is_student') {
                                         const inputEl = document.getElementById(`input-${cellKey}`);
                                         if(inputEl) {
                                             inputEl.focus();
                                             inputEl.select();
                                             inputEl.addEventListener('keydown', (ev) => {
-                                                if(ev.key === 'Enter') {
-                                                    ev.preventDefault();
-                                                    updateCellData(recordId, f.key, inputEl.value.trim());
-                                                }
+                                                if(ev.key === 'Enter') { ev.preventDefault(); updateCellData(recordId, f.key, inputEl.value.trim()); }
                                             });
                                         }
                                     }
