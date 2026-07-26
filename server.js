@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '.')));
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://waelalsadiq24_db_user:2tbFWqOTp3XcDtA@cluster0.gribvlx.mongodb.net/?retryWrites=true&w=majority";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://waelalsadiq24_db_user:2tbFWqOTp3XcDtA@cluster0.gribvlx.mongodb.net/?retryWrites=true&w=majority&tlsAllowInvalidCertificates=true";
 const DB_NAME = "hearingSystemDB";
 
 let cachedClient = null;
@@ -25,9 +25,7 @@ async function getDB() {
     return client.db(DB_NAME);
 }
 
-// تخزين مؤقت احتياطي لضمان استمرارية التشغيل الفوري دون انقطاع
-let memoryRecords = [];
-let deviceOptionsList = ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'];
+let defaultDevices = ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'];
 
 app.get('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
@@ -38,11 +36,12 @@ app.get('/api/records', async (req, res) => {
         const recordsCollection = db.collection('records');
         const deviceOptionsCollection = db.collection('deviceOptions');
 
-        const dbRecords = await recordsCollection.find({}).toArray();
-        const dbDevices = await deviceOptionsCollection.find({}).toArray();
+        let dbRecords = await recordsCollection.find({}).toArray();
+        let dbDevices = await deviceOptionsCollection.find({}).toArray();
 
-        let records = dbRecords.length > 0 ? dbRecords.map(r => ({ ...r, id: r._id })) : memoryRecords;
-        let deviceOptions = dbDevices.length > 0 ? dbDevices.map(d => d.name) : deviceOptionsList;
+        // توحيد شكل الـ id ليعمل بسلاسة مع الواجهة
+        let records = dbRecords.map(r => ({ ...r, id: r._id }));
+        let deviceOptions = dbDevices.length > 0 ? dbDevices.map(d => d.name) : defaultDevices;
 
         res.json({
             records: records, 
@@ -51,8 +50,8 @@ app.get('/api/records', async (req, res) => {
         });
     } catch (e) {
         res.json({
-            records: memoryRecords,
-            deviceOptions: deviceOptionsList,
+            records: [],
+            deviceOptions: defaultDevices,
             currentInstitution: currentInst
         });
     }
@@ -60,9 +59,10 @@ app.get('/api/records', async (req, res) => {
 
 app.post('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
+    const recordId = Date.now();
     const newRecord = {
-        _id: Date.now(),
-        id: Date.now(),
+        _id: recordId,
+        id: recordId,
         national_id: String(req.body.national_id || ''),
         patient_name: String(req.body.patient_name || ''),
         mother_name: String(req.body.mother_name || ''),
@@ -74,69 +74,61 @@ app.post('/api/records', async (req, res) => {
         institution_name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب'
     };
 
-    memoryRecords.unshift(newRecord);
-
     try {
         const db = await getDB();
         await db.collection('records').insertOne(newRecord);
-    } catch (e) {}
-
-    res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح', record: newRecord });
+        res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح وثبات', record: newRecord });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'فشل الحفظ في قاعدة البيانات السحابية' });
+    }
 });
 
 app.put('/api/records/:id', async (req, res) => {
     const recordId = Number(req.params.id);
     const updates = req.body;
     
-    memoryRecords = memoryRecords.map(r => r._id === recordId ? { ...r, ...updates } : r);
-    
     try {
         const db = await getDB();
         await db.collection('records').updateOne({ _id: recordId }, { $set: updates });
-    } catch (e) {}
-    
-    res.json({ success: true, message: 'تم التعديل بنجاح' });
+        res.json({ success: true, message: 'تم التعديل بنجاح' });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'فشل التعديل' });
+    }
 });
 
 app.delete('/api/records/:id', async (req, res) => {
     const recordId = Number(req.params.id);
     
-    memoryRecords = memoryRecords.filter(r => r._id !== recordId);
-    
     try {
         const db = await getDB();
         await db.collection('records').deleteOne({ _id: recordId });
-    } catch (e) {}
-    
-    res.json({ success: true, message: 'تم الحذف بنجاح' });
+        res.json({ success: true, message: 'تم الحذف بنجاح' });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'فشل الحذف' });
+    }
 });
 
 app.get('/api/check-patient/:id', async (req, res) => {
     const natId = req.params.id;
-    let found = memoryRecords.find(r => r.national_id === natId);
-    
-    if (!found) {
-        try {
-            const db = await getDB();
-            found = await db.collection('records').findOne({ national_id: natId });
-        } catch (e) {}
-    }
+    try {
+        const db = await getDB();
+        const found = await db.collection('records').findOne({ national_id: natId });
 
-    if (found) {
-        res.json({
-            received: true,
-            message: `المريض مستلم مسبقاً! تم صرف سماعة (${found.device_details}) بتاريخ ${found.date ? found.date.split('T')[0] : ''}`
-        });
-    } else {
-        res.json({ received: false, message: 'المريض غير مسجل مسبقاً ويمكنه الاستلام.' });
+        if (found) {
+            res.json({
+                received: true,
+                message: `المريض مستلم مسبقاً! تم صرف سماعة (${found.device_details}) بتاريخ ${found.date ? found.date.split('T')[0] : ''}`
+            });
+        } else {
+            res.json({ received: false, message: 'المريض غير مسجل مسبقاً ويمكنه الاستلام.' });
+        }
+    } catch (e) {
+        res.json({ received: false, message: 'خطأ في فحص بيانات المريض' });
     }
 });
 
 app.post('/api/devices-options', async (req, res) => {
     const deviceName = req.body.device;
-    if (deviceName && !deviceOptionsList.includes(deviceName)) {
-        deviceOptionsList.push(deviceName);
-    }
     try {
         const db = await getDB();
         const col = db.collection('deviceOptions');
@@ -144,19 +136,25 @@ app.post('/api/devices-options', async (req, res) => {
             await col.insertOne({ name: deviceName });
         }
         const devices = await col.find({}).toArray();
-        if (devices.length > 0) deviceOptionsList = devices.map(d => d.name);
-    } catch (e) {}
-    res.json({ success: true, deviceOptions: deviceOptionsList });
+        let list = devices.length > 0 ? devices.map(d => d.name) : defaultDevices;
+        res.json({ success: true, deviceOptions: list });
+    } catch (e) {
+        res.json({ success: false, deviceOptions: defaultDevices });
+    }
 });
 
 app.delete('/api/devices-options', async (req, res) => {
     const deviceName = req.body.device;
-    deviceOptionsList = deviceOptionsList.filter(d => d !== deviceName);
     try {
         const db = await getDB();
-        await db.collection('deviceOptions').deleteOne({ name: deviceName });
-    } catch (e) {}
-    res.json({ success: true, deviceOptions: deviceOptionsList });
+        const col = db.collection('deviceOptions');
+        await col.deleteOne({ name: deviceName });
+        const devices = await col.find({}).toArray();
+        let list = devices.length > 0 ? devices.map(d => d.name) : defaultDevices;
+        res.json({ success: true, deviceOptions: list });
+    } catch (e) {
+        res.json({ success: false, deviceOptions: defaultDevices });
+    }
 });
 
 app.listen(PORT, () => {
