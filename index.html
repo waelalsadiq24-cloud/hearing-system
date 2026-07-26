@@ -132,7 +132,7 @@
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvFile(event)">
+                    <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvDirect(event)">
                     <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
@@ -404,66 +404,33 @@
         }
     }
 
-    // دالة استيراد ملف الـ CSV المباشرة والآمنة 100%
-    function importCsvFile(event) {
+    // دالة الاستيراد المباشر والمضمونة 100% لإرسال محتوى الملف الخام للسيرفر
+    function importCsvDirect(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = async function(e) {
             try {
-                const text = e.target.result;
-                const lines = text.split(/\r\n|\n/);
-                let allRecords = [];
+                const rawData = e.target.result;
                 const code = getInstitutionCode();
 
-                for (let i = 0; i < lines.length; i++) {
-                    let line = lines[i] ? lines[i].trim() : '';
-                    if (!line) continue;
+                // إرسال النص الخام مباشرة إلى مسار السيرفر المعالج
+                const res = await fetch(`/api/import-csv?code=${code}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rawData })
+                });
 
-                    let cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                    cols = cols.map(c => (c ? c.replace(/^"|"$/g, '').trim() : ''));
-
-                    if (i === 0 && (cols.some(c => c.includes('الاسم') || c.includes('المريض') || c.includes('الأم')))) {
-                        continue;
-                    }
-
-                    if (cols.length >= 1 && cols[0] !== '') {
-                        allRecords.push({
-                            patient_name: cols[0] || 'غير معروف',
-                            mother_name: cols[1] || '-',
-                            national_id: cols[2] || 'غير متوفر',
-                            birth_year: cols[3] || '-',
-                            device_details: cols[4] || 'oticon xceed 3 up',
-                            serial_number: cols[5] || '0000'
-                        });
-                    }
+                const result = await res.json();
+                if (result.success) {
+                    alert(`✅ تم استيراد وحفظ ${result.count} سجل بنجاح تام وفوري!`);
+                    loadIssuedList();
+                } else {
+                    alert('❌ ' + (result.error || 'فشل استيراد الملف'));
                 }
-
-                if (allRecords.length === 0) {
-                    return alert('⚠️ الملف فارغ أو لا يحتوي على بيانات صالحة.');
-                }
-
-                const chunkSize = 100;
-                let importedCount = 0;
-
-                for (let j = 0; j < allRecords.length; j += chunkSize) {
-                    const chunk = allRecords.slice(j, j + chunkSize);
-                    const res = await fetch(`/api/import-csv?code=${code}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ records: chunk })
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        importedCount += result.count;
-                    }
-                }
-
-                alert(`✅ تم استيراد وحفظ ${importedCount} سجل بنجاح تام!`);
-                loadIssuedList();
             } catch (err) {
-                alert('⚠️ حدث خطأ أثناء قراءة الملف.');
+                alert('⚠️ حدث خطأ أثناء إرسال الملف للسيرفر.');
             }
             event.target.value = '';
         };
