@@ -491,11 +491,14 @@
         }
     }
 
-    async function deleteSingleRecord(recordId) {
+    async function deleteSingleRecord(nationalId, recordDate) {
         if (!confirm("⚠️ هل أنت متأكد من رغبتك في حذف هذا السجل نهائياً؟")) return;
-        const code = getInstitutionCode();
         try {
-            const res = await fetch(`/api/records/${recordId}?code=${code}`, { method: 'DELETE' });
+            const res = await fetch(`/api/records-delete`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ national_id: nationalId, date: recordDate })
+            });
             const data = await res.json();
             if (data.success) {
                 alert('✅ تم حذف السجل بنجاح.');
@@ -548,8 +551,6 @@
             let birthValue = item.birth_year || item.birthYear || '-';
             let deviceValue = item.device_details || item.deviceDetails || '-';
             let serialValue = item.serial_number || item.serialNumber || '-';
-            
-            const recordId = item.id || item._id;
 
             tr.innerHTML = `
                 <td>${nameValue}</td>
@@ -560,7 +561,7 @@
                 <td>${serialValue}</td>
                 <td>${dateOnly}</td>
                 <td>${item.institution_name || '-'}</td>
-                <td><button class="btn-delete-record" onclick="deleteSingleRecord('${recordId}')">🗑️ حذف</button></td>
+                <td><button class="btn-delete-record" onclick="deleteSingleRecord('${natIdValue}', '${item.date}')">🗑️ حذف</button></td>
             `;
 
             tbody.appendChild(tr);
