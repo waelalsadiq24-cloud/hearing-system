@@ -305,7 +305,6 @@
         return new Date().getFullYear() - year;
     }
 
-    // شرط الاستحقاق: إذا كان عمره 7 سنوات فما فوق وليس طالبا -> 4 سنوات، وإلا فـ 3 سنوات
     function getRequiredYears(age, isStudent) {
         if (age >= 7 && isStudent === 'no') return 4;
         return 3;
