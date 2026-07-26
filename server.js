@@ -3,7 +3,9 @@ const { MongoClient } = require('mongodb');
 const path = require('path');
 
 const app = express();
-app.use(express.json({ limit: '50mb' })); // السماح باستقبال ملفات بحجم كبير
+// زيادة حد حجم البيانات المسموح به لاستيعاب الملفات الكبيرة جداً
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(express.static(__dirname));
 
 // إعداد الاتصال بقاعدة البيانات (MongoDB)
@@ -19,16 +21,13 @@ async function getDB() {
     return dbConnection;
 }
 
-// ذاكرة مؤقتة محلية لضمان سرعة الاستجابة الفورية
 let memoryRecords = [];
 
-// المؤسسات المدعومة
 const institutions = {
     'yarmok': { id: 'yarmok', name: 'مستشفى اليرموك' },
     'tibb': { id: 'tibb', name: 'مدينة الطب' }
 };
 
-// جلب السجلات وخيارات السماعات للمؤسسة الحالية
 app.get('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     const currentInst = institutions[code] || institutions['yarmok'];
@@ -50,7 +49,6 @@ app.get('/api/records', async (req, res) => {
     }
 });
 
-// إضافة سجل جديد أو صرف سماعة
 app.post('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     const currentInst = institutions[code] || institutions['yarmok'];
@@ -85,7 +83,6 @@ app.post('/api/records', async (req, res) => {
     }
 });
 
-// مسار فحص استحقاق المريض
 app.get('/api/check-patient/:id', async (req, res) => {
     const nationalId = req.params.id;
     try {
@@ -106,7 +103,7 @@ app.get('/api/check-patient/:id', async (req, res) => {
     }
 });
 
-// مسار الاستيراد السريع والآمن والمحمي ضد الأخطاء لملفات الـ CSV عبر السيرفر
+// مسار الاستيراد المحدث والمدعوم بالحجم الكبير والآمن تماماً
 app.post('/api/import-csv', async (req, res) => {
     try {
         const { rawData } = req.body;
@@ -121,12 +118,10 @@ app.post('/api/import-csv', async (req, res) => {
             let line = lines[i] ? lines[i].trim() : '';
             if (!line) continue;
 
-            // تخطي صف العناوين بمرونة
             if (i === 0 && (line.includes('الاسم') || line.includes('المريض') || line.includes('الأم') || line.includes('patient'))) {
                 continue;
             }
 
-            // تقسيم الأعمدة بشكل آمن مع التعامل مع الفواصل وعلامات التنصيص
             let cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
             cols = cols.map(c => (c ? c.replace(/^"|"$/g, '').trim() : ''));
 
@@ -158,18 +153,18 @@ app.post('/api/import-csv', async (req, res) => {
             const db = await getDB();
             const collection = db.collection('records');
             memoryRecords.unshift(...recordsList);
+            // إدخال دفعات كبيرة بكفاءة عالية
             await collection.insertMany(recordsList);
             res.json({ success: true, count: recordsList.length });
         } else {
             res.json({ success: false, error: 'لم يتم العثور على أي بيانات صالحة للاستيراد' });
         }
     } catch (e) {
-        console.error("Import error:", e);
+        console.error("Import error details:", e);
         res.status(500).json({ success: false, error: 'خطأ داخلي أثناء معالجة الملف بالسيرفر' });
     }
 });
 
-// مسار حذف كافة السجلات الخاصة بالمؤسسة الحالية
 app.delete('/api/clear-records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     try {
@@ -182,7 +177,6 @@ app.delete('/api/clear-records', async (req, res) => {
     }
 });
 
-// إدارة خيارات السماعات
 app.post('/api/devices-options', async (req, res) => {
     const code = req.query.code || 'yarmok';
     const { device } = req.body;
@@ -218,7 +212,6 @@ app.delete('/api/devices-options', async (req, res) => {
     }
 });
 
-// تعديل بيانات سجل محدد
 app.put('/api/records/:id', async (req, res) => {
     const recordId = Number(req.params.id) || req.params.id;
     const updateData = req.body;
@@ -231,7 +224,6 @@ app.put('/api/records/:id', async (req, res) => {
     }
 });
 
-// حذف سجل فردي
 app.delete('/api/records/:id', async (req, res) => {
     const recordId = Number(req.params.id) || req.params.id;
     try {
@@ -243,7 +235,6 @@ app.delete('/api/records/:id', async (req, res) => {
     }
 });
 
-// تشغيل السيرفر
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
