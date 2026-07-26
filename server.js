@@ -106,7 +106,7 @@ app.get('/api/check-patient/:id', async (req, res) => {
     }
 });
 
-// مسار الاستيراد السريع والآمن لملفات الـ CSV عبر السيرفر
+// مسار الاستيراد السريع والآمن والمحمي ضد الأخطاء لملفات الـ CSV عبر السيرفر
 app.post('/api/import-csv', async (req, res) => {
     try {
         const { rawData } = req.body;
@@ -117,17 +117,18 @@ app.post('/api/import-csv', async (req, res) => {
         const code = req.query.code || 'yarmok';
         const currentInst = institutions[code] || institutions['yarmok'];
 
-        let startIndex = 0;
-        if (lines[0] && (lines[0].includes('الاسم') || lines[0].includes('المريض') || lines[0].includes('الأم'))) {
-            startIndex = 1;
-        }
-
-        for (let i = startIndex; i < lines.length; i++) {
-            let line = lines[i].trim();
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i] ? lines[i].trim() : '';
             if (!line) continue;
 
+            // تخطي صف العناوين بمرونة
+            if (i === 0 && (line.includes('الاسم') || line.includes('المريض') || line.includes('الأم') || line.includes('patient'))) {
+                continue;
+            }
+
+            // تقسيم الأعمدة بشكل آمن مع التعامل مع الفواصل وعلامات التنصيص
             let cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-            cols = cols.map(c => c.replace(/^"|"$/g, '').trim());
+            cols = cols.map(c => (c ? c.replace(/^"|"$/g, '').trim() : ''));
 
             const patName = cols[0] || '';
             const momName = cols[1] || '-';
@@ -136,9 +137,9 @@ app.post('/api/import-csv', async (req, res) => {
             const device = cols[4] || 'oticon xceed 3 up';
             const serial = cols[5] || '0000';
 
-            if (patName && patName !== 'اسم المريض') {
+            if (patName && patName !== 'undefined' && patName !== '') {
                 recordsList.push({
-                    _id: Date.now() + Math.random(),
+                    _id: Date.now() + Math.random() * 10000,
                     national_id: natId,
                     patient_name: patName,
                     mother_name: momName,
@@ -160,10 +161,11 @@ app.post('/api/import-csv', async (req, res) => {
             await collection.insertMany(recordsList);
             res.json({ success: true, count: recordsList.length });
         } else {
-            res.json({ success: false, error: 'لم يتم العثور على بيانات صالحة للاستيراد' });
+            res.json({ success: false, error: 'لم يتم العثور على أي بيانات صالحة للاستيراد' });
         }
     } catch (e) {
-        res.status(500).json({ success: false, error: 'خطأ في معالجة الملف بالسيرفر' });
+        console.error("Import error:", e);
+        res.status(500).json({ success: false, error: 'خطأ داخلي أثناء معالجة الملف بالسيرفر' });
     }
 });
 
