@@ -25,12 +25,14 @@ async function getDB() {
     return client.db(DB_NAME);
 }
 
-// تخزين مؤقت احتياطي لضمان عدم توقف النظام نهائياً
+// تخزين مؤقت احتياطي لضمان استمرارية التشغيل الفوري دون انقطاع
 let memoryRecords = [];
 let deviceOptionsList = ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'];
 
 app.get('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
+    let currentInst = { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' };
+    
     try {
         const db = await getDB();
         const recordsCollection = db.collection('records');
@@ -45,13 +47,13 @@ app.get('/api/records', async (req, res) => {
         res.json({
             records: records, 
             deviceOptions: deviceOptions,
-            currentInstitution: { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' }
+            currentInstitution: currentInst
         });
     } catch (e) {
         res.json({
             records: memoryRecords,
             deviceOptions: deviceOptionsList,
-            currentInstitution: { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' }
+            currentInstitution: currentInst
         });
     }
 });
@@ -76,33 +78,36 @@ app.post('/api/records', async (req, res) => {
 
     try {
         const db = await getDB();
-        const recordsCollection = db.collection('records');
-        await recordsCollection.insertOne(newRecord);
-    } catch (e) {
-        console.error("Cloud Save Error (Saved in memory):", e.message);
-    }
+        await db.collection('records').insertOne(newRecord);
+    } catch (e) {}
 
-    res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح وثبات', record: newRecord });
+    res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح', record: newRecord });
 });
 
 app.put('/api/records/:id', async (req, res) => {
     const recordId = Number(req.params.id);
     const updates = req.body;
+    
     memoryRecords = memoryRecords.map(r => r._id === recordId ? { ...r, ...updates } : r);
+    
     try {
         const db = await getDB();
         await db.collection('records').updateOne({ _id: recordId }, { $set: updates });
     } catch (e) {}
+    
     res.json({ success: true, message: 'تم التعديل بنجاح' });
 });
 
 app.delete('/api/records/:id', async (req, res) => {
     const recordId = Number(req.params.id);
+    
     memoryRecords = memoryRecords.filter(r => r._id !== recordId);
+    
     try {
         const db = await getDB();
         await db.collection('records').deleteOne({ _id: recordId });
     } catch (e) {}
+    
     res.json({ success: true, message: 'تم الحذف بنجاح' });
 });
 
