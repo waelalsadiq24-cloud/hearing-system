@@ -132,7 +132,7 @@
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importExcelFile(event)">
+                    <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvSafely(event)">
                     <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
@@ -404,32 +404,73 @@
         }
     }
 
-    // دالة الاستيراد المباشر عبر زر الملفات
-    function importExcelFile(event) {
+    // معالجة ملف الـ CSV محلياً وتفكيكه بأمان تام وإرساله للسيرفر
+    function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = async function(e) {
             try {
-                const rawData = e.target.result;
+                const text = e.target.result;
+                const lines = text.split(/\r\n|\n/);
+                let parsedRecords = [];
                 const code = getInstitutionCode();
 
-                const res = await fetch(`/api/import-csv?code=${code}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rawData })
-                });
-                const result = await res.json();
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i] ? lines[i].trim() : '';
+                    if (!line) continue;
 
-                if (result.success) {
-                    alert(`✅ تم استيراد وحفظ ${result.count} سجل بنجاح تام وفوري!`);
-                    loadIssuedList();
-                } else {
-                    alert('❌ ' + (result.error || 'فشل استيراد الملف'));
+                    if (i === 0 && (line.includes('اسم') || line.includes('المريض') || line.includes('الرقم') || line.includes('الأم'))) {
+                        continue;
+                    }
+
+                    let cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    cols = cols.map(c => (c ? c.replace(/^"|"$/g, '').trim() : ''));
+
+                    let patName = cols[0] || '';
+                    let momName = cols[1] || '-';
+                    let natId = cols[2] || 'غير متوفر';
+                    let birth = cols[3] || '-';
+                    let device = cols[4] || 'oticon xceed 3 up';
+                    let serial = cols[5] || '0000';
+
+                    if (patName && patName !== 'undefined' && patName !== '') {
+                        parsedRecords.push({
+                            patient_name: patName,
+                            mother_name: momName,
+                            national_id: natId,
+                            birth_year: birth,
+                            device_details: device,
+                            serial_number: serial
+                        });
+                    }
                 }
+
+                if (parsedRecords.length === 0) {
+                    return alert('⚠️ لم يتم العثور على بيانات صالحة في الملف.');
+                }
+
+                const chunkSize = 100;
+                let totalImported = 0;
+
+                for (let j = 0; j < parsedRecords.length; j += chunkSize) {
+                    const chunk = parsedRecords.slice(j, j + chunkSize);
+                    const res = await fetch(`/api/import-csv?code=${code}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ records: chunk })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        totalImported += result.count;
+                    }
+                }
+
+                alert(`✅ تم استيراد وحفظ ${totalImported} سجل بنجاح تام وفوري!`);
+                loadIssuedList();
             } catch (err) {
-                alert('⚠️ حدث خطأ أثناء إرسال الملف للسيرفر.');
+                alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
             }
             event.target.value = '';
         };
