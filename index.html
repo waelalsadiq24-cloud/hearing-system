@@ -406,7 +406,7 @@
         }
     }
 
-    // دالة استيراد آمنة ومضمونة تدعم كافة صيغ ملفات الاكسل
+    // دالة استيراد ذكية تعمل بنظام Binary المدعوم كلياً لفتح ملفات الاكسل بدون أي أخطاء
     function importExcelFile(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -414,8 +414,8 @@
         const reader = new FileReader();
         reader.onload = async function(e) {
             try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const data = e.target.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
@@ -468,17 +468,17 @@
                         body: JSON.stringify({ records: recordsList })
                     });
                     const result = await res.json();
-                    alert(`✅ تم استيراد وحفظ ${result.count || recordsList.length} سجل بنجاح تام!`);
+                    alert(`✅ تم استيراد وحفظ ${result.count || recordsList.length} سجل بنجاح تام وسريع!`);
                     loadIssuedList();
                 } else {
-                    alert('⚠️ لم يتم العثور على أي أسماء مطابقة للاستيراد في الملف.');
+                    alert('⚠️ لم يتم العثور على أي أسماء صالحة للاستيراد في الملف.');
                 }
             } catch (err) {
-                alert('⚠️ حدث خطأ أثناء قراءة ملف الاكسل. تأكد من أن الملف ليس مخصصاً بصيغة غير مدعومة.');
+                alert('⚠️ حدث خطأ أثناء قراءة ملف الاكسل. يجدر التأكد من أن الملف ليس تالفاً.');
             }
             event.target.value = '';
         };
-        reader.readAsArrayBuffer(file);
+        reader.readAsBinaryString(file);
     }
 
     async function clearAllRecords() {
