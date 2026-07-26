@@ -400,12 +400,14 @@
         }
     }
 
-    // 🚀 نظام الاستيراد المحلي الفوري (يتجاوز السيرفر تماماً لمنع أي خطأ 502 وبدون حدود للحجم)
+    // 🚀 دالة الاستيراد الذكية المحدثة لقراءة وفهرسة أعمدة ملفك بدقة متناهية
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
+        reader.readAsText(file, 'UTF-8');
+        
         reader.onload = function(e) {
             try {
                 const text = e.target.result;
@@ -418,56 +420,61 @@
                     let line = lines[i] ? lines[i].trim() : '';
                     if (!line) continue;
 
-                    if (i === 0 && (line.includes('اسم') || line.includes('المريض') || line.includes('الرقم') || line.includes('الأم') || line.toLowerCase().includes('patient') || line.toLowerCase().includes('name'))) {
-                        continue;
-                    }
-
                     let cols = line.split(/,|;|\t/);
                     cols = cols.map(c => (c ? c.replace(/^["']|["']$/g, '').trim() : ''));
 
+                    let validCols = cols.filter(c => c !== '');
+                    if (validCols.length === 0) continue;
+
+                    let firstCol = validCols[0];
+                    if (i === 0 || firstCol.includes('اسم المريض') || firstCol.includes('اسم') || firstCol.includes('patient') || firstCol.includes('name')) {
+                        continue;
+                    }
+
                     let patName = cols[0] || '';
                     let momName = cols[1] || '-';
-                    let natId = cols[2] || 'غير متوفر';
-                    let birth = cols[3] || '-';
-                    let device = cols[4] || 'oticon xceed 3 up';
-                    let serial = cols[5] || cols[6] || '0000';
+                    let natId = cols[2] && !cols[2].includes('/') && cols[2].length > 5 ? cols[2] : 'غير متوفر';
+                    let birth = cols[3] && cols[3].includes('/') ? cols[3] : (cols[2] && cols.find(c => c.includes('/')) || '-');
+                    
+                    let device = cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -'))) || cols[4] || 'oticon xceed 3 up';
+                    
+                    let serial = cols.find(c => c && !isNaN(c) && c.length >= 6) || '0000';
+                    let dateVal = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)) || new Date().toISOString();
 
-                    if (patName && patName !== 'undefined' && patName !== '') {
+                    if (patName && patName !== 'undefined' && patName !== '' && !patName.includes('???')) {
                         parsedRecords.push({
-                            national_id: String(natId),
+                            national_id: String(natId !== 'غير متوفر' ? natId : 'ID-' + Math.floor(Math.random() * 1000000)),
                             patient_name: patName,
                             mother_name: momName,
                             birth_year: birth,
                             is_student: 'yes',
                             device_details: device,
                             serial_number: serial,
-                            date: new Date().toISOString(),
+                            date: typeof dateVal === 'string' && dateVal.includes('/') ? new Date(dateVal).toISOString() : new Date().toISOString(),
                             institution_name: institutionName
                         });
                     }
                 }
 
                 if (parsedRecords.length === 0) {
-                    alert('⚠️ لم يتم قراءة أي سجلات من الملف.');
+                    alert('⚠️ لم يتم قراءة أي سجلات صحيحة من الملف.');
                     event.target.value = '';
                     return;
                 }
 
-                // حفظ محلياً في المتصفح لتجاوز قيود حجم الرفع للخادم
                 let storageKey = `local_records_${code}`;
                 let existingLocal = JSON.parse(localStorage.getItem(storageKey) || '[]');
                 let combined = [...parsedRecords, ...existingLocal];
                 localStorage.setItem(storageKey, JSON.stringify(combined));
 
-                alert(`🎉 تم استيراد وحفظ ${parsedRecords.length} سجل بنجاح تام وعرضها في الجدول فوراً!`);
+                alert(`🎉 تم استيراد وعرض ${parsedRecords.length} سجل في الجدول بنجاح تام!`);
                 loadIssuedList();
             } catch (err) {
                 console.error(err);
-                alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV محلياً.');
+                alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
             }
             event.target.value = '';
         };
-        reader.readAsText(file, 'UTF-8');
     }
 
     async function clearAllRecords() {
@@ -515,7 +522,6 @@
             serverRecords = responseData.records || [];
         } catch (e) {}
 
-        // دمج السجلات المحلية المخزنة بالمتصفح مع سجلات السيرفر
         let storageKey = `local_records_${code}`;
         let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
         
