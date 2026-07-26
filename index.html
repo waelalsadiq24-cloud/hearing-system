@@ -102,9 +102,18 @@
         </div>
         <div class="row">
             <div>
+                <label>هل المريض طالب؟</label>
+                <select id="isStudent" onchange="checkPatientEligibilityLive()">
+                    <option value="yes">نعم (طالب)</option>
+                    <option value="no">ليس طالب</option>
+                </select>
+            </div>
+            <div>
                 <label>الرقم التسلسلي (Serial Number):</label>
                 <input type="text" id="serialNumber" placeholder="أدخل الرقم التسلسلي للسماعة">
             </div>
+        </div>
+        <div class="row">
             <div style="flex: 1;">
                 <label>تفاصيل السماعة:</label>
                 <div class="custom-dropdown-container">
@@ -296,6 +305,12 @@
         return new Date().getFullYear() - year;
     }
 
+    // شرط الاستحقاق: إذا كان عمره 7 سنوات فما فوق وليس طالبا -> 4 سنوات، وإلا فـ 3 سنوات
+    function getRequiredYears(age, isStudent) {
+        if (age >= 7 && isStudent === 'no') return 4;
+        return 3;
+    }
+
     async function searchPatient() {
         const id = document.getElementById('searchId').value.trim();
         const code = getInstitutionCode();
@@ -312,8 +327,9 @@
         } else {
             let lastRecord = data.record;
             let birthVal = lastRecord.birth_year || '-';
+            let studentVal = lastRecord.is_student || 'yes';
             let age = calculateAge(birthVal);
-            let requiredYears = (age >= 7) ? 4 : 3;
+            let requiredYears = getRequiredYears(age, studentVal);
 
             let diffYears = (new Date() - new Date(lastRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
@@ -347,7 +363,8 @@
         if (data.found) {
             let lastRecord = data.record;
             let age = calculateAge(lastRecord.birth_year || '-');
-            let requiredYears = (age >= 7) ? 4 : 3;
+            let studentVal = document.getElementById('isStudent').value;
+            let requiredYears = getRequiredYears(age, studentVal);
             let diffYears = (new Date() - new Date(lastRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
             if (diffYears < requiredYears) {
@@ -372,6 +389,7 @@
             patient_name: document.getElementById('fullName').value.trim(),
             mother_name: document.getElementById('motherName').value.trim(),
             birth_year: (document.getElementById('birthDay').value && document.getElementById('birthMonth').value && document.getElementById('birthYear').value) ? `${document.getElementById('birthDay').value}/${document.getElementById('birthMonth').value}/${document.getElementById('birthYear').value}` : (document.getElementById('birthYear').value || '-'),
+            is_student: document.getElementById('isStudent').value,
             device_details: document.getElementById('deviceDetailsValue').value || document.getElementById('selectedDeviceDisplay').textContent,
             serial_number: document.getElementById('serialNumber').value.trim()
         };
@@ -426,11 +444,15 @@
                 const code = getInstitutionCode();
 
                 for (let row of rows) {
+                    const studentCol = String(row['طالب'] || row['الحالة الدراسية'] || 'yes');
+                    const isStud = studentCol.includes('ليس') ? 'no' : 'yes';
+
                     const recordBody = {
                         national_id: String(row['الرقم الوطني'] || row['national_id'] || row['الرقم'] || ''),
                         patient_name: String(row['اسم المريض'] || row['الاسم'] || row['patient_name'] || ''),
                         mother_name: String(row['اسم الأم'] || row['الأم'] || row['mother_name'] || '-'),
                         birth_year: String(row['تاريخ الولادة'] || row['المواليد'] || row['birth_year'] || '-'),
+                        is_student: isStud,
                         device_details: String(row['تفاصيل السماعة'] || row['السماعة'] || row['device_details'] || 'oticon xceed 3 up'),
                         serial_number: String(row['الرقم التسلسلي'] || row['السيريال'] || row['serial_number'] || '0000')
                     };
