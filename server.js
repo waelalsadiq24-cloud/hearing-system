@@ -23,11 +23,9 @@ async function getDB() {
     return client.db(DB_NAME);
 }
 
-// قوائم احتياطية محلية لضمان عدم توقف النظام أو فشل أي إضافة
 let defaultDevices = ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'];
 let memoryRecords = [];
 
-// 1. جلب السجلات والخيارات
 app.get('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     let currentInst = { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' };
@@ -56,17 +54,17 @@ app.get('/api/records', async (req, res) => {
     }
 });
 
-// 2. حفظ آمن وسريع للمرضى والسجلات
 app.post('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     const recordId = Date.now();
     const newRecord = {
         _id: recordId,
         id: recordId,
-        national_id: String(req.body.national_id || ''),
+        national_id: String(req.body.national_id || '').trim(),
         patient_name: String(req.body.patient_name || ''),
         mother_name: String(req.body.mother_name || ''),
         birth_year: String(req.body.birth_year || ''),
+        is_student: String(req.body.is_student || 'yes'),
         device_details: String(req.body.device_details || ''),
         serial_number: String(req.body.serial_number || ''),
         date: new Date().toISOString(),
@@ -105,21 +103,26 @@ app.delete('/api/records/:id', async (req, res) => {
     }).catch(() => {});
 });
 
+// فحص دقيق يجلب أحدث تاريخ صرف للمريض بالكامل
 app.get('/api/check-patient/:id', (req, res) => {
-    const natId = req.params.id;
-    let found = memoryRecords.find(r => r.national_id === natId);
+    const natId = String(req.params.id).trim();
+    const patientRecords = memoryRecords.filter(r => String(r.national_id).trim() === natId);
 
-    if (found) {
+    if (patientRecords.length > 0) {
+        // ترتيب السجلات حسب التاريخ تصاعدياً أو تنازلياً لأخذ أحدث تاريخ صرف
+        patientRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+        let latestRecord = patientRecords[0];
+
         res.json({
-            received: true,
-            message: `المريض مستلم مسبقاً! تم صرف سماعة (${found.device_details}) بتاريخ ${found.date ? found.date.split('T')[0] : ''}`
+            found: true,
+            record: latestRecord,
+            message: `المريض مستلم مسبقاً بتاريخ ${latestRecord.date ? latestRecord.date.split('T')[0] : ''}`
         });
     } else {
-        res.json({ received: false, message: 'المريض غير مسجل مسبقاً ويمكنه الاستلام.' });
+        res.json({ found: false, message: 'المريض غير مسجل مسبقاً ويمكنه الاستلام.' });
     }
 });
 
-// 3. إضافة السماعات للقائمة المنسدلة بشكل فوري ومضمون 100% دون أي خطأ
 app.post('/api/devices-options', async (req, res) => {
     const deviceName = req.body.device;
     if (deviceName && !defaultDevices.includes(deviceName)) {
