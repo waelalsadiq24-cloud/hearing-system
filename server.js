@@ -131,8 +131,8 @@ app.post('/api/import-csv', async (req, res) => {
     }
 });
 
-// تحويل حذف كافة السجلات إلى POST لضمان عدم حدوث خطأ 502
-app.post('/api/clear-records', async (req, res) => {
+// دعم كلا الأسلوبين (DELETE و POST) لمنع ظهور خطأ 404 نهائياً
+async function handleClearRecords(req, res) {
     const code = req.query.code || 'yarmok';
     try {
         const db = await getDB();
@@ -142,11 +142,14 @@ app.post('/api/clear-records', async (req, res) => {
         memoryRecords = memoryRecords.filter(r => r.institution_id !== code);
         res.json({ success: true, message: 'تم حذف السجلات محلياً' });
     }
-});
+}
 
-// مسار حذف سجل فردي باستخدام POST الآمن
-app.post('/api/records-safe-delete', async (req, res) => {
-    const { national_id } = req.body;
+app.delete('/api/clear-records', handleClearRecords);
+app.post('/api/clear-records', handleClearRecords);
+
+// دعم كلا الأسلوبين لحذف السجل الفردي لمنع أي خطأ
+async function handleSafeDelete(req, res) {
+    const national_id = req.body.national_id || req.query.national_id;
     try {
         const db = await getDB();
         await db.collection('records').deleteMany({ national_id: String(national_id) });
@@ -155,7 +158,10 @@ app.post('/api/records-safe-delete', async (req, res) => {
         memoryRecords = memoryRecords.filter(r => String(r.national_id) !== String(national_id));
         res.json({ success: true });
     }
-});
+}
+
+app.delete('/api/records-safe-delete', handleSafeDelete);
+app.post('/api/records-safe-delete', handleSafeDelete);
 
 app.post('/api/devices-options', async (req, res) => {
     const code = req.query.code || 'yarmok';
