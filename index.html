@@ -491,13 +491,13 @@
         }
     }
 
-    async function deleteSingleRecord(nationalId, recordDate) {
+    async function deleteSingleRecord(nationalId) {
         if (!confirm("⚠️ هل أنت متأكد من رغبتك في حذف هذا السجل نهائياً؟")) return;
         try {
             const res = await fetch(`/api/records-safe-delete`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ national_id: nationalId, date: recordDate })
+                body: JSON.stringify({ national_id: nationalId })
             });
             const data = await res.json();
             if (data.success) {
@@ -561,7 +561,7 @@
                 <td>${serialValue}</td>
                 <td>${dateOnly}</td>
                 <td>${item.institution_name || '-'}</td>
-                <td><button class="btn-delete-record" onclick="deleteSingleRecord('${natIdValue}', '${item.date}')">🗑️ حذف</button></td>
+                <td><button class="btn-delete-record" onclick="deleteSingleRecord('${natIdValue}')">🗑️ حذف</button></td>
             `;
 
             tbody.appendChild(tr);
