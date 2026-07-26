@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>نظام سجلات السماعات الطبية</title>
-    <!-- مكتبة لقراءة ملفات الاكسل بسهولة -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; direction: rtl; }
         .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -134,8 +132,8 @@
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="importExcelFile(event)">
-                    <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد من ملف Excel</button>
+                    <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importExcelFile(event)">
+                    <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
                 <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
@@ -406,7 +404,7 @@
         }
     }
 
-    // دالة استيراد ذكية تعمل بنظام Binary المدعوم كلياً لفتح ملفات الاكسل بدون أي أخطاء
+    // دالة إرسال واستيراد ملف CSV المباشر للسيرفر
     function importExcelFile(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -414,71 +412,28 @@
         const reader = new FileReader();
         reader.onload = async function(e) {
             try {
-                const data = e.target.result;
-                const workbook = XLSX.read(data, { type: 'binary' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                
-                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-
-                if (!rows || rows.length === 0) {
-                    return alert('ملف الاكسل فارغ!');
-                }
-
-                let recordsList = [];
+                const rawData = e.target.result;
                 const code = getInstitutionCode();
 
-                let startIndex = 0;
-                let firstRow = rows[0];
-                if (firstRow && (String(firstRow[0]).includes('الاسم') || String(firstRow[0]).includes('المريض') || String(firstRow[1]).includes('الأم'))) {
-                    startIndex = 1;
-                }
+                const res = await fetch(`/api/import-csv?code=${code}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rawData })
+                });
+                const result = await res.json();
 
-                for (let i = startIndex; i < rows.length; i++) {
-                    let r = rows[i];
-                    if (!r || r.length === 0) continue;
-
-                    const patName = String(r[0] || '').trim();
-                    const momName = String(r[1] || '-').trim();
-                    const natId = String(r[2] || '').trim();
-                    const birth = String(r[3] || '-').trim();
-                    const device = String(r[4] || 'oticon xceed 3 up').trim();
-                    const serial = String(r[5] || r[6] || '0000').trim();
-
-                    if (patName && patName !== 'undefined' && patName !== 'اسم المريض' && patName !== '') {
-                        recordsList.push({
-                            national_id: natId || 'غير متوفر',
-                            patient_name: patName,
-                            mother_name: momName,
-                            birth_year: birth,
-                            is_student: 'yes',
-                            device_details: device,
-                            serial_number: serial,
-                            date: new Date().toISOString(),
-                            institution_id: code,
-                            institution_name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب'
-                        });
-                    }
-                }
-
-                if (recordsList.length > 0) {
-                    const res = await fetch(`/api/import-excel?code=${code}`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ records: recordsList })
-                    });
-                    const result = await res.json();
-                    alert(`✅ تم استيراد وحفظ ${result.count || recordsList.length} سجل بنجاح تام وسريع!`);
+                if (result.success) {
+                    alert(`✅ تم استيراد وحفظ ${result.count} سجل بنجاح تام وفوري!`);
                     loadIssuedList();
                 } else {
-                    alert('⚠️ لم يتم العثور على أي أسماء صالحة للاستيراد في الملف.');
+                    alert('❌ ' + (result.error || 'فشل استيراد الملف'));
                 }
             } catch (err) {
-                alert('⚠️ حدث خطأ أثناء قراءة ملف الاكسل. يجدر التأكد من أن الملف ليس تالفاً.');
+                alert('⚠️ حدث خطأ أثناء إرسال الملف للسيرفر.');
             }
             event.target.value = '';
         };
-        reader.readAsBinaryString(file);
+        reader.readAsText(file, 'UTF-8');
     }
 
     async function clearAllRecords() {
