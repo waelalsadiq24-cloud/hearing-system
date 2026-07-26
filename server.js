@@ -13,48 +13,43 @@ const DB_NAME = "hearingSystemDB";
 let cachedClient = null;
 async function getDB() {
     if (cachedClient) return cachedClient.db(DB_NAME);
-    const client = new MongoClient(MONGODB_URI, { tls: true, tlsAllowInvalidCertificates: true, serverSelectionTimeoutMS: 3000 });
+    const client = new MongoClient(MONGODB_URI, { tls: true, tlsAllowInvalidCertificates: true, serverSelectionTimeoutMS: 5000 });
     await client.connect();
     cachedClient = client;
     return client.db(DB_NAME);
 }
 
-// ذاكرة محلية سريعة جداً للاستجابة الفورية للمستخدم
-let memoryRecords = [];
-let deviceOptionsList = ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'];
-let isLoadedFromCloud = false;
+let defaultDevices = ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'];
 
-// جلب البيانات أول مرة فقط من السحاب وتخزينها محلياً لسرعة فائقة
-async function syncFromCloud() {
-    try {
-        const db = await getDB();
-        const dbRecords = await db.collection('records').find({}).toArray();
-        if (dbRecords.length > 0) {
-            memoryRecords = dbRecords.map(r => ({ ...r, id: r._id }));
-        }
-        const dbDevices = await db.collection('deviceOptions').find({}).toArray();
-        if (dbDevices.length > 0) {
-            deviceOptionsList = dbDevices.map(d => d.name);
-        }
-        isLoadedFromCloud = true;
-    } catch (e) {}
-}
-syncFromCloud();
-
-// جلب السجلات فوراً من الذاكرة المحلية (بدون أي انتظار للسيرفر)
-app.get('/api/records', (req, res) => {
+// جلب السجلات مباشرة من قاعدة البيانات السحابية لضمان عدم اختفائها أبداً
+app.get('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     let currentInst = { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' };
     
-    res.json({
-        records: memoryRecords,
-        deviceOptions: deviceOptionsList,
-        currentInstitution: currentInst
-    });
+    try {
+        const db = await getDB();
+        const dbRecords = await db.collection('records').find({}).toArray();
+        const records = dbRecords.map(r => ({ ...r, id: r._id }));
+
+        const dbDevices = await db.collection('deviceOptions').find({}).toArray();
+        const deviceOptions = dbDevices.length > 0 ? dbDevices.map(d => d.name) : defaultDevices;
+
+        res.json({
+            records: records,
+            deviceOptions: deviceOptions,
+            currentInstitution: currentInst
+        });
+    } catch (e) {
+        res.json({
+            records: [],
+            deviceOptions: defaultDevices,
+            currentInstitution: currentInst
+        });
+    }
 });
 
-// حفظ فوري بالذاكرة والظهور بلحظتها، والمزامنة بالسحاب في الخلفية بصمت
-app.post('/api/records', (req, res) => {
+// حفظ مباشر وثابت في قاعدة البيانات
+app.post('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     const recordId = Date.now();
     const newRecord = {
@@ -71,66 +66,87 @@ app.post('/api/records', (req, res) => {
         institution_name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب'
     };
 
-    memoryRecords.unshift(newRecord);
-
-    // إرسال الرد للمستخدم فوراً (سرعة قصوى)
-    res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح', record: newRecord });
-
-    // الحفظ في قاعدة البيانات السحابية في الخلفية دون تعطيل المستخدم
-    getDB().then(db => {
-        db.collection('records').insertOne(newRecord).catch(() => {});
-    }).catch(() => {});
+    try {
+        const db = await getDB();
+        await db.collection('records').insertOne(newRecord);
+        res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح وثبات', record: newRecord });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'فشل الحفظ في قاعدة البيانات' });
+    }
 });
 
-app.put('/api/records/:id', (req, res) => {
+app.put('/api/records/:id', async (req, res) => {
     const recordId = Number(req.params.id);
     const updates = req.body;
-    memoryRecords = memoryRecords.map(r => (r.id === recordId || r._id === recordId) ? { ...r, ...updates } : r);
     
-    res.json({ success: true, message: 'تم التعديل بنجاح' });
-
-    getDB().then(db => {
-        db.collection('records').updateOne({ _id: recordId }, { $set: updates }).catch(() => {});
-    }).catch(() => {});
+    try {
+        const db = await getDB();
+        await db.collection('records').updateOne({ _id: recordId }, { $set: updates });
+        res.json({ success: true, message: 'تم التعديل بنجاح' });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'فشل التعديل' });
+    }
 });
 
-app.delete('/api/records/:id', (req, res) => {
+app.delete('/api/records/:id', async (req, res) => {
     const recordId = Number(req.params.id);
-    memoryRecords = memoryRecords.filter(r => r.id !== recordId && r._id !== recordId);
     
-    res.json({ success: true, message: 'تم الحذف بنجاح' });
-
-    getDB().then(db => {
-        db.collection('records').deleteOne({ _id: recordId }).catch(() => {});
-    }).catch(() => {});
+    try {
+        const db = await getDB();
+        await db.collection('records').deleteOne({ _id: recordId });
+        res.json({ success: true, message: 'تم الحذف بنجاح' });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'فشل الحذف' });
+    }
 });
 
-app.get('/api/check-patient/:id', (req, res) => {
+app.get('/api/check-patient/:id', async (req, res) => {
     const natId = req.params.id;
-    let found = memoryRecords.find(r => r.national_id === natId);
+    try {
+        const db = await getDB();
+        const found = await db.collection('records').findOne({ national_id: natId });
 
-    if (found) {
-        res.json({
-            received: true,
-            message: `المريض مستلم مسبقاً! تم صرف سماعة (${found.device_details}) بتاريخ ${found.date ? found.date.split('T')[0] : ''}`
-        });
-    } else {
-        res.json({ received: false, message: 'المريض غير مسجل مسبقاً ويمكنه الاستلام.' });
+        if (found) {
+            res.json({
+                received: true,
+                message: `المريض مستلم مسبقاً! تم صرف سماعة (${found.device_details}) بتاريخ ${found.date ? found.date.split('T')[0] : ''}`
+            });
+        } else {
+            res.json({ received: false, message: 'المريض غير مسجل مسبقاً ويمكنه الاستلام.' });
+        }
+    } catch (e) {
+        res.json({ received: false, message: 'المريض غير مسجل مسبقاً.' });
     }
 });
 
-app.post('/api/devices-options', (req, res) => {
+app.post('/api/devices-options', async (req, res) => {
     const deviceName = req.body.device;
-    if (deviceName && !deviceOptionsList.includes(deviceName)) {
-        deviceOptionsList.push(deviceName);
+    try {
+        const db = await getDB();
+        const col = db.collection('deviceOptions');
+        if (deviceName && !(await col.findOne({ name: deviceName }))) {
+            await col.insertOne({ name: deviceName });
+        }
+        const devices = await col.find({}).toArray();
+        let list = devices.length > 0 ? devices.map(d => d.name) : defaultDevices;
+        res.json({ success: true, deviceOptions: list });
+    } catch (e) {
+        res.json({ success: false, deviceOptions: defaultDevices });
     }
-    res.json({ success: true, deviceOptions: deviceOptionsList });
 });
 
-app.delete('/api/devices-options', (req, res) => {
+app.delete('/api/devices-options', async (req, res) => {
     const deviceName = req.body.device;
-    deviceOptionsList = deviceOptionsList.filter(d => d !== deviceName);
-    res.json({ success: true, deviceOptions: deviceOptionsList });
+    try {
+        const db = await getDB();
+        const col = db.collection('deviceOptions');
+        await col.deleteOne({ name: deviceName });
+        const devices = await col.find({}).toArray();
+        let list = devices.length > 0 ? devices.map(d => d.name) : defaultDevices;
+        res.json({ success: true, deviceOptions: list });
+    } catch (e) {
+        res.json({ success: false, deviceOptions: defaultDevices });
+    }
 });
 
 app.listen(PORT, () => {
