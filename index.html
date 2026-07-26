@@ -491,7 +491,6 @@
         }
     }
 
-    // استخدام طلب POST الآمن والمضمون بنسبة 100% للحذف
     async function deleteSingleRecord(nationalId) {
         if (!confirm("⚠️ هل أنت متأكد من رغبتك في حذف هذا السجل نهائياً؟")) return;
         try {
@@ -500,8 +499,8 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ national_id: nationalId })
             });
-            const data = await res.json();
-            if (data.success) {
+            
+            if (res.ok) {
                 alert('✅ تم حذف السجل بنجاح.');
                 loadIssuedList();
             } else {
