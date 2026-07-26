@@ -451,19 +451,26 @@
                     return;
                 }
 
-                const res = await fetch(`/api/import-csv?code=${code}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ records: parsedRecords })
-                });
-                const result = await res.json();
+                const batchSize = 50;
+                let totalImported = 0;
 
-                if (result.success) {
-                    alert(`🎉 تم استيراد وحفظ ${parsedRecords.length} سجل بنجاح تام وعرضها في الجدول!`);
-                    loadIssuedList();
-                } else {
-                    alert('❌ فشل حفظ السجلات في السيرفر.');
+                for (let i = 0; i < parsedRecords.length; i += batchSize) {
+                    const batch = parsedRecords.slice(i, i + batchSize);
+                    
+                    const res = await fetch(`/api/import-csv?code=${code}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ records: batch })
+                    });
+                    
+                    const result = await res.json();
+                    if (result.success) {
+                        totalImported += batch.length;
+                    }
                 }
+
+                alert(`🎉 تم استيراد وحفظ ${totalImported} سجل بنجاح تام وعرضها في الجدول!`);
+                loadIssuedList();
             } catch (err) {
                 console.error(err);
                 alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
