@@ -19,6 +19,8 @@
         .btn-issue:hover { background-color: #1f618d; }
         .btn-excel { background-color: #d35400; width: auto; display: inline-block; padding: 8px 15px; margin-top: 0; font-size: 14px; }
         .btn-excel:hover { background-color: #ba4a00; }
+        .btn-clear-all { background-color: #c0392b; width: auto; display: inline-block; padding: 8px 12px; margin-top: 0; font-size: 13px; }
+        .btn-clear-all:hover { background-color: #962d22; }
         
         .header-bar { display: flex; justify-content: space-between; align-items: center; background: #34495e; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
         .count-badge { font-weight: bold; font-size: 15px; }
@@ -43,8 +45,6 @@
         
         .cell-input { width: calc(100% - 45px); padding: 4px; font-size: 12px; text-align: center; border: 2px solid #27ae60; border-radius: 3px; background: #ffffd8; display: inline-block; vertical-align: middle; }
         .btn-cell-save { background-color: #27ae60; color: white; border: none; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-top: 0; width: auto; display: inline-block; vertical-align: middle; margin-right: 3px; }
-        .btn-row-delete { background-color: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; width: auto; margin-top: 0; }
-        .btn-row-delete:hover { background-color: #c0392b; }
 
         .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
         .birth-group input { text-align: center; margin-top: 0; }
@@ -136,12 +136,13 @@
         <div class="header-bar">
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
-                <div>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                     <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display: none;" onchange="importExcelFile(event)">
                     <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد من ملف Excel</button>
+                    <!-- زر حذف كافة السجلات دفعة واحدة -->
+                    <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
                 <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
-                <button class="btn-mode btn-delete-mode" id="toggleDeleteBtn" onclick="toggleDeleteMode()">🗑️ وضع الحذف المزدوج (معطل)</button>
             </div>
         </div>
 
@@ -156,11 +157,10 @@
                     <th>الرقم التسلسلي</th>
                     <th>تاريخ الصرف</th>
                     <th>المؤسسة / المركز</th>
-                    <th>إجراء</th>
                 </tr>
             </thead>
             <tbody id="issuedTableBody">
-                <tr><td colspan="9">جاري تحميل السجلات...</td></tr>
+                <tr><td colspan="8">جاري تحميل السجلات...</td></tr>
             </tbody>
         </table>
     </div>
@@ -168,7 +168,6 @@
 </div>
 
 <script>
-    let deleteModeActive = false;
     let activeCell = null;
     let globalDeviceOptions = [];
     let currentInstitutionId = '';
@@ -183,20 +182,6 @@
     function getInstitutionCode() {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get('code') || 'yarmok';
-    }
-
-    function toggleDeleteMode() {
-        deleteModeActive = !deleteModeActive;
-        const btn = document.getElementById('toggleDeleteBtn');
-        if (deleteModeActive) {
-            btn.classList.add('active');
-            btn.innerText = "🗑️ وضع الحذف المزدوج (مفعل)";
-        } else {
-            btn.classList.remove('active');
-            btn.innerText = "🗑️ وضع الحذف المزدوج (معطل)";
-        }
-        activeCell = null;
-        loadIssuedList();
     }
 
     function toggleCustomDropdown() {
@@ -499,6 +484,25 @@
         reader.readAsArrayBuffer(file);
     }
 
+    // دالة حذف كافة السجلات دفعة واحدة
+    async function clearAllRecords() {
+        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف وحذف كافة السجلات التابعة لمؤسستك نهائياً؟ لا يمكن التراجع عن هذا الإجراء!")) {
+            const code = getInstitutionCode();
+            try {
+                const res = await fetch(`/api/clear-records?code=${code}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ تم حذف كافة السجلات بنجاح.');
+                    loadIssuedList();
+                } else {
+                    alert('❌ فشل حذف السجلات');
+                }
+            } catch(e) {
+                alert('حدث خطأ أثناء الاتصال للحذف');
+            }
+        }
+    }
+
     async function updateCellData(id, fieldName, newValue) {
         const code = getInstitutionCode();
         const res = await fetch(`/api/records/${id}?code=${code}`, {
@@ -510,23 +514,6 @@
         if (data.success) {
             activeCell = null;
             loadIssuedList();
-        }
-    }
-
-    async function deleteRecord(recordId, patientName) {
-        if (confirm(`هل أنت متأكد من رغبتك في حذف سجل المريض: "${patientName}"؟`)) {
-            const code = getInstitutionCode();
-            try {
-                const res = await fetch(`/api/records/${recordId}?code=${code}`, { method: 'DELETE' });
-                const data = await res.json();
-                if (data.success) {
-                    loadIssuedList();
-                } else {
-                    alert('❌ فشل الحذف');
-                }
-            } catch(e) {
-                alert('حدث خطأ أثناء الاتصال للحذف');
-            }
         }
     }
 
@@ -557,7 +544,7 @@
         tbody.innerHTML = '';
 
         if(filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة</td></tr>';
             return;
         }
 
@@ -581,7 +568,7 @@
             let rowHTML = '';
             fields.forEach(f => {
                 const cellKey = `${recordId}-${f.key}`;
-                if (activeCell === cellKey && !deleteModeActive && isMyInstitution) {
+                if (activeCell === cellKey && isMyInstitution) {
                     if (f.key === 'device_details') {
                         let optionsHTML = globalDeviceOptions.map(opt => `<option value="${opt}" ${opt === f.val ? 'selected' : ''}>${opt}</option>`).join('');
                         rowHTML += `<td><select class="cell-input" id="input-${cellKey}" onchange="updateCellData(${recordId}, 'device_details', this.value)"><option value="">-- اختر --</option>${optionsHTML}</select></td>`;
@@ -594,21 +581,9 @@
             });
 
             rowHTML += `<td>${item.institution_name || '-'}</td>`;
-            
-            if (isMyInstitution) {
-                rowHTML += `<td><button class="btn-row-delete" onclick="deleteRecord('${recordId}', '${item.patient_name}')">🗑️ حذف</button></td>`;
-            } else {
-                rowHTML += `<td><span style="color:#888; font-size:12px;">مؤسسة أخرى</span></td>`;
-            }
-
             tr.innerHTML = rowHTML;
 
-            if (deleteModeActive && isMyInstitution) {
-                tr.style.cursor = 'pointer';
-                tr.ondblclick = async () => {
-                    deleteRecord(recordId, item.patient_name);
-                };
-            } else if (isMyInstitution) {
+            if (isMyInstitution) {
                 fields.forEach(f => {
                     const cellKey = `${recordId}-${f.key}`;
                     const cellEl = tr.querySelector(`#cell-${cellKey}`);
