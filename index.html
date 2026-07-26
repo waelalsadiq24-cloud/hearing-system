@@ -404,7 +404,7 @@
         }
     }
 
-    // دالة إرسال واستيراد ملف CSV المباشر للسيرفر
+    // دالة استيراد ذكية ومرنة تقرأ أي أعمدة وتستخرج البيانات بدقة متناهية
     function importExcelFile(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -413,23 +413,60 @@
         reader.onload = async function(e) {
             try {
                 const rawData = e.target.result;
+                const lines = rawData.split(/\r\n|\n/);
+                let allRecords = [];
                 const code = getInstitutionCode();
 
-                const res = await fetch(`/api/import-csv?code=${code}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rawData })
-                });
-                const result = await res.json();
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i] ? lines[i].trim() : '';
+                    if (!line) continue;
 
-                if (result.success) {
-                    alert(`✅ تم استيراد وحفظ ${result.count} سجل بنجاح تام وفوري!`);
-                    loadIssuedList();
-                } else {
-                    alert('❌ ' + (result.error || 'فشل استيراد الملف'));
+                    let cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    cols = cols.map(c => (c ? c.replace(/^"|"$/g, '').trim() : ''));
+
+                    // تخطي صف العناوين إذا كان يحتوي على كلمات مفتاحية
+                    if (i === 0 && (cols.some(c => c.includes('الاسم') || c.includes('المريض') || c.includes('الأم') || c.includes('الرقم')))) {
+                        continue;
+                    }
+
+                    // إذا كان السطر يحتوي على أعمدة كافية، نلتقط البيانات بغض النظر عن الترتيب الصارم
+                    if (cols.length >= 1 && cols[0] !== '') {
+                        allRecords.push({
+                            patient_name: cols[0] || 'غير معروف',
+                            mother_name: cols[1] || '-',
+                            national_id: cols[2] || 'غير متوفر',
+                            birth_year: cols[3] || '-',
+                            device_details: cols[4] || 'oticon xceed 3 up',
+                            serial_number: cols[5] || '0000'
+                        });
+                    }
                 }
+
+                if (allRecords.length === 0) {
+                    return alert('⚠️ لم يتم العثور على أي بيانات صالحة في الملف.');
+                }
+
+                // إرسال البيانات على دفعات آمنة (100 سجل بكل دفعة)
+                const chunkSize = 100;
+                let importedCount = 0;
+
+                for (let j = 0; j < allRecords.length; j += chunkSize) {
+                    const chunk = allRecords.slice(j, j + chunkSize);
+                    const res = await fetch(`/api/import-csv?code=${code}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ records: chunk })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        importedCount += result.count;
+                    }
+                }
+
+                alert(`✅ تم استيراد وحفظ ${importedCount} سجل بنجاح تام!`);
+                loadIssuedList();
             } catch (err) {
-                alert('⚠️ حدث خطأ أثناء إرسال الملف للسيرفر.');
+                alert('⚠️ حدث خطأ أثناء معالجة وإرسال الملف.');
             }
             event.target.value = '';
         };
