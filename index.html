@@ -120,7 +120,7 @@
         <div class="header-bar">
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
-                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية فورية (الاسم، الأم، الرقم...)" oninput="renderTableFromMemory()">
+                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة (الاسم، الأم، الرقم...)" oninput="filterTableLive()">
                 <button class="btn-mode btn-delete-mode" id="toggleDeleteBtn" onclick="toggleDeleteMode()">🗑️ تفعيل وضع الحذف (معطل)</button>
             </div>
         </div>
@@ -151,7 +151,6 @@
     let activeCell = null;
     let globalDeviceOptions = [];
     let currentInstitutionId = '';
-    let allRecords = [];
 
     function autoTab(current, nextFieldId, maxLen) {
         if (current.value.length >= maxLen) {
@@ -176,7 +175,7 @@
             btn.innerText = "🗑️ تفعيل وضع الحذف (معطل)";
         }
         activeCell = null;
-        renderTableFromMemory();
+        loadIssuedList();
     }
 
     function toggleCustomDropdown() {
@@ -191,77 +190,68 @@
         }
     };
 
-    async function loadInitialData() {
+    async function loadDeviceOptions(selectedVal = '') {
         try {
             const code = getInstitutionCode();
             const res = await fetch(`/api/records?code=${code}`);
             const data = await res.json();
-            
             globalDeviceOptions = data.deviceOptions || [];
-            currentInstitutionId = data.currentInstitution ? data.currentInstitution.id : code;
+            currentInstitutionId = data.currentInstitution ? data.currentInstitution.id : '';
             
-            // معالجة آمنة لضمان جلب السجلات بالشكل الصحيح من الخادم
-            allRecords = data.records || (Array.isArray(data) ? data : []);
+            const listContainer = document.getElementById('customDropdownList');
+            listContainer.innerHTML = '';
 
-            setupDeviceDropdown();
-            renderTableFromMemory();
-        } catch(err) {
-            console.error('خطأ في تحميل البيانات:', err);
-        }
-    }
+            globalDeviceOptions.forEach(opt => {
+                let itemDiv = document.createElement('div');
+                itemDiv.className = 'custom-dropdown-item';
+                
+                let deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-delete-device';
+                deleteBtn.innerHTML = '🗑️';
+                deleteBtn.title = 'حذف هذه السماعة';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (confirm(`هل أنت متأكد من رغبتك في حذف "${opt}" من القائمة؟`)) {
+                        deleteDeviceOption(opt);
+                    }
+                };
 
-    function setupDeviceDropdown(selectedVal = '') {
-        const listContainer = document.getElementById('customDropdownList');
-        listContainer.innerHTML = '';
+                let textSpan = document.createElement('span');
+                textSpan.className = 'device-text';
+                textSpan.textContent = opt;
+                textSpan.onclick = () => {
+                    document.getElementById('selectedDeviceDisplay').textContent = opt;
+                    document.getElementById('deviceDetailsValue').value = opt;
+                    listContainer.style.display = 'none';
+                };
 
-        globalDeviceOptions.forEach(opt => {
-            let itemDiv = document.createElement('div');
-            itemDiv.className = 'custom-dropdown-item';
-            
-            let deleteBtn = document.createElement('button');
-            deleteBtn.className = 'btn-delete-device';
-            deleteBtn.innerHTML = '🗑️';
-            deleteBtn.title = 'حذف هذه السماعة';
-            deleteBtn.onclick = (e) => {
-                e.stopPropagation();
-                if (confirm(`هل أنت متأكد من رغبتك في حذف "${opt}" من القائمة؟`)) {
-                    deleteDeviceOption(opt);
-                }
-            };
+                let spacer = document.createElement('div');
+                spacer.className = 'spacer-side';
 
-            let textSpan = document.createElement('span');
-            textSpan.className = 'device-text';
-            textSpan.textContent = opt;
-            textSpan.onclick = () => {
-                document.getElementById('selectedDeviceDisplay').textContent = opt;
-                document.getElementById('deviceDetailsValue').value = opt;
+                itemDiv.appendChild(deleteBtn);
+                itemDiv.appendChild(textSpan);
+                itemDiv.appendChild(spacer);
+                listContainer.appendChild(itemDiv);
+            });
+
+            let addItem = document.createElement('div');
+            addItem.className = 'custom-dropdown-item add-new';
+            addItem.textContent = '➕ إضافة سماعة جديدة للقائمة...';
+            addItem.onclick = () => {
                 listContainer.style.display = 'none';
+                addNewDevicePrompt();
             };
+            listContainer.appendChild(addItem);
 
-            let spacer = document.createElement('div');
-            spacer.className = 'spacer-side';
-
-            itemDiv.appendChild(deleteBtn);
-            itemDiv.appendChild(textSpan);
-            itemDiv.appendChild(spacer);
-            listContainer.appendChild(itemDiv);
-        });
-
-        let addItem = document.createElement('div');
-        addItem.className = 'custom-dropdown-item add-new';
-        addItem.textContent = '➕ إضافة سماعة جديدة للقائمة...';
-        addItem.onclick = () => {
-            listContainer.style.display = 'none';
-            addNewDevicePrompt();
-        };
-        listContainer.appendChild(addItem);
-
-        if (selectedVal) {
-            document.getElementById('selectedDeviceDisplay').textContent = selectedVal;
-            document.getElementById('deviceDetailsValue').value = selectedVal;
-        } else if (globalDeviceOptions.length > 0 && !document.getElementById('deviceDetailsValue').value) {
-            document.getElementById('selectedDeviceDisplay').textContent = globalDeviceOptions[0];
-            document.getElementById('deviceDetailsValue').value = globalDeviceOptions[0];
+            if (selectedVal) {
+                document.getElementById('selectedDeviceDisplay').textContent = selectedVal;
+                document.getElementById('deviceDetailsValue').value = selectedVal;
+            } else if (globalDeviceOptions.length > 0 && !document.getElementById('deviceDetailsValue').value) {
+                document.getElementById('selectedDeviceDisplay').textContent = globalDeviceOptions[0];
+                document.getElementById('deviceDetailsValue').value = globalDeviceOptions[0];
+            }
+        } catch(err) {
+            console.error('خطأ في تحميل خيارات السماعات', err);
         }
     }
 
@@ -278,10 +268,13 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    globalDeviceOptions = data.deviceOptions;
-                    setupDeviceDropdown(trimmedName);
+                    await loadDeviceOptions(trimmedName);
+                } else {
+                    alert('فشل إضافة السماعة');
                 }
-            } catch(e) { alert('حدث خطأ أثناء الإضافة'); }
+            } catch(e) {
+                alert('حدث خطأ أثناء الإضافة');
+            }
         }
     }
 
@@ -295,15 +288,19 @@
             });
             const data = await res.json();
             if (data.success) {
-                globalDeviceOptions = data.deviceOptions;
-                setupDeviceDropdown();
+                await loadDeviceOptions();
+            } else {
+                alert('فشل حذف السماعة');
             }
-        } catch(e) { alert('حدث خطأ أثناء الحذف'); }
+        } catch(e) {
+            alert('حدث خطأ أثناء الحذف');
+        }
     }
 
     async function searchPatient() {
         const id = document.getElementById('searchId').value.trim();
         const code = getInstitutionCode();
+
         if(!id) return alert('يرجى إدخال الرقم الوطني للبحث');
 
         try {
@@ -319,7 +316,9 @@
                 box.className = 'result-box not-eligible';
                 box.innerHTML = `⚠️ ${data.message}`;
             }
-        } catch(err) { alert('حدث خطأ أثناء البحث'); }
+        } catch(err) {
+            alert('حدث خطأ أثناء البحث');
+        }
     }
 
     async function registerAndIssue() {
@@ -331,7 +330,9 @@
         let deviceVal = document.getElementById('deviceDetailsValue').value.trim();
         if (!deviceVal) {
             deviceVal = document.getElementById('selectedDeviceDisplay').textContent.trim();
-            if (deviceVal.includes('اختر') || deviceVal.includes('--')) deviceVal = '';
+            if (deviceVal.includes('اختر') || deviceVal.includes('--')) {
+                deviceVal = '';
+            }
         }
 
         const body = {
@@ -357,7 +358,6 @@
             const data = await res.json();
             if(data.success) {
                 alert('✅ ' + data.message);
-                
                 document.getElementById('newNationalId').value = '';
                 document.getElementById('fullName').value = '';
                 document.getElementById('motherName').value = '';
@@ -367,15 +367,14 @@
                 document.getElementById('serialNumber').value = '';
                 document.getElementById('deviceDetailsValue').value = '';
                 document.getElementById('selectedDeviceDisplay').textContent = '-- اختر السماعة أو أضف جديدة --';
-
-                if (data.record) {
-                    allRecords.unshift(data.record);
-                }
-                renderTableFromMemory();
+                loadDeviceOptions();
+                loadIssuedList();
             } else {
                 alert('❌ خطأ: ' + (data.error || 'فشل الحفظ'));
             }
-        } catch(err) { alert('حدث خطأ أثناء الحفظ'); }
+        } catch(err) {
+            alert('حدث خطأ أثناء الحفظ وصرف السماعة');
+        }
     }
 
     async function updateCellData(id, fieldName, newValue) {
@@ -389,134 +388,166 @@
             const data = await res.json();
             if (data.success) {
                 activeCell = null;
-                let rec = allRecords.find(r => (r.id === id || r._id === id));
-                if (rec) rec[fieldName] = newValue;
-                renderTableFromMemory();
+                loadDeviceOptions();
+                loadIssuedList();
             } else {
-                alert('❌ ' + (data.error || 'فشل التعديل'));
+                alert('❌ ' + (data.error || 'فشل حفظ التعديل'));
             }
-        } catch (err) { alert('خطأ في الاتصال'); }
+        } catch (err) {
+            alert('حدث خطأ أثناء الاتصال لتعديل السجل');
+        }
     }
 
-    function renderTableFromMemory() {
-        const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
-        
-        const filteredData = allRecords.filter(item => {
-            const name = (item.patient_name || '').toLowerCase();
-            const mother = (item.mother_name || '').toLowerCase();
-            const natId = (item.national_id || '').toLowerCase();
-            const device = (item.device_details || '').toLowerCase();
-            const serial = (item.serial_number || '').toLowerCase();
+    function filterTableLive() {
+        loadIssuedList();
+    }
+
+    async function loadIssuedList() {
+        try {
+            const code = getInstitutionCode();
+            const res = await fetch(`/api/records?code=${code}`);
+            const responseData = await res.json();
             
-            return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
-        });
-
-        const tbody = document.getElementById('issuedTableBody');
-        document.getElementById('totalCountBadge').innerText = `مجموع الأسماء: ${filteredData.length}`;
-        tbody.innerHTML = '';
-
-        if(filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة</td></tr>';
-            return;
-        }
-
-        filteredData.forEach(item => {
-            const recordId = item.id || item._id;
-            const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
-            let tr = document.createElement('tr');
-
-            const fields = [
-                { key: 'patient_name', val: item.patient_name || 'غير معروف' },
-                { key: 'mother_name', val: item.mother_name || '-' },
-                { key: 'national_id', val: item.national_id || '-' },
-                { key: 'birth_year', val: item.birth_year || '-' },
-                { key: 'device_details', val: item.device_details || '-' },
-                { key: 'serial_number', val: item.serial_number || '-' },
-                { key: 'date', val: dateOnly }
-            ];
-
-            let rowHTML = '';
-            fields.forEach(f => {
-                const cellKey = `${recordId}-${f.key}`;
-                if (activeCell === cellKey && !deleteModeActive) {
-                    if (f.key === 'device_details') {
-                        let optionsHTML = globalDeviceOptions.map(opt => `<option value="${opt}" ${opt === f.val ? 'selected' : ''}>${opt}</option>`).join('');
-                        rowHTML += `<td><select class="cell-input" id="input-${cellKey}" onchange="updateCellData(${recordId}, 'device_details', this.value)"><option value="">-- اختر --</option>${optionsHTML}</select></td>`;
-                    } else if (f.key === 'birth_year') {
-                        let parts = (f.val && f.val !== '-') ? f.val.split('/') : ['', '', ''];
-                        rowHTML += `<td>
-                            <div style="display: flex; gap: 2px; align-items: center; justify-content: center;">
-                                <input type="text" class="cell-input" style="width:30px;" value="${parts[0] || ''}" id="ed-${recordId}-d" maxlength="2" placeholder="يوم">
-                                <span>/</span>
-                                <input type="text" class="cell-input" style="width:30px;" value="${parts[1] || ''}" id="ed-${recordId}-m" maxlength="2" placeholder="شهر">
-                                <span>/</span>
-                                <input type="text" class="cell-input" style="width:40px;" value="${parts[2] || ''}" id="ed-${recordId}-y" maxlength="4" placeholder="سنة">
-                                <button class="btn-cell-save" onclick="saveBirthInput(${recordId})">حفظ</button>
-                            </div>
-                        </td>`;
-                    } else {
-                        rowHTML += `<td><input type="text" class="cell-input" value="${f.val === '-' ? '' : f.val}" id="input-${cellKey}"><button class="btn-cell-save" onclick="updateCellData(${recordId}, '${f.key}', document.getElementById('input-${cellKey}').value.trim())">حفظ</button></td>`;
-                    }
-                } else {
-                    rowHTML += `<td class="editable-cell" title="انقر مرتين لتعديل هذه الخلية" id="cell-${cellKey}">${f.val}</td>`;
-                }
+            const data = responseData.records || [];
+            currentInstitutionId = responseData.currentInstitution ? responseData.currentInstitution.id : '';
+            const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
+            
+            const filteredData = data.filter(item => {
+                const name = (item.patient_name || '').toLowerCase();
+                const mother = (item.mother_name || '').toLowerCase();
+                const natId = (item.national_id || '').toLowerCase();
+                const device = (item.device_details || '').toLowerCase();
+                const serial = (item.serial_number || '').toLowerCase();
+                
+                return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
             });
 
-            rowHTML += `<td>${item.institution_name || 'مستشفى اليرموك'}</td>`;
-            tr.innerHTML = rowHTML;
+            const tbody = document.getElementById('issuedTableBody');
+            document.getElementById('totalCountBadge').innerText = `مجموع الأسماء: ${filteredData.length}`;
+            tbody.innerHTML = '';
 
-            if (deleteModeActive) {
-                tr.style.cursor = 'pointer';
-                tr.title = "انقر مرتين لحذف السجل";
-                tr.ondblclick = async () => {
-                    if (confirm(`هل أنت متأكد من رغبتك في حذف سجل المريض: ${item.patient_name}؟`)) {
-                        try {
-                            const code = getInstitutionCode();
-                            const delRes = await fetch(`/api/records/${recordId}?code=${code}`, { method: 'DELETE' });
-                            const delData = await delRes.json();
-                            if (delData.success) {
-                                allRecords = allRecords.filter(r => (r.id !== recordId && r._id !== recordId));
-                                renderTableFromMemory();
-                            }
-                        } catch(e) { alert('خطأ في الحذف'); }
-                    }
-                };
-            } else {
-                fields.forEach(f => {
-                    const cellKey = `${recordId}-${f.key}`;
-                    const cellEl = tr.querySelector(`#cell-${cellKey}`);
-                    if(cellEl) {
-                        cellEl.ondblclick = (e) => {
-                            e.stopPropagation();
-                            activeCell = cellKey;
-                            renderTableFromMemory();
-                            setTimeout(() => {
-                                if (f.key === 'birth_year') {
-                                    const yIn = document.getElementById(`ed-${recordId}-y`);
-                                    if (yIn) {
-                                        yIn.focus();
-                                        yIn.addEventListener('keydown', (ev) => {
-                                            if (ev.key === 'Enter') { ev.preventDefault(); saveBirthInput(recordId); }
-                                        });
-                                    }
-                                } else if (f.key !== 'device_details') {
-                                    const inputEl = document.getElementById(`input-${cellKey}`);
-                                    if(inputEl) {
-                                        inputEl.focus();
-                                        inputEl.select();
-                                        inputEl.addEventListener('keydown', (ev) => {
-                                            if(ev.key === 'Enter') { ev.preventDefault(); updateCellData(recordId, f.key, inputEl.value.trim()); }
-                                        });
-                                    }
-                                }
-                            }, 50);
-                        };
-                    }
-                });
+            if(filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة</td></tr>';
+                return;
             }
 
-            tbody.appendChild(tr);
-        });
+            filteredData.forEach(item => {
+                const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
+                let tr = document.createElement('tr');
+
+                const isMyInstitution = (item.institution_id === currentInstitutionId);
+                const recordId = item.id || item._id;
+
+                const fields = [
+                    { key: 'patient_name', val: item.patient_name || 'غير معروف' },
+                    { key: 'mother_name', val: item.mother_name || '-' },
+                    { key: 'national_id', val: item.national_id || '-' },
+                    { key: 'birth_year', val: item.birth_year || '-' },
+                    { key: 'device_details', val: item.device_details || '-' },
+                    { key: 'serial_number', val: item.serial_number || '-' },
+                    { key: 'date', val: dateOnly }
+                ];
+
+                let rowHTML = '';
+                fields.forEach(f => {
+                    const cellKey = `${recordId}-${f.key}`;
+                    if (activeCell === cellKey && !deleteModeActive && isMyInstitution) {
+                        if (f.key === 'device_details') {
+                            let optionsHTML = globalDeviceOptions.map(opt => `<option value="${opt}" ${opt === f.val ? 'selected' : ''}>${opt}</option>`).join('');
+                            rowHTML += `<td><select class="cell-input" id="input-${cellKey}" onchange="updateCellData(${recordId}, 'device_details', this.value)"><option value="">-- اختر --</option>${optionsHTML}</select></td>`;
+                        } else if (f.key === 'birth_year') {
+                            let parts = (f.val && f.val !== '-') ? f.val.split('/') : ['', '', ''];
+                            let dVal = parts[0] || '';
+                            let mVal = parts[1] || '';
+                            let yVal = parts[2] || '';
+                            rowHTML += `<td>
+                                <div style="display: flex; gap: 2px; align-items: center; justify-content: center;">
+                                    <input type="text" class="cell-input" style="width:30px;" value="${dVal}" id="ed-${recordId}-d" maxlength="2" placeholder="يوم">
+                                    <span>/</span>
+                                    <input type="text" class="cell-input" style="width:30px;" value="${mVal}" id="ed-${recordId}-m" maxlength="2" placeholder="شهر">
+                                    <span>/</span>
+                                    <input type="text" class="cell-input" style="width:40px;" value="${yVal}" id="ed-${recordId}-y" maxlength="4" placeholder="سنة">
+                                    <button class="btn-cell-save" onclick="saveBirthInput(${recordId})">حفظ</button>
+                                </div>
+                            </td>`;
+                        } else {
+                            rowHTML += `<td><input type="text" class="cell-input" value="${f.val === '-' ? '' : f.val}" id="input-${cellKey}"><button class="btn-cell-save" onclick="updateCellData(${recordId}, '${f.key}', document.getElementById('input-${cellKey}').value.trim())">حفظ</button></td>`;
+                        }
+                    } else {
+                        rowHTML += `<td class="${isMyInstitution ? 'editable-cell' : ''}" title="${isMyInstitution ? 'انقر مرتين لتعديل هذه الخلية' : 'لا يمكنك تعديل سجل يتبع لمؤسسة أخرى'}" id="cell-${cellKey}">${f.val}</td>`;
+                    }
+                });
+
+                rowHTML += `<td>${item.institution_name || '-'}</td>`;
+                tr.innerHTML = rowHTML;
+
+                if (deleteModeActive) {
+                    if (isMyInstitution) {
+                        tr.style.cursor = 'pointer';
+                        tr.title = "انقر مرتين لحذف السجل";
+                        tr.ondblclick = async () => {
+                            if (confirm(`هل أنت متأكد من رغبتك في حذف سجل المريض: ${item.patient_name}؟`)) {
+                                try {
+                                    const delRes = await fetch(`/api/records/${recordId}?code=${code}`, { method: 'DELETE' });
+                                    const delData = await delRes.json();
+                                    if (delData.success) {
+                                        loadDeviceOptions();
+                                        loadIssuedList();
+                                    } else {
+                                        alert('❌ ' + (delData.error || 'فشل الحذف'));
+                                    }
+                                } catch(e) { alert('حدث خطأ أثناء الحذف'); }
+                            }
+                        };
+                    } else {
+                        tr.style.opacity = '0.7';
+                        tr.title = "سجل يتبع لمؤسسة أخرى (غير مسموح بحذفه)";
+                    }
+                } else if (isMyInstitution) {
+                    fields.forEach(f => {
+                        const cellKey = `${recordId}-${f.key}`;
+                        const cellEl = tr.querySelector(`#cell-${cellKey}`);
+                        if(cellEl) {
+                            cellEl.ondblclick = (e) => {
+                                e.stopPropagation();
+                                activeCell = cellKey;
+                                loadIssuedList();
+                                setTimeout(() => {
+                                    if (f.key === 'birth_year') {
+                                        const yIn = document.getElementById(`ed-${recordId}-y`);
+                                        if (yIn) {
+                                            yIn.focus();
+                                            yIn.addEventListener('keydown', (ev) => {
+                                                if (ev.key === 'Enter') {
+                                                    ev.preventDefault();
+                                                    saveBirthInput(recordId);
+                                                }
+                                            });
+                                        }
+                                    } else if (f.key !== 'device_details') {
+                                        const inputEl = document.getElementById(`input-${cellKey}`);
+                                        if(inputEl) {
+                                            inputEl.focus();
+                                            inputEl.select();
+                                            inputEl.addEventListener('keydown', (ev) => {
+                                                if(ev.key === 'Enter') {
+                                                    ev.preventDefault();
+                                                    updateCellData(recordId, f.key, inputEl.value.trim());
+                                                }
+                                            });
+                                        }
+                                    }
+                                }, 50);
+                            };
+                        }
+                    });
+                }
+
+                tbody.appendChild(tr);
+            });
+        } catch(err) {
+            console.error(err);
+        }
     }
 
     function saveBirthInput(itemId) {
@@ -533,7 +564,8 @@
     }
 
     window.onload = () => {
-        loadInitialData();
+        loadDeviceOptions();
+        loadIssuedList();
     };
 </script>
 
