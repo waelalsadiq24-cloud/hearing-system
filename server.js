@@ -10,14 +10,19 @@ app.use(express.static(path.join(__dirname, '.')));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://waelalsadiq24_db_user:2tbFWqOTp3XcDtA@cluster0.gribvlx.mongodb.net/?retryWrites=true&w=majority";
 const DB_NAME = "hearingSystemDB";
 
-let client;
+let cachedDb = null;
 
 async function getDB() {
-    if (!client || !client.topology || !client.topology.isConnected()) {
-        client = new MongoClient(MONGODB_URI);
-        await client.connect();
+    if (cachedDb) {
+        return cachedDb;
     }
-    return client.db(DB_NAME);
+    const client = new MongoClient(MONGODB_URI, {
+        tls: true,
+        tlsAllowInvalidCertificates: true
+    });
+    await client.connect();
+    cachedDb = client.db(DB_NAME);
+    return cachedDb;
 }
 
 app.get('/api/records', async (req, res) => {
@@ -31,20 +36,14 @@ app.get('/api/records', async (req, res) => {
         let currentInst = await institutionsCollection.findOne({ id: code });
         if (!currentInst) {
             currentInst = { id: code, name: code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب' };
-            await institutionsCollection.updateOne({ id: code }, { $set: currentInst }, { upsert: true });
         }
 
         const records = await recordsCollection.find({}).toArray();
-        let devicesCursor = await deviceOptionsCollection.find({}).toArray();
-        if (devicesCursor.length === 0) {
-            await deviceOptionsCollection.insertMany([
-                { name: 'oticon xceed 3 up' },
-                { name: 'Phonak Naida' },
-                { name: 'Signia Silk' }
-            ]);
-            devicesCursor = await deviceOptionsCollection.find({}).toArray();
+        const devicesCursor = await deviceOptionsCollection.find({}).toArray();
+        let deviceOptions = devicesCursor.map(d => d.name);
+        if (deviceOptions.length === 0) {
+            deviceOptions = ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'];
         }
-        const deviceOptions = devicesCursor.map(d => d.name);
 
         res.json({
             records: records.map(r => ({ ...r, id: r._id })), 
@@ -52,7 +51,7 @@ app.get('/api/records', async (req, res) => {
             currentInstitution: currentInst
         });
     } catch (e) {
-        console.error("Database Error:", e.message);
+        console.error("API GET Error:", e.message);
         res.json({
             records: [],
             deviceOptions: ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'],
@@ -83,6 +82,7 @@ app.post('/api/records', async (req, res) => {
         await recordsCollection.insertOne(newRecord);
         res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح في السحاب', record: { ...newRecord, id: newRecord._id } });
     } catch (e) {
+        console.error("API POST Error:", e.message);
         res.status(500).json({ success: false, error: 'خطأ أثناء الحفظ: ' + e.message });
     }
 });
