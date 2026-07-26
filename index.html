@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>نظام سجلات السماعات الطبية</title>
-    <!-- تضمين مكتبة SheetJS لقراءة ملفات الاكسل والـ CSV بدقة متناهية -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; direction: rtl; }
         .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -134,9 +132,8 @@
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <!-- زر الاستيراد المفعل كلياً لملفات الـ Excel و CSV -->
-                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="importExcelFile(event)">
-                    <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف (Excel / CSV)</button>
+                    <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvFile(event)">
+                    <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
                 <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
@@ -407,60 +404,46 @@
         }
     }
 
-    // دالة الاستيراد الذكية المدعومة بمكتبة SheetJS لقراءة الملفات بدقة وإرسالها دفعات للسيرفر
-    function importExcelFile(event) {
+    // دالة استيراد ملف الـ CSV المباشرة والآمنة 100%
+    function importCsvFile(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = async function(e) {
             try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-
-                if (!rows || rows.length === 0) {
-                    return alert('⚠️ الملف فارغ!');
-                }
-
+                const text = e.target.result;
+                const lines = text.split(/\r\n|\n/);
                 let allRecords = [];
                 const code = getInstitutionCode();
 
-                for (let i = 0; i < rows.length; i++) {
-                    let r = rows[i];
-                    if (!r || r.length === 0) continue;
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i] ? lines[i].trim() : '';
+                    if (!line) continue;
 
-                    let patName = String(r[0] || '').trim();
-                    let momName = String(r[1] || '-').trim();
-                    let natId = String(r[2] || '').trim();
-                    let birth = String(r[3] || '-').trim();
-                    let device = String(r[4] || 'oticon xceed 3 up').trim();
-                    let serial = String(r[5] || r[6] || '0000').trim();
+                    let cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    cols = cols.map(c => (c ? c.replace(/^"|"$/g, '').trim() : ''));
 
-                    // تخطي صف العناوين بذكاء
-                    if (i === 0 && (patName.includes('الاسم') || patName.includes('المريض') || patName.includes('الرقم'))) {
+                    if (i === 0 && (cols.some(c => c.includes('الاسم') || c.includes('المريض') || c.includes('الأم')))) {
                         continue;
                     }
 
-                    if (patName && patName !== '' && patName !== 'undefined') {
+                    if (cols.length >= 1 && cols[0] !== '') {
                         allRecords.push({
-                            patient_name: patName,
-                            mother_name: momName,
-                            national_id: natId || 'غير متوفر',
-                            birth_year: birth,
-                            device_details: device,
-                            serial_number: serial
+                            patient_name: cols[0] || 'غير معروف',
+                            mother_name: cols[1] || '-',
+                            national_id: cols[2] || 'غير متوفر',
+                            birth_year: cols[3] || '-',
+                            device_details: cols[4] || 'oticon xceed 3 up',
+                            serial_number: cols[5] || '0000'
                         });
                     }
                 }
 
                 if (allRecords.length === 0) {
-                    return alert('⚠️ لم يتم العثور على أي أسماء صالحة للاستيراد.');
+                    return alert('⚠️ الملف فارغ أو لا يحتوي على بيانات صالحة.');
                 }
 
-                // تقسيم السجلات إلى دفعات من 100 سجل لمنع أي انقطاع
                 const chunkSize = 100;
                 let importedCount = 0;
 
@@ -477,14 +460,14 @@
                     }
                 }
 
-                alert(`✅ تم استيراد وحفظ ${importedCount} سجل بنجاح تام وفوري!`);
+                alert(`✅ تم استيراد وحفظ ${importedCount} سجل بنجاح تام!`);
                 loadIssuedList();
             } catch (err) {
-                alert('⚠️ حدث خطأ أثناء معالجة الملف. تأكد من أن الملف سليم.');
+                alert('⚠️ حدث خطأ أثناء قراءة الملف.');
             }
             event.target.value = '';
         };
-        reader.readAsArrayBuffer(file);
+        reader.readAsText(file, 'UTF-8');
     }
 
     async function clearAllRecords() {
