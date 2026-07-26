@@ -25,9 +25,6 @@
         .header-bar { display: flex; justify-content: space-between; align-items: center; background: #34495e; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
         .count-badge { font-weight: bold; font-size: 15px; }
         .actions-group { display: flex; gap: 10px; align-items: center; width: 100%; justify-content: space-between; flex-wrap: wrap; }
-        .btn-mode { width: auto; padding: 8px 12px; margin-top: 0; font-size: 13px; }
-        .btn-delete-mode { background-color: #c0392b; }
-        .btn-delete-mode.active { background-color: #e67e22; }
 
         .table-search-box { width: 220px; padding: 6px 10px; font-size: 13px; border-radius: 4px; border: 1px solid #ccc; margin-top: 0; background: #fff; color: #000; }
 
@@ -137,9 +134,8 @@
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display: none;" onchange="importExcelFile(event)">
+                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="importExcelFile(event)">
                     <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد من ملف Excel</button>
-                    <!-- زر حذف كافة السجلات دفعة واحدة -->
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
                 <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
@@ -410,6 +406,7 @@
         }
     }
 
+    // دالة استيراد آمنة ومضمونة تدعم كافة صيغ ملفات الاكسل
     function importExcelFile(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -418,13 +415,13 @@
         reader.onload = async function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
-                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
 
-                if (rows.length === 0) {
+                if (!rows || rows.length === 0) {
                     return alert('ملف الاكسل فارغ!');
                 }
 
@@ -448,7 +445,7 @@
                     const device = String(r[4] || 'oticon xceed 3 up').trim();
                     const serial = String(r[5] || r[6] || '0000').trim();
 
-                    if (patName && patName !== 'undefined' && patName !== 'اسم المريض') {
+                    if (patName && patName !== 'undefined' && patName !== 'اسم المريض' && patName !== '') {
                         recordsList.push({
                             national_id: natId || 'غير متوفر',
                             patient_name: patName,
@@ -471,22 +468,21 @@
                         body: JSON.stringify({ records: recordsList })
                     });
                     const result = await res.json();
-                    alert(`✅ تم استيراد وحفظ ${result.count || recordsList.length} سجل بنجاح تام وسريع!`);
+                    alert(`✅ تم استيراد وحفظ ${result.count || recordsList.length} سجل بنجاح تام!`);
                     loadIssuedList();
                 } else {
-                    alert('⚠️ لم يتم العثور على أي أسماء صالحة للاستيراد في الملف.');
+                    alert('⚠️ لم يتم العثور على أي أسماء مطابقة للاستيراد في الملف.');
                 }
             } catch (err) {
-                alert('حدث خطأ أثناء قراءة ملف الاكسل.');
+                alert('⚠️ حدث خطأ أثناء قراءة ملف الاكسل. تأكد من أن الملف ليس مخصصاً بصيغة غير مدعومة.');
             }
             event.target.value = '';
         };
         reader.readAsArrayBuffer(file);
     }
 
-    // دالة حذف كافة السجلات دفعة واحدة
     async function clearAllRecords() {
-        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف وحذف كافة السجلات التابعة لمؤسستك نهائياً؟ لا يمكن التراجع عن هذا الإجراء!")) {
+        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات التابعة لمؤسستك نهائياً؟")) {
             const code = getInstitutionCode();
             try {
                 const res = await fetch(`/api/clear-records?code=${code}`, { method: 'DELETE' });
