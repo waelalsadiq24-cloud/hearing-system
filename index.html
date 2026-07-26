@@ -473,11 +473,12 @@
         reader.readAsText(file, 'UTF-8');
     }
 
+    // استخدام POST آمن لحذف كافة السجلات
     async function clearAllRecords() {
         if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات التابعة لمؤسستك نهائياً؟")) {
             const code = getInstitutionCode();
             try {
-                const res = await fetch(`/api/clear-records?code=${code}`, { method: 'DELETE' });
+                const res = await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 const data = await res.json();
                 if (data.success) {
                     alert('✅ تم حذف كافة السجلات بنجاح.');
@@ -491,6 +492,7 @@
         }
     }
 
+    // استخدام POST آمن لحذف سجل فردي
     async function deleteSingleRecord(nationalId) {
         if (!confirm("⚠️ هل أنت متأكد من رغبتك في حذف هذا السجل نهائياً؟")) return;
         try {
