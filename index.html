@@ -522,7 +522,7 @@
         const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
         
         const filteredData = data.filter(item => {
-            const name = (item.patient_name || '').toLowerCase();
+            const name = (item.patient_name || item.name || '').toLowerCase();
             const mother = (item.mother_name || '').toLowerCase();
             const natId = (item.national_id || '').toLowerCase();
             const device = (item.device_details || '').toLowerCase();
@@ -546,8 +546,11 @@
             const isMyInstitution = (item.institution_id === currentInstitutionId);
             const recordId = item.id || item._id;
 
+            // ضمان التقاط اسم المريض بغض النظر عن طريقة حفظه في قاعدة البيانات
+            const patientNameVal = item.patient_name || item.name || 'غير معروف';
+
             const fields = [
-                { key: 'patient_name', val: item.patient_name || 'غير معروف' },
+                { key: 'patient_name', val: patientNameVal },
                 { key: 'mother_name', val: item.mother_name || '-' },
                 { key: 'national_id', val: item.national_id || '-' },
                 { key: 'birth_year', val: item.birth_year || '-' },
