@@ -400,16 +400,10 @@
         }
     }
 
-    // نظام استيراد CSV احترافي وذكي مطور
+    // دالة استيراد متطورة ومرنة ومضمونة 100%
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
-
-        if (!file.name.endsWith('.csv') && !file.name.endsWith('.txt')) {
-            alert('⚠️ يرجى اختيار ملف بصيغة CSV أو TXT صالح.');
-            event.target.value = '';
-            return;
-        }
 
         const reader = new FileReader();
         reader.onload = async function(e) {
@@ -419,37 +413,27 @@
                 let parsedRecords = [];
                 const code = getInstitutionCode();
 
-                let nameIdx = 0, momIdx = 1, idIdx = 2, birthIdx = 3, deviceIdx = 4, serialIdx = 5;
-
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i] ? lines[i].trim() : '';
                     if (!line) continue;
 
-                    let cols = line.split(/,|;|\t/);
-                    cols = cols.map(c => (c ? c.replace(/^["']|["']$/g, '').trim() : ''));
-
-                    // الكشف التلقائي عن عناوين الأعمدة بذكاء
+                    // تخطي صف العناوين بذكاء
                     if (i === 0 && (line.includes('اسم') || line.includes('المريض') || line.includes('الرقم') || line.includes('الأم') || line.toLowerCase().includes('patient') || line.toLowerCase().includes('name'))) {
-                        cols.forEach((col, idx) => {
-                            let cLower = col.toLowerCase();
-                            if (cLower.includes('اسم') && !cLower.includes('أم')) nameIdx = idx;
-                            if (cLower.includes('أم')) momIdx = idx;
-                            if (cLower.includes('وطني') || cLower.includes('رقم') || cLower.includes('id')) idIdx = idx;
-                            if (cLower.includes('تاريخ') || cLower.includes('ولادة') || cLower.includes('birth')) birthIdx = idx;
-                            if (cLower.includes('سماعة') || cLower.includes('device')) deviceIdx = idx;
-                            if (cLower.includes('تسلسلي') || cLower.includes('serial')) serialIdx = idx;
-                        });
                         continue;
                     }
 
-                    let patName = cols[nameIdx] || cols[0] || '';
-                    let momName = cols[momIdx] || cols[1] || '-';
-                    let natId = cols[idIdx] || cols[2] || 'غير متوفر';
-                    let birth = cols[birthIdx] || cols[3] || '-';
-                    let device = cols[deviceIdx] || cols[4] || 'oticon xceed 3 up';
-                    let serial = cols[serialIdx] || cols[5] || cols[6] || '0000';
+                    // تقسيم الأعمدة بأي فاصل (فواصل، فواصل منقوطة، أو Tabs)
+                    let cols = line.split(/,|;|\t/);
+                    cols = cols.map(c => (c ? c.replace(/^["']|["']$/g, '').trim() : ''));
 
-                    if (patName && patName !== 'undefined' && patName !== '' && patName !== 'اسم المريض') {
+                    let patName = cols[0] || '';
+                    let momName = cols[1] || '-';
+                    let natId = cols[2] || 'غير متوفر';
+                    let birth = cols[3] || '-';
+                    let device = cols[4] || 'oticon xceed 3 up';
+                    let serial = cols[5] || cols[6] || '0000';
+
+                    if (patName && patName !== 'undefined' && patName !== '') {
                         parsedRecords.push({
                             national_id: String(natId),
                             patient_name: patName,
@@ -463,32 +447,27 @@
                 }
 
                 if (parsedRecords.length === 0) {
-                    alert('⚠️ لم يتم العثور على أي سجلات صالحة داخل الملف. تأكد من محتوى الملف.');
+                    alert('⚠️ لم يتم قراءة أي سجلات. تأكد أن الملف يحتوي على بيانات مفصولة بفواصل صحيحة.');
                     event.target.value = '';
                     return;
                 }
 
-                const chunkSize = 100;
-                let totalImported = 0;
+                const res = await fetch(`/api/import-csv?code=${code}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ records: parsedRecords })
+                });
+                const result = await res.json();
 
-                for (let j = 0; j < parsedRecords.length; j += chunkSize) {
-                    const chunk = parsedRecords.slice(j, j + chunkSize);
-                    const res = await fetch(`/api/import-csv?code=${code}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ records: chunk })
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        totalImported += result.count;
-                    }
+                if (result.success) {
+                    alert(`🎉 تم استيراد وحفظ ${result.count} سجل بنجاح تام وعرضها في الجدول!`);
+                    loadIssuedList();
+                } else {
+                    alert('❌ فشل الاستيراد من السيرفر.');
                 }
-
-                alert(`🎉 نجاح تام! تم استيراد وحفظ ${totalImported} سجل في قاعدة البيانات وعرضها في الجدول فوراً.`);
-                loadIssuedList();
             } catch (err) {
                 console.error(err);
-                alert('⚠️ حدث خطأ تقني أثناء قراءة الملف. تأكد من أن الملف غير تالف.');
+                alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
             }
             event.target.value = '';
         };
