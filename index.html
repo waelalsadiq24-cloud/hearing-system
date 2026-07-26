@@ -151,7 +151,7 @@
     let activeCell = null;
     let globalDeviceOptions = [];
     let currentInstitutionId = '';
-    let allRecords = []; // ذاكرة محلية لتخزين البيانات وسرعة التصفية
+    let allRecords = [];
 
     function autoTab(current, nextFieldId, maxLen) {
         if (current.value.length >= maxLen) {
@@ -199,7 +199,9 @@
             
             globalDeviceOptions = data.deviceOptions || [];
             currentInstitutionId = data.currentInstitution ? data.currentInstitution.id : code;
-            allRecords = data.records || [];
+            
+            // معالجة آمنة لضمان جلب السجلات بالشكل الصحيح من الخادم
+            allRecords = data.records || (Array.isArray(data) ? data : []);
 
             setupDeviceDropdown();
             renderTableFromMemory();
@@ -356,7 +358,6 @@
             if(data.success) {
                 alert('✅ ' + data.message);
                 
-                // تفريغ الحقول
                 document.getElementById('newNationalId').value = '';
                 document.getElementById('fullName').value = '';
                 document.getElementById('motherName').value = '';
@@ -367,7 +368,6 @@
                 document.getElementById('deviceDetailsValue').value = '';
                 document.getElementById('selectedDeviceDisplay').textContent = '-- اختر السماعة أو أضف جديدة --';
 
-                // إضافة السجل الجديد فوراً للذاكرة المحلية وعرضه دون إعادة تحميل الصفحة
                 if (data.record) {
                     allRecords.unshift(data.record);
                 }
@@ -389,7 +389,6 @@
             const data = await res.json();
             if (data.success) {
                 activeCell = null;
-                // تحديث الذاكرة المحلية محلياً فوراً
                 let rec = allRecords.find(r => (r.id === id || r._id === id));
                 if (rec) rec[fieldName] = newValue;
                 renderTableFromMemory();
@@ -399,7 +398,6 @@
         } catch (err) { alert('خطأ في الاتصال'); }
     }
 
-    // تصفية فورية وسريعة جداً من الذاكرة المحلية للمتصفح
     function renderTableFromMemory() {
         const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
         
