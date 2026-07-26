@@ -19,6 +19,8 @@
         .btn-excel:hover { background-color: #ba4a00; }
         .btn-clear-all { background-color: #c0392b; width: auto; display: inline-block; padding: 8px 12px; margin-top: 0; font-size: 13px; }
         .btn-clear-all:hover { background-color: #962d22; }
+        .btn-delete-record { background-color: #c0392b; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; width: auto; margin-top: 0; }
+        .btn-delete-record:hover { background-color: #962d22; }
         
         .header-bar { display: flex; justify-content: space-between; align-items: center; background: #34495e; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
         .count-badge { font-weight: bold; font-size: 15px; }
@@ -146,10 +148,11 @@
                     <th>الرقم التسلسلي</th>
                     <th>تاريخ الصرف</th>
                     <th>المؤسسة / المركز</th>
+                    <th>إجراء</th>
                 </tr>
             </thead>
             <tbody id="issuedTableBody">
-                <tr><td colspan="8">جاري تحميل السجلات...</td></tr>
+                <tr><td colspan="9">جاري تحميل السجلات...</td></tr>
             </tbody>
         </table>
     </div>
@@ -488,6 +491,23 @@
         }
     }
 
+    async function deleteSingleRecord(recordId) {
+        if (!confirm("⚠️ هل أنت متأكد من رغبتك في حذف هذا السجل نهائياً؟")) return;
+        const code = getInstitutionCode();
+        try {
+            const res = await fetch(`/api/records/${recordId}?code=${code}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                alert('✅ تم حذف السجل بنجاح.');
+                loadIssuedList();
+            } else {
+                alert('❌ فشل حذف السجل');
+            }
+        } catch (e) {
+            alert('⚠️ حدث خطأ أثناء الاتصال بالسيرفر للحذف.');
+        }
+    }
+
     function filterTableLive() {
         loadIssuedList();
     }
@@ -514,7 +534,7 @@
         tbody.innerHTML = '';
 
         if(filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة</td></tr>';
             return;
         }
 
@@ -522,13 +542,14 @@
             const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
             let tr = document.createElement('tr');
 
-            // التقاط الاسم بشكل مؤكد وبصرف النظر عن المفتاح المخزن
             let nameValue = item.patient_name || item.name || item.patientName || 'غير معروف';
             let motherValue = item.mother_name || item.motherName || '-';
             let natIdValue = item.national_id || item.nationalId || '-';
             let birthValue = item.birth_year || item.birthYear || '-';
             let deviceValue = item.device_details || item.deviceDetails || '-';
             let serialValue = item.serial_number || item.serialNumber || '-';
+            
+            const recordId = item.id || item._id;
 
             tr.innerHTML = `
                 <td>${nameValue}</td>
@@ -539,6 +560,7 @@
                 <td>${serialValue}</td>
                 <td>${dateOnly}</td>
                 <td>${item.institution_name || '-'}</td>
+                <td><button class="btn-delete-record" onclick="deleteSingleRecord('${recordId}')">🗑️ حذف</button></td>
             `;
 
             tbody.appendChild(tr);
