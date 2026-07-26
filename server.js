@@ -101,12 +101,12 @@ app.get('/api/check-patient/:id', async (req, res) => {
     }
 });
 
-// مسار الاستقبال الآمن والدفعات لتجنب مهلة Render
+// المسار الصحيح والمخصص لاستقبال واستيراد الدفعات المرسلة من زر الاستيراد
 app.post('/api/import-csv', async (req, res) => {
     try {
         const { records } = req.body;
         if (!records || !Array.isArray(records) || records.length === 0) {
-            return res.json({ success: false, error: 'لا توجد بيانات' });
+            return res.json({ success: false, error: 'لا توجد بيانات للاستيراد' });
         }
 
         const code = req.query.code || 'yarmok';
@@ -133,8 +133,8 @@ app.post('/api/import-csv', async (req, res) => {
 
         res.json({ success: true, count: formattedRecords.length });
     } catch (e) {
-        console.error("Import batch error:", e);
-        res.status(500).json({ success: false, error: 'خطأ في معالجة الدفعة بالسيرفر' });
+        console.error("Import error:", e);
+        res.status(500).json({ success: false, error: 'خطأ في معالجة السجلات بالسيرفر' });
     }
 });
 
