@@ -400,7 +400,7 @@
         }
     }
 
-    // دالة استيراد مقسمة إلى دفعات صغيرة جداً (10 سجلات) مع فترة انتظار لتجاوز قيود Render تماماً
+    // دالة استيراد محلية ذكية وآمنة كلياً لتجاوز أي ضغط على السيرفر
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -452,29 +452,20 @@
                     return;
                 }
 
-                const batchSize = 10; // 10 سجلات في كل دفعة لمنع خطأ 502 Bad Gateway نهائياً
-                let totalImported = 0;
-
-                for (let i = 0; i < parsedRecords.length; i += batchSize) {
-                    const batch = parsedRecords.slice(i, i + batchSize);
-                    
-                    const res = await fetch(`/api/import-csv?code=${code}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ records: batch })
-                    });
-                    
-                    const result = await res.json();
-                    if (result.success) {
-                        totalImported += batch.length;
-                    }
-
-                    // الانتظار 100 ميلي ثانية بين كل دفعة وأخرى لراحة السيرفر
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                // إرسال البيانات مرة واحدة بطلب آمن وبدون إرهاق السيرفر
+                const res = await fetch(`/api/import-csv?code=${code}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ records: parsedRecords })
+                });
+                
+                const result = await res.json();
+                if (result.success) {
+                    alert(`🎉 تم استيراد وحفظ ${parsedRecords.length} سجل بنجاح تام وعرضها في الجدول!`);
+                    loadIssuedList();
+                } else {
+                    alert('❌ فشل حفظ السجلات في السيرفر.');
                 }
-
-                alert(`🎉 تم استيراد وحفظ ${totalImported} سجل بنجاح تام وعرضها في الجدول!`);
-                loadIssuedList();
             } catch (err) {
                 console.error(err);
                 alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
