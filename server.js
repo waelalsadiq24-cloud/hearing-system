@@ -56,7 +56,7 @@ app.post('/api/records', async (req, res) => {
     }
 
     const newRecord = {
-        national_id: body.national_id,
+        national_id: String(body.national_id),
         patient_name: body.patient_name,
         mother_name: body.mother_name || '-',
         birth_year: body.birth_year || '-',
@@ -110,7 +110,7 @@ app.post('/api/import-csv', async (req, res) => {
         const currentInst = institutions[code] || institutions['yarmok'];
 
         let formattedRecords = records.map(r => ({
-            national_id: r.national_id || 'غير متوفر',
+            national_id: String(r.national_id || 'غير متوفر'),
             patient_name: r.patient_name || 'غير معروف',
             mother_name: r.mother_name || '-',
             birth_year: r.birth_year || '-',
@@ -129,7 +129,6 @@ app.post('/api/import-csv', async (req, res) => {
 
         res.json({ success: true, count: formattedRecords.length });
     } catch (e) {
-        console.error("Import error:", e);
         res.status(500).json({ success: false, error: 'خطأ في معالجة السجلات بالسيرفر' });
     }
 });
@@ -146,15 +145,13 @@ app.delete('/api/clear-records', async (req, res) => {
     }
 });
 
-// مسار الحذف المباشر والآمن باستخدام الرقم الوطني وتاريخ الصرف
+// مسار حذف آمن ومبسط للغاية يعتمد على الرقم الوطني بدقة
 app.delete('/api/records-safe-delete', async (req, res) => {
-    const { national_id, date } = req.body;
+    const { national_id } = req.body;
     try {
         const db = await getDB();
-        await db.collection('records').deleteOne({ 
-            national_id: String(national_id), 
-            date: String(date) 
-        });
+        await db.collection('records').deleteMany({ national_id: String(national_id) });
+        memoryRecords = memoryRecords.filter(r => String(r.national_id) !== String(national_id));
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: 'فشل حذف السجل' });
