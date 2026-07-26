@@ -10,28 +10,28 @@ app.use(express.static(path.join(__dirname, '.')));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://waelalsadiq24_db_user:2tbFWqOTp3XcDtA@cluster0.gribvlx.mongodb.net/?retryWrites=true&w=majority";
 const DB_NAME = "hearingSystemDB";
 
-let cachedDb = null;
+let cachedClient = null;
 
 async function getDB() {
-    if (cachedDb) {
-        return cachedDb;
+    if (cachedClient) {
+        return cachedClient.db(DB_NAME);
     }
     const client = new MongoClient(MONGODB_URI, {
         tls: true,
         tlsAllowInvalidCertificates: true
     });
     await client.connect();
-    cachedDb = client.db(DB_NAME);
-    return cachedDb;
+    cachedClient = client;
+    return client.db(DB_NAME);
 }
 
 app.get('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     try {
-        const database = await getDB();
-        const institutionsCollection = database.collection('institutions');
-        const recordsCollection = database.collection('records');
-        const deviceOptionsCollection = database.collection('deviceOptions');
+        const db = await getDB();
+        const institutionsCollection = db.collection('institutions');
+        const recordsCollection = db.collection('records');
+        const deviceOptionsCollection = db.collection('deviceOptions');
 
         let currentInst = await institutionsCollection.findOne({ id: code });
         if (!currentInst) {
@@ -39,7 +39,7 @@ app.get('/api/records', async (req, res) => {
         }
 
         const records = await recordsCollection.find({}).toArray();
-        const devicesCursor = await deviceOptionsCollection.find({}).toArray();
+        let devicesCursor = await deviceOptionsCollection.find({}).toArray();
         let deviceOptions = devicesCursor.map(d => d.name);
         if (deviceOptions.length === 0) {
             deviceOptions = ['oticon xceed 3 up', 'Phonak Naida', 'Signia Silk'];
@@ -63,8 +63,8 @@ app.get('/api/records', async (req, res) => {
 app.post('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     try {
-        const database = await getDB();
-        const recordsCollection = database.collection('records');
+        const db = await getDB();
+        const recordsCollection = db.collection('records');
 
         const newRecord = {
             _id: Date.now(),
@@ -91,8 +91,8 @@ app.put('/api/records/:id', async (req, res) => {
     const recordId = Number(req.params.id);
     const updates = req.body;
     try {
-        const database = await getDB();
-        const recordsCollection = database.collection('records');
+        const db = await getDB();
+        const recordsCollection = db.collection('records');
         await recordsCollection.updateOne({ _id: recordId }, { $set: updates });
         res.json({ success: true, message: 'تم التعديل بنجاح' });
     } catch (e) {
@@ -103,8 +103,8 @@ app.put('/api/records/:id', async (req, res) => {
 app.delete('/api/records/:id', async (req, res) => {
     const recordId = Number(req.params.id);
     try {
-        const database = await getDB();
-        const recordsCollection = database.collection('records');
+        const db = await getDB();
+        const recordsCollection = db.collection('records');
         await recordsCollection.deleteOne({ _id: recordId });
         res.json({ success: true, message: 'تم الحذف بنجاح' });
     } catch (e) {
@@ -115,8 +115,8 @@ app.delete('/api/records/:id', async (req, res) => {
 app.get('/api/check-patient/:id', async (req, res) => {
     const natId = req.params.id;
     try {
-        const database = await getDB();
-        const recordsCollection = database.collection('records');
+        const db = await getDB();
+        const recordsCollection = db.collection('records');
         const existing = await recordsCollection.findOne({ national_id: natId });
         if (existing) {
             res.json({
@@ -135,8 +135,8 @@ app.post('/api/devices-options', async (req, res) => {
     const deviceName = req.body.device;
     if (!deviceName) return res.status(400).json({ success: false });
     try {
-        const database = await getDB();
-        const deviceOptionsCollection = database.collection('deviceOptions');
+        const db = await getDB();
+        const deviceOptionsCollection = db.collection('deviceOptions');
         const existing = await deviceOptionsCollection.findOne({ name: deviceName });
         if (!existing) {
             await deviceOptionsCollection.insertOne({ name: deviceName });
@@ -151,8 +151,8 @@ app.post('/api/devices-options', async (req, res) => {
 app.delete('/api/devices-options', async (req, res) => {
     const deviceName = req.body.device;
     try {
-        const database = await getDB();
-        const deviceOptionsCollection = database.collection('deviceOptions');
+        const db = await getDB();
+        const deviceOptionsCollection = db.collection('deviceOptions');
         await deviceOptionsCollection.deleteOne({ name: deviceName });
         const devicesCursor = await deviceOptionsCollection.find({}).toArray();
         res.json({ success: true, deviceOptions: devicesCursor.map(d => d.name) });
