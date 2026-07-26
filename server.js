@@ -1,5 +1,5 @@
 const express = require('express');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
 app.use(express.json({ limit: '100mb' }));
@@ -56,7 +56,6 @@ app.post('/api/records', async (req, res) => {
     }
 
     const newRecord = {
-        _id: Date.now() + Math.random(),
         national_id: body.national_id,
         patient_name: body.patient_name,
         mother_name: body.mother_name || '-',
@@ -71,10 +70,12 @@ app.post('/api/records', async (req, res) => {
 
     try {
         const db = await getDB();
-        await db.collection('records').insertOne(newRecord);
+        const result = await db.collection('records').insertOne(newRecord);
+        newRecord._id = result.insertedId;
         memoryRecords.unshift(newRecord);
         res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح' });
     } catch (e) {
+        newRecord._id = Date.now() + Math.random();
         memoryRecords.unshift(newRecord);
         res.json({ success: true, message: 'تم الحفظ محلياً بنجاح' });
     }
@@ -100,7 +101,6 @@ app.get('/api/check-patient/:id', async (req, res) => {
     }
 });
 
-// استقبال مصفوفة السجلات الجاهزة من المتصفح لمنع أي أخطاء تشفير
 app.post('/api/import-csv', async (req, res) => {
     try {
         const { records } = req.body;
@@ -112,7 +112,6 @@ app.post('/api/import-csv', async (req, res) => {
         const currentInst = institutions[code] || institutions['yarmok'];
 
         let formattedRecords = records.map(r => ({
-            _id: Date.now() + Math.random() * 100000,
             national_id: r.national_id || 'غير متوفر',
             patient_name: r.patient_name || 'غير معروف',
             mother_name: r.mother_name || '-',
@@ -127,8 +126,8 @@ app.post('/api/import-csv', async (req, res) => {
 
         const db = await getDB();
         const collection = db.collection('records');
-        memoryRecords.unshift(...formattedRecords);
         await collection.insertMany(formattedRecords);
+        memoryRecords.unshift(...formattedRecords);
 
         res.json({ success: true, count: formattedRecords.length });
     } catch (e) {
@@ -146,6 +145,36 @@ app.delete('/api/clear-records', async (req, res) => {
         res.json({ success: true, message: 'تم حذف كافة السجلات بنجاح' });
     } catch (e) {
         res.status(500).json({ success: false, error: 'فشل حذف السجلات' });
+    }
+});
+
+// مسار حذف سجل فردي مطور يدعم كافة أنواع المعرفات
+app.delete('/api/records/:id', async (req, res) => {
+    const recordId = req.params.id;
+    try {
+        const db = await getDB();
+        let queryList = [];
+        
+        // محاولة البحث بالـ ObjectId إذا كان صالحاً
+        if (ObjectId.isValid(recordId)) {
+            queryList.push({ _id: new ObjectId(recordId) });
+        }
+        // محاولة البحث كرقم
+        if (!isNaN(recordId)) {
+            queryList.push({ _id: Number(recordId) });
+            queryList.push({ id: Number(recordId) });
+        }
+        // البحث كنص عادي
+        queryList.push({ _id: recordId });
+        queryList.push({ id: recordId });
+
+        const result = await db.collection('records').deleteOne({ $or: queryList });
+        
+        memoryRecords = memoryRecords.filter(r => String(r._id) !== String(recordId) && String(r.id) !== String(recordId));
+
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: 'فشل حذف السجل' });
     }
 });
 
@@ -178,29 +207,6 @@ app.delete('/api/devices-options', async (req, res) => {
             let options = doc.options.filter(d => d !== device);
             await db.collection('devices').updateOne({ code: code }, { $set: { options: options } });
         }
-        res.json({ success: true });
-    } catch (e) {
-        res.json({ success: true });
-    }
-});
-
-app.put('/api/records/:id', async (req, res) => {
-    const recordId = Number(req.params.id) || req.params.id;
-    const updateData = req.body;
-    try {
-        const db = await getDB();
-        await db.collection('records').updateOne({ $or: [{ id: recordId }, { _id: recordId }] }, { $set: updateData });
-        res.json({ success: true });
-    } catch (e) {
-        res.json({ success: true });
-    }
-});
-
-app.delete('/api/records/:id', async (req, res) => {
-    const recordId = Number(req.params.id) || req.params.id;
-    try {
-        const db = await getDB();
-        await db.collection('records').deleteOne({ $or: [{ id: recordId }, { _id: recordId }] });
         res.json({ success: true });
     } catch (e) {
         res.json({ success: true });
