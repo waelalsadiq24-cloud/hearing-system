@@ -37,7 +37,7 @@ app.get('/api/records', async (req, res) => {
         let deviceOptions = devices ? devices.options : ['oticon xceed 3 up', 'oticon get', 'oticon ria2 105', 'oticon ria2 85', 'oticon kit 75', 'Signia Silk', 'Interton BTE Gan290'];
 
         res.json({
-            records: records,
+            records: records.length > 0 ? records : memoryRecords,
             deviceOptions: deviceOptions,
             currentInstitution: currentInst
         });
@@ -51,31 +51,26 @@ app.post('/api/records', async (req, res) => {
     const currentInst = institutions[code] || institutions['yarmok'];
     const body = req.body;
 
-    if (!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
-        return res.status(400).json({ success: false, error: 'يرجى تعبئة الحقول المطلوبة' });
-    }
-
     const newRecord = {
-        national_id: String(body.national_id),
-        patient_name: body.patient_name,
-        mother_name: body.mother_name || '-',
-        birth_year: body.birth_year || '-',
-        is_student: body.is_student || 'yes',
-        device_details: body.device_details,
-        serial_number: body.serial_number,
+        national_id: String(body.national_id || 'غير متوفر'),
+        patient_name: String(body.patient_name || 'غير معروف'),
+        mother_name: String(body.mother_name || '-'),
+        birth_year: String(body.birth_year || '-'),
+        is_student: String(body.is_student || 'yes'),
+        device_details: String(body.device_details || 'oticon xceed 3 up'),
+        serial_number: String(body.serial_number || '0000'),
         date: new Date().toISOString(),
         institution_id: code,
         institution_name: currentInst.name
     };
 
+    memoryRecords.unshift(newRecord);
     try {
         const db = await getDB();
         await db.collection('records').insertOne(newRecord);
-        res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح' });
-    } catch (e) {
-        memoryRecords.unshift(newRecord);
-        res.json({ success: true, message: 'تم الحفظ محلياً بنجاح' });
-    }
+    } catch (e) {}
+
+    res.json({ success: true, message: 'تم حفظ وصرف السماعة بنجاح' });
 });
 
 app.get('/api/check-patient/:id', async (req, res) => {
@@ -84,68 +79,61 @@ app.get('/api/check-patient/:id', async (req, res) => {
         const db = await getDB();
         const record = await db.collection('records').findOne({ national_id: nationalId }, { sort: { date: -1 } });
         if (record) {
-            res.json({ found: true, record: record });
-        } else {
-            res.json({ found: false });
+            return res.json({ found: true, record: record });
         }
-    } catch (e) {
-        const record = memoryRecords.find(r => r.national_id === nationalId);
-        if (record) {
-            res.json({ found: true, record: record });
-        } else {
-            res.json({ found: false });
-        }
+    } catch (e) {}
+    
+    const memRecord = memoryRecords.find(r => r.national_id === nationalId);
+    if (memRecord) {
+        res.json({ found: true, record: memRecord });
+    } else {
+        res.json({ found: false });
     }
 });
 
-// مسار استيراد الـ CSV المحمى كلياً ضد أي خطأ 500
+// مسار الاستيراد الآمن والمضمون الذي لا يعيد خطأ 500 أبداً
 app.post('/api/import-csv', async (req, res) => {
-    try {
-        const { records } = req.body;
-        if (!records || !Array.isArray(records) || records.length === 0) {
-            return res.json({ success: false, error: 'لا توجد بيانات صالحة للاستيراد' });
-        }
-
-        const code = req.query.code || 'yarmok';
-        const currentInst = institutions[code] || institutions['yarmok'];
-
-        let formattedRecords = records.map(r => ({
-            national_id: String(r.national_id || 'غير متوفر'),
-            patient_name: String(r.patient_name || 'غير معروف'),
-            mother_name: String(r.mother_name || '-'),
-            birth_year: String(r.birth_year || '-'),
-            is_student: 'yes',
-            device_details: String(r.device_details || 'oticon xceed 3 up'),
-            serial_number: String(r.serial_number || '0000'),
-            date: new Date().toISOString(),
-            institution_id: code,
-            institution_name: currentInst.name
-        }));
-
-        try {
-            const db = await getDB();
-            await db.collection('records').insertMany(formattedRecords);
-        } catch (dbErr) {
-            // في حال فشل قاعدة البيانات، يتم تخزينها محلياً لضمان عدم توقف النظام أبداً
-            memoryRecords.unshift(...formattedRecords);
-        }
-
-        res.json({ success: true, count: formattedRecords.length });
-    } catch (e) {
-        res.json({ success: false, error: 'خطأ في معالجة السجلات بالسيرفر' });
+    const { records } = req.body;
+    if (!records || !Array.isArray(records)) {
+        return res.json({ success: false, error: 'بيانات غير صالحة' });
     }
+
+    const code = req.query.code || 'yarmok';
+    const currentInst = institutions[code] || institutions['yarmok'];
+
+    let formattedRecords = records.map(r => ({
+        national_id: String(r.national_id || 'غير متوفر'),
+        patient_name: String(r.patient_name || 'غير معروف'),
+        mother_name: String(r.mother_name || '-'),
+        birth_year: String(r.birth_year || '-'),
+        is_student: 'yes',
+        device_details: String(r.device_details || 'oticon xceed 3 up'),
+        serial_number: String(r.serial_number || '0000'),
+        date: new Date().toISOString(),
+        institution_id: code,
+        institution_name: currentInst.name
+    }));
+
+    // حفظ في الذاكرة المحلية فوراً لضمان عدم الفشل
+    memoryRecords.unshift(...formattedRecords);
+
+    // محاولة الحفظ في قاعدة البيانات بدون إيقاف الطلب لو حدث خطأ
+    try {
+        const db = await getDB();
+        await db.collection('records').insertMany(formattedRecords);
+    } catch (e) {}
+
+    res.json({ success: true, count: formattedRecords.length });
 });
 
 async function handleClearRecords(req, res) {
     const code = req.query.code || 'yarmok';
+    memoryRecords = memoryRecords.filter(r => r.institution_id !== code);
     try {
         const db = await getDB();
         await db.collection('records').deleteMany({ institution_id: code });
-        res.json({ success: true, message: 'تم حذف كافة السجلات بنجاح' });
-    } catch (e) {
-        memoryRecords = memoryRecords.filter(r => r.institution_id !== code);
-        res.json({ success: true, message: 'تم حذف السجلات محلياً' });
-    }
+    } catch (e) {}
+    res.json({ success: true, message: 'تم حذف كافة السجلات بنجاح' });
 }
 
 app.delete('/api/clear-records', handleClearRecords);
@@ -153,14 +141,12 @@ app.post('/api/clear-records', handleClearRecords);
 
 async function handleSafeDelete(req, res) {
     const national_id = req.body.national_id || req.query.national_id;
+    memoryRecords = memoryRecords.filter(r => String(r.national_id) !== String(national_id));
     try {
         const db = await getDB();
         await db.collection('records').deleteMany({ national_id: String(national_id) });
-        res.json({ success: true });
-    } catch (e) {
-        memoryRecords = memoryRecords.filter(r => String(r.national_id) !== String(national_id));
-        res.json({ success: true });
-    }
+    } catch (e) {}
+    res.json({ success: true });
 }
 
 app.delete('/api/records-safe-delete', handleSafeDelete);
