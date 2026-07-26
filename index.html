@@ -43,6 +43,8 @@
         
         .cell-input { width: calc(100% - 45px); padding: 4px; font-size: 12px; text-align: center; border: 2px solid #27ae60; border-radius: 3px; background: #ffffd8; display: inline-block; vertical-align: middle; }
         .btn-cell-save { background-color: #27ae60; color: white; border: none; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-top: 0; width: auto; display: inline-block; vertical-align: middle; margin-right: 3px; }
+        .btn-row-delete { background-color: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; width: auto; margin-top: 0; }
+        .btn-row-delete:hover { background-color: #c0392b; }
 
         .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
         .birth-group input { text-align: center; margin-top: 0; }
@@ -139,7 +141,7 @@
                     <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد من ملف Excel</button>
                 </div>
                 <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
-                <button class="btn-mode btn-delete-mode" id="toggleDeleteBtn" onclick="toggleDeleteMode()">🗑️ تفعيل وضع الحذف (معطل)</button>
+                <button class="btn-mode btn-delete-mode" id="toggleDeleteBtn" onclick="toggleDeleteMode()">🗑️ وضع الحذف المزدوج (معطل)</button>
             </div>
         </div>
 
@@ -154,10 +156,11 @@
                     <th>الرقم التسلسلي</th>
                     <th>تاريخ الصرف</th>
                     <th>المؤسسة / المركز</th>
+                    <th>إجراء</th>
                 </tr>
             </thead>
             <tbody id="issuedTableBody">
-                <tr><td colspan="8">جاري تحميل السجلات...</td></tr>
+                <tr><td colspan="9">جاري تحميل السجلات...</td></tr>
             </tbody>
         </table>
     </div>
@@ -187,10 +190,10 @@
         const btn = document.getElementById('toggleDeleteBtn');
         if (deleteModeActive) {
             btn.classList.add('active');
-            btn.innerText = "🗑️ تفعيل وضع الحذف (مفعل)";
+            btn.innerText = "🗑️ وضع الحذف المزدوج (مفعل)";
         } else {
             btn.classList.remove('active');
-            btn.innerText = "🗑️ تفعيل وضع الحذف (معطل)";
+            btn.innerText = "🗑️ وضع الحذف المزدوج (معطل)";
         }
         activeCell = null;
         loadIssuedList();
@@ -422,7 +425,6 @@
         }
     }
 
-    // دالة استيراد فائقة السرعة تستخرج كل السجلات دفعة واحدة
     function importExcelFile(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -444,7 +446,6 @@
                 let recordsList = [];
                 const code = getInstitutionCode();
 
-                // تخطي صف العناوين إذا وجد
                 let startIndex = 0;
                 let firstRow = rows[0];
                 if (firstRow && (String(firstRow[0]).includes('الاسم') || String(firstRow[0]).includes('المريض') || String(firstRow[1]).includes('الأم'))) {
@@ -479,7 +480,6 @@
                 }
 
                 if (recordsList.length > 0) {
-                    // إرسال السجلات دفعة واحدة للسيرفر للسرعة الفورية
                     const res = await fetch(`/api/import-excel?code=${code}`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
@@ -513,6 +513,23 @@
         }
     }
 
+    async function deleteRecord(recordId, patientName) {
+        if (confirm(`هل أنت متأكد من رغبتك في حذف سجل المريض: "${patientName}"؟`)) {
+            const code = getInstitutionCode();
+            try {
+                const res = await fetch(`/api/records/${recordId}?code=${code}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    loadIssuedList();
+                } else {
+                    alert('❌ فشل الحذف');
+                }
+            } catch(e) {
+                alert('حدث خطأ أثناء الاتصال للحذف');
+            }
+        }
+    }
+
     function filterTableLive() {
         loadIssuedList();
     }
@@ -540,7 +557,7 @@
         tbody.innerHTML = '';
 
         if(filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة</td></tr>';
             return;
         }
 
@@ -577,15 +594,20 @@
             });
 
             rowHTML += `<td>${item.institution_name || '-'}</td>`;
+            
+            // إضافة زر الحذف في العمود الأخير لكل صف يتبع لمؤسستك
+            if (isMyInstitution) {
+                rowHTML += `<td><button class="btn-row-delete" onclick="deleteRecord('${recordId}', '${item.patient_name}')">🗑️ حذف</button></td>`;
+            } else {
+                rowHTML += `<td><span style="color:#888; font-size:12px;">مؤسسة أخرى</span></td>`;
+            }
+
             tr.innerHTML = rowHTML;
 
             if (deleteModeActive && isMyInstitution) {
                 tr.style.cursor = 'pointer';
                 tr.ondblclick = async () => {
-                    if (confirm(`هل أنت متأكد من حذف سجل المريض: ${item.patient_name}؟`)) {
-                        await fetch(`/api/records/${recordId}?code=${code}`, { method: 'DELETE' });
-                        loadIssuedList();
-                    }
+                    deleteRecord(recordId, item.patient_name);
                 };
             } else if (isMyInstitution) {
                 fields.forEach(f => {
