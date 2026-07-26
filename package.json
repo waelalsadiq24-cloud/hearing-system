@@ -1,17 +1,13 @@
 {
-  "name": "yarmok",
+  "name": "hearing-system",
   "version": "1.0.0",
-  "description": "",
+  "description": "Hearing aids distribution system",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "express": "^5.2.1"
+    "express": "^4.18.2",
+    "mongodb": "^6.3.0"
   }
 }
