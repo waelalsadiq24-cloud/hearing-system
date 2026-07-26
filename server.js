@@ -100,64 +100,40 @@ app.get('/api/check-patient/:id', async (req, res) => {
     }
 });
 
-// المسار المعتمد والمستقر لمعالجة ملف الـ CSV عبر السيرفر
+// استقبال مصفوفة السجلات الجاهزة من المتصفح لمنع أي أخطاء تشفير
 app.post('/api/import-csv', async (req, res) => {
     try {
-        const { rawData } = req.body;
-        if (!rawData) return res.json({ success: false, error: 'الملف فارغ' });
+        const { records } = req.body;
+        if (!records || !Array.isArray(records) || records.length === 0) {
+            return res.json({ success: false, error: 'لا توجد بيانات صالحة للاستيراد' });
+        }
 
-        const lines = rawData.split(/\r\n|\n/);
-        let recordsList = [];
         const code = req.query.code || 'yarmok';
         const currentInst = institutions[code] || institutions['yarmok'];
 
-        for (let i = 0; i < lines.length; i++) {
-            let line = lines[i] ? lines[i].trim() : '';
-            if (!line) continue;
+        let formattedRecords = records.map(r => ({
+            _id: Date.now() + Math.random() * 100000,
+            national_id: r.national_id || 'غير متوفر',
+            patient_name: r.patient_name || 'غير معروف',
+            mother_name: r.mother_name || '-',
+            birth_year: r.birth_year || '-',
+            is_student: 'yes',
+            device_details: r.device_details || 'oticon xceed 3 up',
+            serial_number: r.serial_number || '0000',
+            date: new Date().toISOString(),
+            institution_id: code,
+            institution_name: currentInst.name
+        }));
 
-            if (i === 0 && (line.includes('الاسم') || line.includes('المريض') || line.includes('الأم') || line.includes('الرقم'))) {
-                continue;
-            }
+        const db = await getDB();
+        const collection = db.collection('records');
+        memoryRecords.unshift(...formattedRecords);
+        await collection.insertMany(formattedRecords);
 
-            let cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-            cols = cols.map(c => (c ? c.replace(/^"|"$/g, '').trim() : ''));
-
-            const patName = cols[0] || '';
-            const momName = cols[1] || '-';
-            const natId = cols[2] || 'غير متوفر';
-            const birth = cols[3] || '-';
-            const device = cols[4] || 'oticon xceed 3 up';
-            const serial = cols[5] || '0000';
-
-            if (patName && patName !== 'undefined' && patName !== '') {
-                recordsList.push({
-                    _id: Date.now() + Math.random() * 10000,
-                    national_id: natId,
-                    patient_name: patName,
-                    mother_name: momName,
-                    birth_year: birth,
-                    is_student: 'yes',
-                    device_details: device,
-                    serial_number: serial,
-                    date: new Date().toISOString(),
-                    institution_id: code,
-                    institution_name: currentInst.name
-                });
-            }
-        }
-
-        if (recordsList.length > 0) {
-            const db = await getDB();
-            const collection = db.collection('records');
-            memoryRecords.unshift(...recordsList);
-            await collection.insertMany(recordsList);
-            res.json({ success: true, count: recordsList.length });
-        } else {
-            res.json({ success: false, error: 'لم يتم العثور على بيانات صالحة' });
-        }
+        res.json({ success: true, count: formattedRecords.length });
     } catch (e) {
         console.error("Import error:", e);
-        res.status(500).json({ success: false, error: 'خطأ في معالجة الملف بالسيرفر' });
+        res.status(500).json({ success: false, error: 'خطأ في معالجة السجلات بالسيرفر' });
     }
 });
 
