@@ -1,5 +1,5 @@
 const express = require('express');
-const { MongoClient, ObjectId } = require('mongodb');
+const { MongoClient } = require('mongodb');
 
 const app = express();
 app.use(express.json({ limit: '100mb' }));
@@ -146,19 +146,15 @@ app.delete('/api/clear-records', async (req, res) => {
     }
 });
 
-// استخدام مسار الحذف الأصلي المدعوم كلياً مع دعم ObjectId والنصوص
-app.delete('/api/records/:id', async (req, res) => {
-    const recordId = req.params.id;
+// مسار الحذف المباشر والآمن باستخدام الرقم الوطني وتاريخ الصرف
+app.delete('/api/records-safe-delete', async (req, res) => {
+    const { national_id, date } = req.body;
     try {
         const db = await getDB();
-        let query = {};
-        if (ObjectId.isValid(recordId)) {
-            query = { _id: new ObjectId(recordId) };
-        } else {
-            query = { _id: recordId };
-        }
-        
-        const result = await db.collection('records').deleteOne(query);
+        await db.collection('records').deleteOne({ 
+            national_id: String(national_id), 
+            date: String(date) 
+        });
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: 'فشل حذف السجل' });
