@@ -1,134 +1,529 @@
-const express = require('express');
-const { MongoClient, ObjectId } = require('mongodb');
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>نظام سجلات السماعات الطبية (السحابي المؤسسي)</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; direction: rtl; }
+        .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; text-align: center; margin-bottom: 25px; }
+        h3 { color: #34495e; border-bottom: 2px solid #27ae60; padding-bottom: 5px; margin-top: 0; }
+        .card { background: #eef2f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #dcdcdc; }
+        label { display: block; margin-top: 12px; font-weight: bold; color: #333; }
+        input, select, button { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
+        button { background-color: #27ae60; color: white; font-weight: bold; cursor: pointer; border: none; margin-top: 18px; font-size: 16px; }
+        button:hover { background-color: #219150; }
+        .btn-issue { background-color: #2980b9; }
+        .btn-issue:hover { background-color: #1f618d; }
+        .btn-excel { background-color: #d35400; width: auto; display: inline-block; padding: 8px 15px; margin-top: 0; font-size: 14px; }
+        .btn-excel:hover { background-color: #ba4a00; }
+        .btn-clear-all { background-color: #c0392b; width: auto; display: inline-block; padding: 8px 12px; margin-top: 0; font-size: 13px; }
+        .btn-clear-all:hover { background-color: #962d22; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; background: #34495e; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
+        .count-badge { font-weight: bold; font-size: 15px; }
+        .actions-group { display: flex; gap: 10px; align-items: center; width: 100%; justify-content: space-between; flex-wrap: wrap; }
 
-const app = express();
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
-app.use(express.static(__dirname));
+        .table-search-box { width: 220px; padding: 6px 10px; font-size: 13px; border-radius: 4px; border: 1px solid #ccc; margin-top: 0; background: #fff; color: #000; }
 
-const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
-const client = new MongoClient(uri);
-let dbConnection = null;
+        .result-box { padding: 15px; border-radius: 5px; font-weight: bold; margin-top: 15px; display: none; line-height: 1.6; }
+        .eligible { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .not-eligible { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .row { display: flex; gap: 10px; }
+        .row > div { flex: 1; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 13px; color: #333; cursor: pointer; }
+        th { background-color: #34495e; color: white; cursor: default; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        
+        .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
+        .birth-group input { text-align: center; margin-top: 0; }
+        .inline-edit-input { width: 100%; padding: 4px; font-size: 13px; text-align: center; border: 2px solid #27ae60; border-radius: 4px; background: #fff; }
+    </style>
+</head>
+<body>
 
-async function getDB() {
-    if (!dbConnection) {
-        await client.connect();
-        dbConnection = client.db('hearing_system');
-    }
-    return dbConnection;
-}
+<div class="container">
+    <h2 id="pageTitle">🏥 نظام فحص وتسجيل وصرف السماعات الطبية (السحابي المؤسسي)</h2>
 
-const institutions = {
-    'yarmok': { id: 'yarmok', name: 'مستشفى اليرموك' },
-    'medcity': { id: 'medcity', name: 'مدينة الطب' },
-    'tibb': { id: 'tibb', name: 'مدينة الطب' }
-};
+    <div class="card">
+        <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
+        <label>بحث بالرقم الوطني أو اسم المريض:</label>
+        <input type="text" id="searchId" placeholder="أدخل الرقم الوطني أو اسم المريض">
+        <button onclick="searchPatient()">بحث وفحص الاستحقاق</button>
+        <div id="searchResult" class="result-box"></div>
+    </div>
 
-app.get('/api/records', async (req, res) => {
-    const code = req.query.code || 'yarmok';
-    const currentInst = institutions[code] || institutions['yarmok'];
+    <div class="card">
+        <h3>➕ 2. تسجيل مريض جديد وصرف سماعة سحابياً</h3>
+        <div class="row">
+            <div>
+                <label>الرقم الوطني:</label>
+                <input type="text" id="newNationalId" placeholder="الرقم الوطني" oninput="checkPatientEligibilityLive()">
+            </div>
+            <div>
+                <label>اسم المريض:</label>
+                <input type="text" id="fullName" placeholder="الاسم الكامل" oninput="checkPatientEligibilityLive()">
+            </div>
+        </div>
+        <div class="row">
+            <div>
+                <label>اسم الأم:</label>
+                <input type="text" id="motherName" placeholder="اسم الأم">
+            </div>
+            <div>
+                <label>تاريخ الولادة (يوم / شهر / سنة):</label>
+                <div class="birth-group">
+                    <input type="text" id="birthDay" placeholder="اليوم" maxlength="2" oninput="autoTab(this, 'birthMonth', 2)">
+                    <span>/</span>
+                    <input type="text" id="birthMonth" placeholder="الشهر" maxlength="2" oninput="autoTab(this, 'birthYear', 2)">
+                    <span>/</span>
+                    <input type="text" id="birthYear" placeholder="السنة" maxlength="4" oninput="checkPatientEligibilityLive()">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div>
+                <label>هل المريض طالب؟</label>
+                <select id="isStudent" onchange="checkPatientEligibilityLive()">
+                    <option value="yes">نعم (طالب)</option>
+                    <option value="no">ليس طالب</option>
+                </select>
+            </div>
+            <div>
+                <label>الرقم التسلسلي (Serial Number):</label>
+                <input type="text" id="serialNumber" placeholder="أدخل الرقم التسلسلي للسماعة">
+            </div>
+        </div>
+        <div class="row">
+            <div style="flex: 1;">
+                <label>تفاصيل السماعة:</label>
+                <input type="text" id="selectedDeviceDisplay" value="oticon xceed 3 up">
+            </div>
+        </div>
 
-    try {
-        const db = await getDB();
-        const records = await db.collection('records')
-            .find({ institution_id: code })
-            .sort({ _id: -1 })
-            .limit(10000)
-            .toArray();
+        <div id="registrationWarning" class="result-box" style="margin-top: 10px;"></div>
+        <button class="btn-issue" id="issueBtn" onclick="registerAndIssue()">حفظ وصرف السماعة في السحابة</button>
+    </div>
 
-        res.json({ 
-            records: records.map(r => ({ ...r, _id: r._id.toString() })), 
-            currentInstitution: currentInst 
-        });
-    } catch (e) {
-        res.json({ records: [] });
-    }
-});
+    <div class="card">
+        <h3>📋 السجل السحابي الدائم (انقر دبل كلك على أي خلية للتعديل واضغط Enter للحفظ)</h3>
+        
+        <div class="header-bar">
+            <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
+            <div class="actions-group">
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvSafely(event)">
+                    <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV السحابي (8000+ سجل)</button>
+                    <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ تفريغ السجل السحابي</button>
+                </div>
+                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
+            </div>
+        </div>
 
-app.post('/api/records', async (req, res) => {
-    const code = req.query.code || 'yarmok';
-    const currentInst = institutions[code] || institutions['yarmok'];
-    const body = req.body;
+        <table>
+            <thead>
+                <tr>
+                    <th>اسم المريض</th>
+                    <th>اسم الأم</th>
+                    <th>الرقم الوطني</th>
+                    <th>تاريخ الولادة</th>
+                    <th>تفاصيل السماعة</th>
+                    <th>الرقم التسلسلي</th>
+                    <th>تاريخ الصرف</th>
+                    <th>المؤسسة / المركز</th>
+                </tr>
+            </thead>
+            <tbody id="issuedTableBody">
+                <tr><td colspan="8">جاري مزامنة السجلات من السحابة...</td></tr>
+            </tbody>
+        </table>
+    </div>
 
-    const newRecord = {
-        national_id: String(body.national_id || '-'),
-        patient_name: String(body.patient_name || 'غير معروف'),
-        mother_name: String(body.mother_name || '-'),
-        birth_year: String(body.birth_year || '-'),
-        is_student: String(body.is_student || 'yes'),
-        device_details: String(body.device_details || 'oticon xceed 3 up'),
-        serial_number: String(body.serial_number || '0000'),
-        date: String(body.date || new Date().toISOString().split('T')[0]),
-        institution_id: code,
-        institution_name: currentInst.name
-    };
+</div>
 
-    try {
-        const db = await getDB();
-        await db.collection('records').insertOne(newRecord);
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ success: false });
-    }
-});
+<script>
+    let cachedRecords = [];
 
-app.post('/api/records/update', async (req, res) => {
-    const { id, field, value } = req.body;
-    try {
-        const db = await getDB();
-        if (id && id.length === 24) {
-            await db.collection('records').updateOne({ _id: new ObjectId(id) }, { $set: { [field]: value } });
+    function autoTab(current, nextFieldId, maxLen) {
+        if (current.value.length >= maxLen) {
+            const nextEl = document.getElementById(nextFieldId);
+            if (nextEl) nextEl.focus();
         }
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ success: false });
     }
-});
 
-app.post('/api/import-single', async (req, res) => {
-    try {
-        const r = req.body;
-        if (!r || !r.patient_name) {
-            return res.json({ success: false });
+    function getInstitutionCode() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('code') || 'yarmok';
+    }
+
+    function calculateAge(birthStr) {
+        if (!birthStr || birthStr === '-') return 0;
+        let year = 0;
+        if (birthStr.includes('/')) {
+            let parts = birthStr.split('/');
+            year = parseInt(parts[2]) || 0;
+        } else {
+            year = parseInt(birthStr) || 0;
+        }
+        if (!year) return 0;
+        return new Date().getFullYear() - year;
+    }
+
+    function getRequiredYears(age, isStudent) {
+        if (age >= 7 && isStudent === 'no') return 4;
+        return 3;
+    }
+
+    async function loadIssuedList() {
+        const code = getInstitutionCode();
+        if (code === 'medcity' || code === 'tibb') {
+            document.getElementById('pageTitle').innerText = '🏥 نظام فحص وتسجيل وصرف السماعات الطبية - مدينة الطب (السحابي)';
+        } else {
+            document.getElementById('pageTitle').innerText = '🏥 نظام فحص وتسجيل وصرف السماعات الطبية - مستشفى اليرموك (السحابي)';
         }
 
-        const code = req.query.code || 'yarmok';
-        const currentInst = institutions[code] || institutions['yarmok'];
+        try {
+            const res = await fetch(`/api/records?code=${code}`);
+            const data = await res.json();
+            cachedRecords = data.records || [];
+        } catch (e) {
+            cachedRecords = [];
+        }
+        renderTable(cachedRecords);
+    }
 
-        const formatted = {
-            national_id: String(r.national_id || '-'),
-            patient_name: String(r.patient_name || 'غير معروف'),
-            mother_name: String(r.mother_name || '-'),
-            birth_year: String(r.birth_year || '-'),
-            is_student: 'yes',
-            device_details: String(r.device_details || 'oticon xceed 3 up'),
-            serial_number: String(r.serial_number || '0000'),
-            date: String(r.date || new Date().toISOString().split('T')[0]),
-            institution_id: code,
-            institution_name: currentInst.name
+    function searchPatient() {
+        const queryText = document.getElementById('searchId').value.trim().toLowerCase();
+        if(!queryText) return alert('يرجى إدخال الرقم الوطني أو اسم المريض للبحث');
+
+        const foundRecord = cachedRecords.find(r => 
+            (r.national_id && String(r.national_id).toLowerCase() === queryText) || 
+            (r.patient_name && String(r.patient_name).toLowerCase().includes(queryText))
+        );
+
+        const box = document.getElementById('searchResult');
+        box.style.display = 'block';
+
+        if(!foundRecord) {
+            box.className = 'result-box eligible';
+            box.innerHTML = `✅ المريض غير مسجل مسبقاً ويمكنه الاستلام.`;
+        } else {
+            let birthVal = foundRecord.birth_year || '-';
+            let studentVal = foundRecord.is_student || 'yes';
+            let age = calculateAge(birthVal);
+            let requiredYears = getRequiredYears(age, studentVal);
+            let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
+
+            if (diffYears >= requiredYears) {
+                box.className = 'result-box eligible';
+                box.innerHTML = `✅ المريض (${foundRecord.patient_name}) مستحق! آخر صرف كان بتاريخ ${foundRecord.date} وفترة الاستحقاق هي ${requiredYears} سنوات.`;
+            } else {
+                let remainingYears = (requiredYears - diffYears).toFixed(1);
+                box.className = 'result-box not-eligible';
+                box.innerHTML = `⚠️ المريض (${foundRecord.patient_name}) غير مستحق حالياً! استلم بتاريخ ${foundRecord.date}. متبقي حوالي ${remainingYears} سنة.`;
+            }
+        }
+    }
+
+    function checkPatientEligibilityLive() {
+        const id = document.getElementById('newNationalId').value.trim().toLowerCase();
+        const fullName = document.getElementById('fullName').value.trim().toLowerCase();
+        const warningBox = document.getElementById('registrationWarning');
+        const issueBtn = document.getElementById('issueBtn');
+
+        if (id.length < 3 && fullName.length < 3) {
+            warningBox.style.display = 'none';
+            issueBtn.disabled = false;
+            issueBtn.style.opacity = '1';
+            return;
+        }
+
+        const foundRecord = cachedRecords.find(r => 
+            (id && r.national_id && String(r.national_id).toLowerCase() === id) || 
+            (fullName && r.patient_name && String(r.patient_name).toLowerCase().includes(fullName))
+        );
+
+        if (foundRecord) {
+            let age = calculateAge(foundRecord.birth_year || '-');
+            let studentVal = document.getElementById('isStudent').value;
+            let requiredYears = getRequiredYears(age, studentVal);
+            let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
+
+            if (diffYears < requiredYears) {
+                let remainingYears = (requiredYears - diffYears).toFixed(1);
+                warningBox.style.display = 'block';
+                warningBox.className = 'result-box not-eligible';
+                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${foundRecord.patient_name}): غير مستحق! استلم بتاريخ ${foundRecord.date}. متبقي ${remainingYears} سنة.`;
+                issueBtn.disabled = true;
+                issueBtn.style.opacity = '0.5';
+                return;
+            }
+        }
+
+        warningBox.style.display = 'none';
+        issueBtn.disabled = false;
+        issueBtn.style.opacity = '1';
+    }
+
+    async function registerAndIssue() {
+        const body = {
+            national_id: document.getElementById('newNationalId').value.trim(),
+            patient_name: document.getElementById('fullName').value.trim(),
+            mother_name: document.getElementById('motherName').value.trim(),
+            birth_year: (document.getElementById('birthDay').value && document.getElementById('birthMonth').value && document.getElementById('birthYear').value) ? `${document.getElementById('birthDay').value}/${document.getElementById('birthMonth').value}/${document.getElementById('birthYear').value}` : (document.getElementById('birthYear').value || '-'),
+            is_student: document.getElementById('isStudent').value,
+            device_details: document.getElementById('selectedDeviceDisplay').value.trim(),
+            serial_number: document.getElementById('serialNumber').value.trim(),
+            date: new Date().toISOString().split('T')[0]
         };
 
-        const db = await getDB();
-        await db.collection('records').insertOne(formatted);
-        res.json({ success: true });
-    } catch (e) {
-        res.json({ success: true });
-    }
-});
+        if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
+            return alert('يرجى تعبئة الحقول المطلوبة');
+        }
 
-app.post('/api/clear-records', async (req, res) => {
-    const code = req.query.code || 'yarmok';
-    try {
-        const db = await getDB();
-        await db.collection('records').deleteMany({ institution_id: code });
-        res.json({ success: true });
-    } catch (e) {
-        res.json({ success: true });
+        const code = getInstitutionCode();
+        try {
+            const res = await fetch(`/api/records?code=${code}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert('✅ تم حفظ وصرف السماعة في السحابة بنجاح');
+                document.getElementById('newNationalId').value = '';
+                document.getElementById('fullName').value = '';
+                document.getElementById('motherName').value = '';
+                document.getElementById('birthDay').value = '';
+                document.getElementById('birthMonth').value = '';
+                document.getElementById('birthYear').value = '';
+                document.getElementById('serialNumber').value = '';
+                document.getElementById('registrationWarning').style.display = 'none';
+                document.getElementById('issueBtn').disabled = false;
+                document.getElementById('issueBtn').style.opacity = '1';
+                loadIssuedList();
+            } else {
+                alert('❌ فشل الحفظ');
+            }
+        } catch(e) {
+            alert('❌ خطأ في الاتصال بالشبكة');
+        }
     }
-});
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
-    await getDB();
-    console.log(`Server is running on port ${PORT}`);
-});
+    function importCsvSafely(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.readAsText(file, 'UTF-8');
+        
+        reader.onload = async function(e) {
+            const importBtn = document.getElementById('importBtn');
+            try {
+                const text = e.target.result;
+                const lines = text.split(/\r\n|\n/);
+                let parsedRecords = [];
+                const code = getInstitutionCode();
+
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i] ? lines[i].trim() : '';
+                    if (!line) continue;
+
+                    let cols = line.split(/,|;|\t/);
+                    cols = cols.map(c => (c ? c.replace(/^["']|["']$/g, '').trim() : ''));
+
+                    let validCols = cols.filter(c => c !== '');
+                    if (validCols.length === 0) continue;
+
+                    let firstCol = validCols[0];
+                    if (i === 0 && (firstCol.includes('اسم') || firstCol.includes('الاسم') || firstCol.includes('patient') || firstCol.includes('name') || firstCol.includes('تاريخ'))) {
+                        continue;
+                    }
+
+                    let patName = cols[0] || '';
+                    let momName = cols[1] || '-';
+                    let natId = cols[2] || '-';
+                    let birth = cols[3] || '-';
+                    let device = cols[4] || 'oticon xceed 3 up';
+                    let serial = cols[5] || '0000';
+                    let formattedDate = new Date().toISOString().split('T')[0];
+
+                    if (patName && patName !== '' && patName !== 'undefined') {
+                        parsedRecords.push({
+                            national_id: String(natId),
+                            patient_name: patName,
+                            mother_name: momName,
+                            birth_year: birth,
+                            is_student: 'yes',
+                            device_details: device,
+                            serial_number: serial,
+                            date: formattedDate
+                        });
+                    }
+                }
+
+                if (parsedRecords.length === 0) {
+                    alert('⚠️ لم يتم قراءة أي سجلات صالحة.');
+                    importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
+                    importBtn.disabled = false;
+                    event.target.value = '';
+                    return;
+                }
+
+                importBtn.disabled = true;
+                importBtn.innerText = `⏳ جاري تفريغ السجلات القديمة بالسحابة...`;
+
+                try {
+                    await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
+                } catch(err) {}
+
+                let uploadedCount = 0;
+                const total = parsedRecords.length;
+
+                for (let i = 0; i < total; i++) {
+                    let rec = parsedRecords[i];
+                    importBtn.innerText = `⏳ جاري حفظ السجل (${i + 1} من ${total})...`;
+
+                    try {
+                        let res = await fetch(`/api/import-single?code=${code}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(rec)
+                        });
+                        let data = await res.json();
+                        if (data.success) {
+                            uploadedCount++;
+                        }
+                    } catch (err) {}
+                    
+                    await new Promise(r => setTimeout(r, 40));
+                }
+
+                importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
+                importBtn.disabled = false;
+
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} من ${total}) في قاعدة البيانات السحابية بنجاح تام ودائم للأبد!`);
+                await loadIssuedList();
+
+            } catch (err) {
+                alert('⚠️ حدث خطأ أثناء معالجة الملف.');
+                importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
+                importBtn.disabled = false;
+            }
+            event.target.value = '';
+        };
+    }
+
+    async function clearAllRecords() {
+        if (confirm("⚠️ تحذير حكومي: هل أنت متأكد تماماً من رغبتك في تفريغ السجل السحابي للمؤسسة؟")) {
+            const code = getInstitutionCode();
+            try {
+                await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
+                alert('✅ تم تفريغ السجل السحابي بنجاح.');
+                loadIssuedList();
+            } catch(e) {
+                alert('خطأ في الاتصال');
+            }
+        }
+    }
+
+    function filterTableLive() {
+        renderTable(cachedRecords);
+    }
+
+    function renderTable(data) {
+        const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
+        
+        const filteredData = data.filter(item => {
+            const name = (item.patient_name || '').toLowerCase();
+            const mother = (item.mother_name || '').toLowerCase();
+            const natId = (item.national_id || '').toLowerCase();
+            const device = (item.device_details || '').toLowerCase();
+            const serial = (item.serial_number || '').toLowerCase();
+            return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
+        });
+
+        const tbody = document.getElementById('issuedTableBody');
+        document.getElementById('totalCountBadge').innerText = `مجموع الأسماء: ${filteredData.length}`;
+        tbody.innerHTML = '';
+
+        if(filteredData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة في السحابة</td></tr>';
+            return;
+        }
+
+        const displayData = filteredData.slice(0, 500);
+
+        displayData.forEach((item) => {
+            let tr = document.createElement('tr');
+
+            tr.innerHTML = `
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'date', '${item.date || ''}')">${item.date || '-'}</td>
+                <td>${item.institution_name || '-'}</td>
+            `;
+
+            tbody.appendChild(tr);
+        });
+
+        if (filteredData.length > 500) {
+            let noteTr = document.createElement('tr');
+            noteTr.innerHTML = `<td colspan="8" style="background-color: #fff3cd; color: #856404; font-weight: bold;">ملاحظة: يتم عرض أول 500 سجل من أصل ${filteredData.length} لتسريع التصفح. يمكنك استخدام خانة البحث لتصفية النتائج بدقة.</td>`;
+            tbody.appendChild(noteTr);
+        }
+    }
+
+    async function makeEditable(cell, recordId, fieldName, currentValue) {
+        if (cell.querySelector('input')) return;
+
+        cell.innerHTML = `<input type="text" class="inline-edit-input" value="${currentValue === '-' ? '' : currentValue}">`;
+        const input = cell.querySelector('input');
+        input.focus();
+        input.select();
+
+        input.onkeydown = async function(e) {
+            if (e.key === 'Enter') {
+                const newValue = input.value.trim();
+                cell.innerHTML = newValue === '' ? '-' : newValue;
+
+                try {
+                    const code = getInstitutionCode();
+                    const res = await fetch(`/api/records/update?code=${code}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: recordId, field: fieldName, value: newValue })
+                    });
+                    const result = await res.json();
+                    if (!result.success) {
+                        alert('❌ فشل حفظ التعديل في السحابة');
+                    }
+                } catch (err) {
+                    alert('⚠️ خطأ في الاتصال بالشبكة');
+                }
+            } else if (e.key === 'Escape') {
+                cell.innerHTML = currentValue === '-' ? '-' : currentValue;
+            }
+        };
+
+        input.onblur = function() {
+            setTimeout(() => {
+                if (cell.querySelector('input')) {
+                    cell.innerHTML = currentValue === '-' ? '-' : currentValue;
+                }
+            }, 200);
+        };
+    }
+
+    window.onload = () => {
+        loadIssuedList();
+    };
+</script>
+
+</body>
+</html>
