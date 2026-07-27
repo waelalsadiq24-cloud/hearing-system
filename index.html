@@ -311,7 +311,7 @@
         }
     }
 
-    // 🚀 آلية التقسيم الآمن للدفعات داخل المتصفح لمنع خطأ 502 نهائياً
+    // 🚀 قراءة التاريخ الحقيقي من العمود الثامن (h) في ملف الـ CSV
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -348,7 +348,7 @@
                     let birth = cols[3] || '-';
                     let device = cols[4] || 'oticon xceed 3 up';
                     let serial = cols[5] || '0000';
-                    let formattedDate = new Date().toISOString().split('T')[0];
+                    let csvDate = cols[6] || new Date().toISOString().split('T')[0]; // العمود الثامن (h) لتاريخ الصرف
 
                     if (patName && patName !== '' && patName !== 'undefined') {
                         parsedRecords.push({
@@ -359,7 +359,7 @@
                             is_student: 'yes',
                             device_details: device,
                             serial_number: serial,
-                            date: formattedDate
+                            date: csvDate
                         });
                     }
                 }
@@ -379,7 +379,6 @@
                     await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 } catch(err) {}
 
-                // تقسيم الـ 8000+ سجل إلى دفعات صغيرة (100 سجل لكل دفعة) لإرسالها بأمان مطلَق
                 const chunkSize = 100;
                 let uploadedCount = 0;
                 const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
@@ -401,14 +400,13 @@
                         }
                     } catch (err) {}
 
-                    // استراحة قصيرة جداً (30 ميلي ثانية) لحماية الخادم السحابي ومنع الانهيار
                     await new Promise(r => setTimeout(r, 30));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في قاعدة البيانات السحابية بنجاح تام ودائم للأبد!`);
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) وتاريخ الصرف الحقيقي في قاعدة البيانات السحابية بنجاح تام!`);
                 await loadIssuedList();
 
             } catch (err) {
@@ -500,7 +498,7 @@
                 try {
                     const code = getInstitutionCode();
                     const res = await fetch(`/api/records/update?code=${code}`, {
-                        method: 'POST',
+                        post_method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id: recordId, field: fieldName, value: newValue })
                     });
