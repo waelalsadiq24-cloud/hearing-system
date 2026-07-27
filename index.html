@@ -399,7 +399,7 @@
         }
     }
 
-    // استيراد الـ CSV مع استخراج تواريخ الصرف الحقيقية وتوزيعها للسحابة
+    // 🚀 دالة استيراد متطورة تقرأ أعمدة ملفك الفعلي (اسم المريض، اسم الأم، التفاصيل، التاريخ) بدقة تامة
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -430,14 +430,21 @@
                         continue;
                     }
 
+                    // التقاط البيانات بحسب أعمدة ملفك الفعلي تماماً:
+                    // العمود 0: اسم المريض
                     let patName = cols[0] || '';
+                    // العمود 1: اسم الأم
                     let momName = cols[1] || '-';
+                    // الرقم الوطني إن وجد
                     let natId = cols[2] && !cols[2].includes('/') && cols[2].length > 1 ? cols[2] : '-';
+                    // تاريخ الولادة إن وجد
                     let birth = cols[3] && cols[3].includes('/') ? cols[3] : '-';
-                    let device = cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -'))) || cols[4] || 'oticon xceed 3 up';
-                    let serial = cols.find(c => c && !isNaN(c) && c.length >= 6) || '0000';
+                    // تفاصيل السماعة (العمود 4 أو أي عمود يحتوي على اسم جهاز)
+                    let device = cols[4] || cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -'))) || 'oticon xceed 3 up';
+                    // الرقم التسلسلي
+                    let serial = cols.find(c => c && !isNaN(c) && c.length >= 6) || cols[5] || '0000';
                     
-                    // استخراج تاريخ الصرف الحقيقي من الملف
+                    // استخراج تاريخ الصرف الحقيقي
                     let rawDate = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/));
                     let formattedDate = new Date().toISOString();
                     
@@ -504,7 +511,7 @@
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم استيراد وتحديث كافة السجلات (${parsedRecords.length} سجل) بتواريخ الصرف الحقيقية في السحابة بنجاح!`);
+                alert(`🎉 تم استيراد وتحديث كافة السجلات (${parsedRecords.length} سجل) في السحابة بنجاح!`);
                 loadIssuedList();
             } catch (err) {
                 console.error(err);
