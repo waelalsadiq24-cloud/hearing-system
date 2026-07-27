@@ -34,7 +34,7 @@
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
         th, td { padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 13px; color: #333; cursor: pointer; }
         th { background-color: #34495e; color: white; cursor: default; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:hover { background-color: #f1f2f6; }
         
         .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
         .birth-group input { text-align: center; margin-top: 0; }
@@ -107,7 +107,8 @@
     </div>
 
     <div class="card">
-        <h3>📋 السجل السحابي الدائم (انقر دبل كلك على أي خلية للتعديل واضغط Enter للحفظ)</h3>
+        <h3>📋 السجل السحابي الدائم</h3>
+        <p style="font-size: 13px; color: #555; margin-top: -5px;">* (انقر <b>دبل كلك على الخلية</b> للتعديل الفوري) | (انقر <b>دبل كلك على الصف بأكمله</b> لحذفه).</p>
         
         <div class="header-bar">
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
@@ -403,7 +404,7 @@
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
-                importBtn.disabled = false;
+                importBtn.disabled, false;
 
                 alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) بنجاح تام!`);
                 await loadIssuedList();
@@ -460,14 +461,37 @@
         displayData.forEach((item) => {
             let tr = document.createElement('tr');
 
+            // 🗑️ عند النقر المزدوج (دبل كلك) على أي مكان في الصف، يتم سؤال المستخدم عن الحذف
+            tr.ondblclick = async function(e) {
+                if (e.target.tagName === 'INPUT') return; // منع التداخل عند التعديل
+                
+                if (confirm(`⚠️ هل تود حذف سجل المريض (${item.patient_name || 'غير معروف'}) نهائياً؟`)) {
+                    try {
+                        const res = await fetch('/api/records/delete', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ index: item.id })
+                        });
+                        const result = await res.json();
+                        if (result.success) {
+                            loadIssuedList(); // تحديث الجدول فوراً
+                        } else {
+                            alert('❌ فشل حذف السجل');
+                        }
+                    } catch (err) {
+                        alert('⚠️ خطأ في الاتصال بالشبكة');
+                    }
+                }
+            };
+
             tr.innerHTML = `
-                <td ondblclick="makeEditable(this, ${item.id}, 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'date', '${item.date || ''}')">${item.date || '-'}</td>
+                <td ondblclick="event.stopPropagation(); makeEditable(this, ${item.id}, 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
+                <td ondblclick="event.stopPropagation(); makeEditable(this, ${item.id}, 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
+                <td ondblclick="event.stopPropagation(); makeEditable(this, ${item.id}, 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
+                <td ondblclick="event.stopPropagation(); makeEditable(this, ${item.id}, 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
+                <td ondblclick="event.stopPropagation(); makeEditable(this, ${item.id}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
+                <td ondblclick="event.stopPropagation(); makeEditable(this, ${item.id}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
+                <td ondblclick="event.stopPropagation(); makeEditable(this, ${item.id}, 'date', '${item.date || ''}')">${item.date || '-'}</td>
                 <td>${item.institution_name || '-'}</td>
             `;
 
@@ -481,7 +505,6 @@
         }
     }
 
-    // 🚀 تم إزالة رسالة الخطأ المزعجة وجعل الحفظ يتم بهدوء تام في الخلفية
     async function makeEditable(cell, recordIndex, fieldName, currentValue) {
         if (cell.querySelector('input')) return;
 
@@ -501,9 +524,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ index: recordIndex, field: fieldName, value: newValue })
                     });
-                } catch (err) {
-                    // تم كتم الخطأ تماماً لعدم إزعاج المستخدم
-                }
+                } catch (err) {}
             } else if (e.key === 'Escape') {
                 cell.innerHTML = currentValue === '-' ? '-' : currentValue;
             }
