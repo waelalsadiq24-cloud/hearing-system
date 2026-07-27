@@ -2,8 +2,8 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static(__dirname));
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
@@ -86,8 +86,8 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// 🚀 استقبال الملف كاملاً في طلب واحد مباشر
-app.post('/api/import-csv-all', async (req, res) => {
+// مسار استقبال الدفعات الآمنة (100 سجل لكل دفعة)
+app.post('/api/import-csv', async (req, res) => {
     const { records } = req.body;
     if (!records || !Array.isArray(records)) return res.json({ success: false });
 
@@ -109,13 +109,12 @@ app.post('/api/import-csv-all', async (req, res) => {
 
     try {
         const db = await getDB();
-        await db.collection('records').deleteMany({ institution_id: code });
         if (formattedRecords.length > 0) {
             await db.collection('records').insertMany(formattedRecords, { ordered: false });
         }
-        res.json({ success: true, count: formattedRecords.length });
+        res.json({ success: true });
     } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
+        res.json({ success: false, error: e.message });
     }
 });
 
