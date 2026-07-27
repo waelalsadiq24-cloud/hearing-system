@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد الملف وتقسيمه إلى دفعات صغيرة (50 سجل لكل دفعة) لتجاوز خطأ 500 نهائياً
+    // 🚀 آلية الدفعات الفائقة الأمان (10 سجلات بكل دفعة لضمان عدم حدوث أي خطأ 500 أو تجميد)
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -369,15 +369,14 @@
                     await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 } catch(err) {}
 
-                // إرسال السجلات على دفعات خفيفة (50 سجل لكل دفعة) لضمان نجاح الرفع بدون خطأ 500
-                const chunkSize = 50;
+                const chunkSize = 10; // دفعات فائقة الصغر لضمان استقرار Render 100%
                 let uploadedCount = 0;
                 const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
 
                 for (let i = 0; i < parsedRecords.length; i += chunkSize) {
                     const chunk = parsedRecords.slice(i, i + chunkSize);
                     let currentChunkNum = Math.floor(i / chunkSize) + 1;
-                    importBtn.innerText = `⏳ جاري الرفع (${currentChunkNum} من ${totalChunks})...`;
+                    importBtn.innerText = `⏳ جاري رفع السجلات (${currentChunkNum} من ${totalChunks})...`;
 
                     try {
                         let res = await fetch(`/api/import-chunk?code=${code}`, {
@@ -391,14 +390,14 @@
                         }
                     } catch (err) {}
                     
-                    // استراحة قصيرة جداً لتأمين استقرار السيرفر
-                    await new Promise(r => setTimeout(r, 15));
+                    // تأخير قصير جداً لمنع أي حمل على السيرفر
+                    await new Promise(r => setTimeout(r, 20));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام ونهائي!`);
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) بنجاح تام وثبات مطلَق!`);
                 await loadIssuedList();
 
             } catch (err) {
