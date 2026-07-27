@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد مقسم لدفعات خفيفة وآمنة مع التحديث الفوري للجدول
+    // 🚀 استيراد آمن مقسم لدفعات (50 سجل) مع محاولات ذكية واستراحة لمنع خطأ 502 والتحديث الفوري
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -390,27 +390,34 @@
                     let currentChunkNum = Math.floor(i / chunkSize) + 1;
                     importBtn.innerText = `⏳ رفع دفعة (${currentChunkNum} من ${totalChunks})...`;
 
-                    try {
-                        const res = await fetch(`/api/import-csv?code=${code}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ records: chunk })
-                        });
-                        const data = await res.json();
-                        if (data.success) {
-                            uploadedCount += chunk.length;
+                    let success = false;
+                    let retries = 5;
+                    while (!success && retries > 0) {
+                        try {
+                            const res = await fetch(`/api/import-csv?code=${code}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ records: chunk })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                                uploadedCount += chunk.length;
+                                success = true;
+                            }
+                        } catch (err) {
+                            retries--;
+                            await new Promise(r => setTimeout(r, 1000));
                         }
-                    } catch (err) {}
+                    }
                     
-                    await new Promise(r => setTimeout(r, 30));
+                    // استراحة 300 ميلي ثانية لحماية السيرفر من الانهيار
+                    await new Promise(r => setTimeout(r, 300));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
                 alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام وسريع!`);
-                
-                // 🚀 إعادة تحميل الصفحة بالكامل لضمان تحديث واجهة الجدول وجلب كافة السجلات فورا
                 location.reload();
 
             } catch (err) {
