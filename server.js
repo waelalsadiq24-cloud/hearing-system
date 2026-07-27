@@ -2,8 +2,8 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(__dirname));
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
@@ -86,15 +86,17 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// استقبال الدفعات الآمنة (100 سجل في كل طلب)
-app.post('/api/import-csv', async (req, res) => {
+// مسار موحد فائق السرعة لاستقبال وحفظ الملف بالكامل بطلب واحد آمن
+app.post('/api/import-all-records', async (req, res) => {
     const { records } = req.body;
-    if (!records || !Array.isArray(records)) return res.json({ success: false });
+    if (!records || !Array.isArray(records)) {
+        return res.json({ success: false, count: 0 });
+    }
 
     const code = req.query.code || 'yarmok';
     const currentInst = institutions[code] || institutions['yarmok'];
 
-    let formattedRecords = records.map(r => ({
+    const formattedRecords = records.map(r => ({
         national_id: String(r.national_id || '-'),
         patient_name: String(r.patient_name || 'غير معروف'),
         mother_name: String(r.mother_name || '-'),
@@ -102,19 +104,20 @@ app.post('/api/import-csv', async (req, res) => {
         is_student: 'yes',
         device_details: String(r.device_details || 'oticon xceed 3 up'),
         serial_number: String(r.serial_number || '0000'),
-        date: String(bodyDate = r.date || new Date().toISOString().split('T')[0]),
+        date: String(r.date || new Date().toISOString().split('T')[0]),
         institution_id: code,
         institution_name: currentInst.name
     }));
 
     try {
         const db = await getDB();
+        await db.collection('records').deleteMany({ institution_id: code });
         if (formattedRecords.length > 0) {
-            await db.collection('records').insertMany(formattedRecords, { ordered: false });
+            await db.collection('records').insertMany(formattedRecords);
         }
-        res.json({ success: true });
+        res.json({ success: true, count: formattedRecords.length });
     } catch (e) {
-        res.json({ success: false });
+        res.status(500).json({ success: false, error: e.message, count: 0 });
     }
 });
 
