@@ -76,6 +76,7 @@ app.post('/api/records', (req, res) => {
   }
 });
 
+// مسار التحديث المباشر والدائم في قاعدة البيانات المحلية
 app.post('/api/records/update', (req, res) => {
   try {
     const { index, field, value } = req.body;
@@ -83,24 +84,10 @@ app.post('/api/records/update', (req, res) => {
     
     if (records[index] !== undefined) {
       records[index][field] = value;
-      saveDatabase(records);
-      return res.json({ success: true });
-    }
-    res.status(404).json({ success: false, error: 'Record not found' });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/records/delete', (req, res) => {
-  try {
-    const { index } = req.body;
-    let records = readDatabase();
-    
-    if (records[index] !== undefined) {
-      records.splice(index, 1);
-      saveDatabase(records);
-      return res.json({ success: true });
+      const saved = saveDatabase(records);
+      if (saved) {
+        return res.json({ success: true });
+      }
     }
     res.status(404).json({ success: false, error: 'Record not found' });
   } catch (error) {
