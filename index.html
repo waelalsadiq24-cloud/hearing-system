@@ -311,7 +311,7 @@
         }
     }
 
-    // 🚀 قراءة التاريخ الحقيقي من العمود الثامن (h) في ملف الـ CSV
+    // 🚀 قراءة التاريخ الحقيقي من العمود الثامن (h / index 7) بدقة تامة
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -348,7 +348,7 @@
                     let birth = cols[3] || '-';
                     let device = cols[4] || 'oticon xceed 3 up';
                     let serial = cols[5] || '0000';
-                    let csvDate = cols[6] || new Date().toISOString().split('T')[0]; // العمود الثامن (h) لتاريخ الصرف
+                    let csvDate = cols[7] || cols[6] || new Date().toISOString().split('T')[0]; // العمود الثامن (index 7) لتاريخ الصرف
 
                     if (patName && patName !== '' && patName !== 'undefined') {
                         parsedRecords.push({
@@ -406,7 +406,7 @@
                 importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) وتاريخ الصرف الحقيقي في قاعدة البيانات السحابية بنجاح تام!`);
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) وتاريخ الصرف الحقيقي من العمود الثامن بنجاح تام!`);
                 await loadIssuedList();
 
             } catch (err) {
@@ -498,7 +498,7 @@
                 try {
                     const code = getInstitutionCode();
                     const res = await fetch(`/api/records/update?code=${code}`, {
-                        post_method: 'POST',
+                        method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id: recordId, field: fieldName, value: newValue })
                     });
