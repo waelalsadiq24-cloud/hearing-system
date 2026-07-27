@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>نظام سجلات السماعات الطبية (المحلي الفوري الآمن)</title>
+    <title>نظام سجلات السماعات الطبية (المحلي الفوري)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; direction: rtl; }
         .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -44,7 +44,7 @@
 <body>
 
 <div class="container">
-    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية (الفوري فائق السرعة)</h2>
+    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية (الفوري الآمن)</h2>
 
     <div class="card">
         <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
@@ -107,7 +107,7 @@
     </div>
 
     <div class="card">
-        <h3>📋 السجلات (انقر دبل كلك على أي خلية للتعديل واضغط Enter للحفظ)</h3>
+        <h3>📋 سجل البيانات (انقر دبل كلك على أي خلية للتعديل واضغط Enter للحفظ)</h3>
         
         <div class="header-bar">
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
@@ -158,7 +158,7 @@
     }
 
     function getStorageKey() {
-        return 'hearing_records_' + getInstitutionCode();
+        return 'hearing_records_local_' + getInstitutionCode();
     }
 
     function calculateAge(birthStr) {
@@ -168,7 +168,7 @@
             let parts = birthStr.split('/');
             year = parseInt(parts[2]) || 0;
         } else {
-            year = parseInt(parts[) || 0;
+            year = parseInt(birthStr) || 0;
         }
         if (!year) return 0;
         return new Date().getFullYear() - year;
@@ -306,7 +306,6 @@
         renderTable(allRecords);
     }
 
-    // 🚀 استيراد فوري بدون أي سيرفر أو خطأ 500
     function importCsvLocally(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -367,7 +366,7 @@
 
                 allRecords = parsed;
                 saveToStorage();
-                alert(`🎉 تم تحميل ورفع كافة السجلات (${parsedRecordsCount = allRecords.length} سجل) محلياً وبسرعة فائقة بدون أخطاء!`);
+                alert(`🎉 تم تحميل كافة السجلات (${allRecords.length} سجل) محلياً وبسرعة صاروخية دون أي أخطاء سيرفر!`);
                 renderTable(allRecords);
 
             } catch (err) {
