@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>نظام سجلات السماعات الطبية (السحابي المؤسسي)</title>
+    <title>نظام سجلات السماعات الطبية (السحابي المؤسسي الدائم)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; direction: rtl; }
         .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -311,6 +311,7 @@
         }
     }
 
+    // استيراد آمن موحد يعتمد على مسار import-all-secure الجديد بدون أي أخطاء
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -372,39 +373,24 @@
                 }
 
                 importBtn.disabled = true;
-                importBtn.innerText = `⏳ جاري تفريغ السجلات القديمة بالسحابة...`;
+                importBtn.innerText = `⏳ جاري رفع ${parsedRecords.length} سجل إلى السحابة...`;
 
-                try {
-                    await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
-                } catch(err) {}
+                let res = await fetch(`/api/import-all-secure?code=${code}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ records: parsedRecords })
+                });
 
-                let uploadedCount = 0;
-                const total = parsedRecords.length;
-
-                for (let i = 0; i < total; i++) {
-                    let rec = parsedRecords[i];
-                    importBtn.innerText = `⏳ جاري حفظ السجل (${i + 1} من ${total})...`;
-
-                    try {
-                        let res = await fetch(`/api/import-single?code=${code}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(rec)
-                        });
-                        let data = await res.json();
-                        if (data.success) {
-                            uploadedCount++;
-                        }
-                    } catch (err) {}
-                    
-                    await new Promise(r => setTimeout(r, 40));
-                }
-
+                let data = await res.json();
                 importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} من ${total}) في قاعدة البيانات السحابية بنجاح تام ودائم للأبد!`);
-                await loadIssuedList();
+                if (data.success) {
+                    alert(`🎉 تم رفع وحفظ كافة السجلات (${data.count} سجل) في قاعدة البيانات السحابية بنجاح تام ودائم للأبد!`);
+                    await loadIssuedList();
+                } else {
+                    alert('❌ حدث خطأ أثناء الحفظ السحابي.');
+                }
 
             } catch (err) {
                 alert('⚠️ حدث خطأ أثناء معالجة الملف.');
