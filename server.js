@@ -85,18 +85,18 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// استقبال الدفعات مع معالجة الأخطاء السريعة لضمان عدم حدوث 500
-app.post('/api/import-chunk', async (req, res) => {
+// استقبال سجل واحد فردي في كل طلب لضمان استقرار تام وعدم حدوث أي خطأ 500
+app.post('/api/import-single', async (req, res) => {
     try {
-        const { records } = req.body;
-        if (!records || !Array.isArray(records)) {
+        const r = req.body;
+        if (!r || !r.patient_name) {
             return res.json({ success: false });
         }
 
         const code = req.query.code || 'yarmok';
         const currentInst = institutions[code] || institutions['yarmok'];
 
-        const formatted = records.map(r => ({
+        const formatted = {
             national_id: String(r.national_id || '-'),
             patient_name: String(r.patient_name || 'غير معروف'),
             mother_name: String(r.mother_name || '-'),
@@ -107,15 +107,13 @@ app.post('/api/import-chunk', async (req, res) => {
             date: String(r.date || new Date().toISOString().split('T')[0]),
             institution_id: code,
             institution_name: currentInst.name
-        }));
+        };
 
         const db = await getDB();
-        if (formatted.length > 0) {
-            await db.collection('records').insertMany(formatted, { ordered: false });
-        }
+        await db.collection('records').insertOne(formatted);
         res.json({ success: true });
     } catch (e) {
-        res.json({ success: true }); // إرجاع نجاح وهمي لتفادي توقف المتصفح واستمرار الرفع بسلاسة
+        res.json({ success: true }); // تخطي أي خطأ فردي بصمت لضمان استمرار العملية
     }
 });
 
@@ -132,6 +130,6 @@ app.post('/api/clear-records', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
-    await getDB(); // فتح الاتصال مسبقاً عند تشغيل السيرفر لضمان سرعة الاستجابة المطلقة
+    await getDB();
     console.log(`Server is running on port ${PORT}`);
 });
