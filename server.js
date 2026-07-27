@@ -2,8 +2,8 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static(__dirname));
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
@@ -24,7 +24,6 @@ const institutions = {
     'tibb': { id: 'tibb', name: 'مدينة الطب' }
 };
 
-// جلب السجلات مع تحديد حد أقصى لمنع انهيار الخادم (5000 سجل كحد أقصى للطلب)
 app.get('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     const currentInst = institutions[code] || institutions['yarmok'];
@@ -88,11 +87,11 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// مسار رفع الآلاف من السجلات بأمان تام ودفعات داخلية لتجنب خطأ 502
-app.post('/api/import-all-records', async (req, res) => {
+// مسار استقبال الدفعات الآمنة (إضافة للسجلات الموجودة أو إدخال دفعة جديدة)
+app.post('/api/import-chunk', async (req, res) => {
     const { records } = req.body;
     if (!records || !Array.isArray(records)) {
-        return res.json({ success: false, count: 0 });
+        return res.json({ success: false });
     }
 
     const code = req.query.code || 'yarmok';
@@ -113,18 +112,12 @@ app.post('/api/import-all-records', async (req, res) => {
 
     try {
         const db = await getDB();
-        await db.collection('records').deleteMany({ institution_id: code });
-        
         if (formattedRecords.length > 0) {
-            const batchSize = 500;
-            for (let i = 0; i < formattedRecords.length; i += batchSize) {
-                const batch = formattedRecords.slice(i, i + batchSize);
-                await db.collection('records').insertMany(batch);
-            }
+            await db.collection('records').insertMany(formattedRecords);
         }
-        res.json({ success: true, count: formattedRecords.length });
+        res.json({ success: true });
     } catch (e) {
-        res.status(500).json({ success: false, error: e.message, count: 0 });
+        res.status(500).json({ success: false });
     }
 });
 
