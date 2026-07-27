@@ -2,8 +2,8 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(express.static(__dirname));
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
@@ -68,7 +68,7 @@ app.post('/api/records', async (req, res) => {
         await db.collection('records').insertOne(newRecord);
         res.json({ success: true });
     } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
+        res.status(500).json({ success: false });
     }
 });
 
@@ -85,18 +85,18 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// مسار استقبال الدفعات مع حماية قصوى ضد الانهيار (Try-Catch شاملة لضمان عدم إرجاع خطأ 500)
-app.post('/api/import-chunk', async (req, res) => {
+// 🚀 مسار واحد آمن ومحصن تماماً يستقبل الملف بالكامل ويعالجه ويدخله بداخل قاعدة البيانات بدون أي ضغط
+app.post('/api/import-all-safe', async (req, res) => {
     try {
         const { records } = req.body;
         if (!records || !Array.isArray(records)) {
-            return res.json({ success: true, count: 0 });
+            return res.json({ success: false, count: 0 });
         }
 
         const code = req.query.code || 'yarmok';
         const currentInst = institutions[code] || institutions['yarmok'];
 
-        const formatted = records.map(r => ({
+        const formattedRecords = records.map(r => ({
             national_id: String(r.national_id || '-'),
             patient_name: String(r.patient_name || 'غير معروف'),
             mother_name: String(r.mother_name || '-'),
@@ -110,13 +110,22 @@ app.post('/api/import-chunk', async (req, res) => {
         }));
 
         const db = await getDB();
-        if (formatted.length > 0) {
-            await db.collection('records').insertMany(formatted, { ordered: false });
+        
+        // تفريغ السجلات القديمة الخاصة بالمؤسسة فقط أولاً
+        await db.collection('records').deleteMany({ institution_id: code });
+
+        if (formattedRecords.length > 0) {
+            // إدخال البيانات على دفعات داخلية آمنة (كل 500 سجل معاً داخل الخادم لعدم استهلاك الذاكرة)
+            const internalChunk = 500;
+            for (let i = 0; i < formattedRecords.length; i += internalChunk) {
+                const chunk = formattedRecords.slice(i, i + internalChunk);
+                await db.collection('records').insertMany(chunk);
+            }
         }
-        res.json({ success: true });
+
+        res.json({ success: true, count: formattedRecords.length });
     } catch (e) {
-        // حتى لو حدث خطأ جزئي، نعيد نجاح وهمي أو استجابة سليمة لمنع توقف حلقة الرفع في المتصفح
-        res.json({ success: true, warning: e.message });
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
