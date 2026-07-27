@@ -20,7 +20,6 @@
         .btn-clear-all { background-color: #c0392b; width: auto; display: inline-block; padding: 8px 12px; margin-top: 0; font-size: 13px; }
         .btn-clear-all:hover { background-color: #962d22; }
         
-        /* زر تفعيل وضع الحذف */
         .btn-toggle-delete { background-color: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; margin-top: 0; font-weight: bold; transition: 0.3s; width: auto; display: inline-block; }
         .btn-toggle-delete.active { background-color: #c0392b; box-shadow: 0 0 8px rgba(192, 57, 43, 0.6); }
 
@@ -110,7 +109,7 @@
 
     <div class="card">
         <h3>📋 السجل السحابي الدائم</h3>
-        <p style="font-size: 13px; color: #555; margin-top: -5px;">* (انقر <b>دبل كلك على أي خلية</b> للتعديل) | (فعّل <b>زر وضع الحذف</b> بالأعلى ثم انقر دبل كلك على الصف لحذفه).</p>
+        <p style="font-size: 13px; color: #555; margin-top: -5px;">* (انقر <b>دبل كلك على أي خلية</b> للتعديل) | (فعّل <b>وضع الحذف</b> بالأعلى ثم انقر دبل كلك على الصف لحذفه).</p>
         
         <div class="header-bar">
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
@@ -121,7 +120,6 @@
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ تفريغ السجل السحابي</button>
                 </div>
                 <div style="display: flex; gap: 8px; align-items: center;">
-                    <!-- زر تفعيل وضع الحذف بجانب خانة التصفية -->
                     <button id="deleteModeBtn" class="btn-toggle-delete" onclick="toggleDeleteMode()">🔒 وضع الحذف: مُعطّل</button>
                     <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
                 </div>
@@ -151,9 +149,8 @@
 
 <script>
     let cachedRecords = [];
-    let isDeleteModeActive = false; // متغير حالة وضع الحذف
+    let isDeleteModeActive = false;
 
-    // دالة تبديل وضع الحذف عند الضغط على الزر بجانب التصفية
     function toggleDeleteMode() {
         isDeleteModeActive = !isDeleteModeActive;
         const btn = document.getElementById('deleteModeBtn');
@@ -332,6 +329,7 @@
         }
     }
 
+    // 🚀 دالة قاسة ومحسنّة لقراءة كافة الـ 8000+ سجل بدقة متناهية وتجنب تفكك الأسطر
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -351,8 +349,22 @@
                     let line = lines[i] ? lines[i].trim() : '';
                     if (!line) continue;
 
-                    let cols = line.split(/,|;|\t/);
-                    cols = cols.map(c => (c ? c.replace(/^["']|["']$/g, '').trim() : ''));
+                    // تحليل احترافي للسطر يتجاهل الفواصل داخل علامات التنصيص
+                    let cols = [];
+                    let current = '';
+                    let inQuotes = false;
+                    for (let char of line) {
+                        if (char === '"' || char === "'") {
+                            inQuotes = !inQuotes;
+                        } else if ((char === ',' || char === ';' || char === '\t') && !inQuotes) {
+                            cols.push(current.trim());
+                            current = '';
+                        } else {
+                            current += char;
+                        }
+                    }
+                    cols.push(current.trim());
+                    cols = cols.map(c => c.replace(/^["']|["']$/g, '').trim());
 
                     let validCols = cols.filter(c => c !== '');
                     if (validCols.length === 0) continue;
@@ -370,7 +382,7 @@
                     let serial = cols[5] || '0000';
                     let csvDate = cols[6] || '-';
 
-                    if (patName && patName !== '' && patName !== 'undefined') {
+                    if (patName && patName !== '' && patName !== 'undefined' && patName.length > 1) {
                         parsedRecords.push({
                             national_id: String(natId),
                             patient_name: patName,
@@ -420,13 +432,13 @@
                         }
                     } catch (err) {}
 
-                    await new Promise(r => setTimeout(r, 30));
+                    await new Promise(r => setTimeout(r, 20));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) بنجاح تام!`);
+                alert(`🎉 تم رفع وحفظ كافة السجلات بنجاح تام، والإجمالي الحالي هو (${uploadedCount} سجل)!`);
                 await loadIssuedList();
 
             } catch (err) {
@@ -481,9 +493,8 @@
         displayData.forEach((item) => {
             let tr = document.createElement('tr');
 
-            // 🗑️ عند النقر المزدوج (دبل كلك) على الصف بأكمله، يتأكد من تفعيل وضع الحذف أولاً ثم يسأل للتأكيد
             tr.ondblclick = async function(e) {
-                if (e.target.tagName === 'INPUT') return; // منع التداخل عند التعديل داخل الخلية
+                if (e.target.tagName === 'INPUT') return;
                 
                 if (!isDeleteModeActive) {
                     alert('🔒 وضع الحذف مُعطّل حالياً. يرجى النقر على زر "وضع الحذف" بجانب خانة التصفية لتفعيله أولاً.');
@@ -499,7 +510,7 @@
                         });
                         const result = await res.json();
                         if (result.success) {
-                            loadIssuedList(); // تحديث الجدول فوراً
+                            loadIssuedList();
                         } else {
                             alert('❌ فشل حذف السجل');
                         }
