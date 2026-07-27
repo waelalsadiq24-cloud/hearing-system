@@ -43,36 +43,54 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// مسار استرجاع وجلب السجلات المخزنة حقيقياً
+// مسار استرجاع وجلب السجلات (موافق تماماً لتوقعات الواجهة { records: [...] })
 app.get('/api/records', (req, res) => {
   try {
     const records = readDatabase();
-    res.json({ success: true, data: records });
+    res.json({ success: true, records: records });
   } catch (error) {
     console.error('Error fetching records:', error);
+    res.status(500).json({ success: false, records: [] });
+  }
+});
+
+// مسار إضافة سجل مفرد (من زر صرف سماعة جديدة)
+app.post('/api/records', (req, res) => {
+  try {
+    const newRecord = req.body;
+    let currentRecords = readDatabase();
+    currentRecords.unshift(newRecord); // إضافة السجل الجديد في المقدمة
+    saveDatabase(currentRecords);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error adding record:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// مسار استقبال واستيراد ملفات الـ CSV وحفظها بشكل دائم
+// مسار استقبال واستيراد دفعات الـ CSV
 app.post('/api/import-chunk-safe', (req, res) => {
   try {
-    const incomingData = req.body;
-    let currentRecords = readDatabase();
+    const incomingBody = req.body;
+    let incomingRecords = [];
     
-    // دمج أو استبدال البيانات حسب الحاجة
-    if (Array.isArray(incomingData)) {
-      currentRecords = currentRecords.concat(incomingData);
-    } else if (incomingData) {
-      currentRecords.push(incomingData);
+    // دعم الاستقبال سواء أرسلت الواجهة مباشرة أو داخل كائن records
+    if (Array.isArray(incomingBody)) {
+      incomingRecords = incomingBody;
+    } else if (incomingBody && Array.isArray(incomingBody.records)) {
+      incomingRecords = incomingBody.records;
     }
-    
-    saveDatabase(currentRecords);
+
+    let currentRecords = readDatabase();
+    if (incomingRecords.length > 0) {
+      currentRecords = currentRecords.concat(incomingRecords);
+      saveDatabase(currentRecords);
+    }
     
     res.json({ 
       success: true, 
       message: 'Chunk imported and saved successfully',
-      receivedCount: Array.isArray(incomingData) ? incomingData.length : 1 
+      receivedCount: incomingRecords.length 
     });
   } catch (error) {
     console.error('Error handling import:', error);
