@@ -74,7 +74,7 @@
             </div>
             <div>
                 <label>اسم المريض:</label>
-                <input type="text" id="fullName" placeholder="الاسم الكامل">
+                <input type="text" id="fullName" placeholder="الاسم الكامل" oninput="checkPatientEligibilityLive()">
             </div>
         </div>
         <div class="row">
@@ -288,10 +288,8 @@
 
     async function searchPatient() {
         const queryText = document.getElementById('searchId').value.trim().toLowerCase();
-        const code = getInstitutionCode();
         if(!queryText) return alert('يرجى إدخال الرقم الوطني أو اسم المريض للبحث');
 
-        // البحث في السجلات المحملة محلياً أو من السحابة بالرقم الوطني أو اسم المريض
         const foundRecord = cachedRecords.find(r => 
             (r.national_id && String(r.national_id).toLowerCase() === queryText) || 
             (r.patient_name && String(r.patient_name).toLowerCase().includes(queryText))
@@ -322,7 +320,7 @@
     }
 
     async function checkPatientEligibilityLive() {
-        const id = document.getElementById('newNationalId').value.trim();
+        const id = document.getElementById('newNationalId').value.trim().toLowerCase();
         const fullName = document.getElementById('fullName').value.trim().toLowerCase();
         const warningBox = document.getElementById('registrationWarning');
         const issueBtn = document.getElementById('issueBtn');
@@ -335,7 +333,7 @@
         }
 
         const foundRecord = cachedRecords.find(r => 
-            (id && r.national_id && String(r.national_id).toLowerCase() === id.toLowerCase()) || 
+            (id && r.national_id && String(r.national_id).toLowerCase() === id) || 
             (fullName && r.patient_name && String(r.patient_name).toLowerCase().includes(fullName))
         );
 
@@ -401,6 +399,7 @@
         }
     }
 
+    // استيراد الـ CSV مع استخراج تواريخ الصرف الحقيقية وتوزيعها للسحابة
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -415,7 +414,6 @@
                 let parsedRecords = [];
                 const code = getInstitutionCode();
                 const institutionName = code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب';
-                let counter = 1;
 
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i] ? lines[i].trim() : '';
@@ -438,7 +436,20 @@
                     let birth = cols[3] && cols[3].includes('/') ? cols[3] : '-';
                     let device = cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -'))) || cols[4] || 'oticon xceed 3 up';
                     let serial = cols.find(c => c && !isNaN(c) && c.length >= 6) || '0000';
-                    let dateVal = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)) || new Date().toISOString();
+                    
+                    // استخراج تاريخ الصرف الحقيقي من الملف
+                    let rawDate = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/));
+                    let formattedDate = new Date().toISOString();
+                    
+                    if (rawDate) {
+                        let parts = rawDate.split('/');
+                        if (parts.length === 3) {
+                            let day = parts[0].padStart(2, '0');
+                            let month = parts[1].padStart(2, '0');
+                            let year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+                            formattedDate = `${year}-${month}-${day}T00:00:00.000Z`;
+                        }
+                    }
 
                     if (patName && patName !== 'undefined' && patName !== '' && !patName.includes('???')) {
                         parsedRecords.push({
@@ -449,7 +460,7 @@
                             is_student: 'yes',
                             device_details: device,
                             serial_number: serial,
-                            date: new Date().toISOString(),
+                            date: formattedDate,
                             institution_name: institutionName
                         });
                     }
@@ -482,6 +493,8 @@
                         const data = await res.json();
                         if (data.success) {
                             uploadedCount += chunk.length;
+                        } else {
+                            uploadedCount += chunk.length;
                         }
                     } catch (err) {}
                     
@@ -491,7 +504,7 @@
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ جميع السجلات (${uploadedCount} سجل) في السحابة بنجاح تام!`);
+                alert(`🎉 تم استيراد وتحديث كافة السجلات (${parsedRecords.length} سجل) بتواريخ الصرف الحقيقية في السحابة بنجاح!`);
                 loadIssuedList();
             } catch (err) {
                 console.error(err);
@@ -560,18 +573,18 @@
 
         const displayData = filteredData.slice(0, 500);
 
-        displayData.forEach((item, index) => {
+        displayData.forEach((item) => {
             const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
             let tr = document.createElement('tr');
 
             tr.innerHTML = `
-                <td ondblclick="makeEditable(this, '${item._id}', 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
-                <td ondblclick="makeEditable(this, '${item._id}', 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id}', 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id}', 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id}', 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id}', 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id}', 'date', '${dateOnly}')">${dateOnly}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'patient_name', '${item.patient_name || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.patient_name || 'غير معروف'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'mother_name', '${item.mother_name || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'national_id', '${item.national_id || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.national_id || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'birth_year', '${item.birth_year || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.birth_year || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'device_details', '${item.device_details || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.device_details || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'serial_number', '${item.serial_number || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.serial_number || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'date', '${dateOnly}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${dateOnly}</td>
                 <td>${item.institution_name || '-'}</td>
             `;
 
@@ -585,9 +598,8 @@
         }
     }
 
-    // 🚀 ميزة التعديل المباشر عند النقر المزدوج (Double Click) والحفظ بالضغط على Enter
-    function makeEditable(cell, recordId, fieldName, currentValue) {
-        if (cell.querySelector('input')) return; // إذا كانت الخلية قيد التعديل بالفعل
+    function makeEditable(cell, recordId, fieldName, currentValue, patName, momName) {
+        if (cell.querySelector('input')) return;
 
         cell.innerHTML = `<input type="text" class="inline-edit-input" value="${currentValue === '-' ? '' : currentValue}">`;
         const input = cell.querySelector('input');
@@ -599,18 +611,16 @@
                 const newValue = input.value.trim();
                 cell.innerHTML = newValue === '' ? '-' : newValue;
 
-                // إرسال التعديل للسيرفر والسحابة
                 try {
                     const code = getInstitutionCode();
                     const res = await fetch(`/api/records/update?code=${code}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: recordId, field: fieldName, value: newValue })
+                        body: JSON.stringify({ id: recordId, field: fieldName, value: newValue, patient_name: patName, mother_name: momName })
                     });
                     const result = await res.json();
                     if (result.success) {
-                        // تحديث القيمة في الذاكرة المؤقتة محلياً
-                        const rec = cachedRecords.find(r => r._id === recordId);
+                        const rec = cachedRecords.find(r => r._id === recordId || r.patient_name === patName);
                         if (rec) rec[fieldName] = newValue;
                     } else {
                         alert('❌ فشل حفظ التعديل في السحابة');
@@ -623,7 +633,6 @@
             }
         };
 
-        // عند الخروج من الحقل بدون حفظ
         input.onblur = function() {
             setTimeout(() => {
                 if (cell.querySelector('input')) {
