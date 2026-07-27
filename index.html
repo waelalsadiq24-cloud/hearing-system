@@ -129,7 +129,7 @@
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                     <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvSafely(event)">
-                    <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV</button>
+                    <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
                 <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
@@ -343,7 +343,7 @@
         loadIssuedList();
     }
 
-    // 🚀 استيراد فوري يعرض كافة الأسماء والتواريخ بدون أي انتظار للسيرفر
+    // 🚀 قارئ ملفات CSV الذكي جداً الذي يتعرف على الفواصل والأسطر وجميع الأعمدة تلقائياً
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -363,6 +363,7 @@
                     let line = lines[i] ? lines[i].trim() : '';
                     if (!line) continue;
 
+                    // تقسيم السطر بغض النظر عن نوع الفاصل (فصلة عادية، فاصلة منقوطة، أو تاب)
                     let cols = line.split(/,|;|\t/);
                     cols = cols.map(c => (c ? c.replace(/^["']|["']$/g, '').trim() : ''));
 
@@ -374,13 +375,19 @@
                         continue;
                     }
 
+                    // استخراج الحقول بدقة من الأعمدة المتاحة
                     let patName = cols[0] || '';
                     let momName = cols[1] || '-';
                     let natId = cols[2] && !cols[2].includes('/') && cols[2].length > 1 ? cols[2] : '-';
                     let birth = cols[3] && cols[3].includes('/') ? cols[3] : '-';
-                    let device = cols[4] || 'oticon xceed 3 up';
-                    let serial = cols.find(c => c && !isNaN(c) && c.length >= 6) || '0000';
                     
+                    // البحث الذكي عن اسم السماعة في أي عمود
+                    let device = cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -') || c.toLowerCase().includes('bte'))) || cols[4] || 'oticon xceed 3 up';
+                    
+                    // الرقم التسلسلي
+                    let serial = cols.find(c => c && !isNaN(c) && c.length >= 5) || cols[5] || '0000';
+                    
+                    // استخراج تاريخ الصرف الحقيقي (بحث عن صيغة التاريخ DD/MM/YYYY)
                     let rawDate = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/));
                     let formattedDate = new Date().toISOString();
                     
@@ -394,7 +401,7 @@
                         }
                     }
 
-                    if (patName && patName !== 'undefined' && patName !== '') {
+                    if (patName && patName !== 'undefined' && patName !== '' && !patName.includes('???')) {
                         parsedRecords.push({
                             national_id: String(natId),
                             patient_name: patName,
@@ -410,18 +417,20 @@
                 }
 
                 if (parsedRecords.length === 0) {
-                    alert('⚠️ لم يتم قراءة أي سجلات صحيحة من الملف.');
+                    alert('⚠️ لم يتم قراءة أي سجلات صحيحة من الملف. تأكد من أن الملف بصيغة CSV صحيحة.');
                     event.target.value = '';
                     return;
                 }
 
                 let storageKey = `local_records_${code}`;
+                // تخزين الأسماء فوراً في المتصفح وعرضها
                 localStorage.setItem(storageKey, JSON.stringify(parsedRecords));
 
-                alert(`🎉 تم استيراد وعرض ${parsedRecords.length} سجل في الجدول بنجاح تام!`);
+                alert(`🎉 تم بنجاح استيراد وعرض ${parsedRecords.length} اسماً في الجدول فوراً!`);
                 loadIssuedList();
             } catch (err) {
-                alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
+                console.error(err);
+                alert('⚠️ حدث خطأ أثناء قراءة ملف الـ CSV.');
             }
             event.target.value = '';
         };
