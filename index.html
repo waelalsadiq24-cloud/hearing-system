@@ -362,7 +362,7 @@
                 }
 
                 importBtn.disabled = true;
-                importBtn.innerText = `⏳ جاري رفع ${parsedRecords.length} سجل دفعة واحدة...`;
+                importBtn.innerText = `⏳ جاري رفع ${parsedRecords.length} سجل إلى السحابة...`;
 
                 const res = await fetch(`/api/import-all-records?code=${code}`, {
                     method: 'POST',
@@ -490,7 +490,7 @@
         input.onblur = function() {
             setTimeout(() => {
                 if (cell.querySelector('input')) {
-                    cell.innerHTML = currentValue === '' ? '-' : currentValue;
+                    cell.innerHTML = currentValue === '-' ? '-' : currentValue;
                 }
             }, 200);
         };
