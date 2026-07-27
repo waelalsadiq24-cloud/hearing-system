@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد فائق السرعة وتحديث الجدول تلقائياً فور الانتهاء
+    // 🚀 استيراد فائق السرعة مع إعادة تعيين زر الرفع وتحميل الجدول فوراً
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -310,6 +310,7 @@
         reader.readAsText(file, 'UTF-8');
         
         reader.onload = async function(e) {
+            const importBtn = document.getElementById('importBtn');
             try {
                 const text = e.target.result;
                 const lines = text.split(/\r\n|\n/);
@@ -367,14 +368,15 @@
 
                 if (parsedRecords.length === 0) {
                     alert('⚠️ لم يتم قراءة أي سجلات صحيحة من الملف.');
+                    importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
+                    importBtn.disabled = false;
                     event.target.value = '';
                     return;
                 }
 
-                const importBtn = document.getElementById('importBtn');
                 importBtn.disabled = true;
 
-                // تفريغ القديم أولاً من السحابة
+                // تفريغ السجلات القديمة أولاً
                 try {
                     await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 } catch(err) {}
@@ -408,13 +410,13 @@
 
                 alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام!`);
                 
-                // 🚀 استدعاء دالة تحميل الجدول فوراً لتظهر الأسماء أمامك مباشرة
+                // تحديث وتحميل الجدول فوراً
                 await loadIssuedList();
 
             } catch (err) {
                 alert('⚠️ حدث خطأ أثناء رفع الملف للسحابة.');
-                document.getElementById('importBtn').innerText = '📥 استيراد ملف CSV إلى السحابة';
-                document.getElementById('importBtn').disabled = false;
+                importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
+                importBtn.disabled = false;
             }
             event.target.value = '';
         };
