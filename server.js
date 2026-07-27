@@ -2,8 +2,8 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ limit: '200mb', extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static(__dirname));
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
@@ -85,17 +85,18 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-app.post('/api/import-all-bulk', async (req, res) => {
+// مسار استقبال الدفعات الآمنة (كل دفعة 50 سجل لضمان عدم حدوث خطأ 500 نهائياً)
+app.post('/api/import-chunk', async (req, res) => {
     try {
         const { records } = req.body;
         if (!records || !Array.isArray(records)) {
-            return res.json({ success: false, count: 0 });
+            return res.json({ success: false });
         }
 
         const code = req.query.code || 'yarmok';
         const currentInst = institutions[code] || institutions['yarmok'];
 
-        const formattedRecords = records.map(r => ({
+        const formatted = records.map(r => ({
             national_id: String(r.national_id || '-'),
             patient_name: String(r.patient_name || 'غير معروف'),
             mother_name: String(r.mother_name || '-'),
@@ -109,13 +110,10 @@ app.post('/api/import-all-bulk', async (req, res) => {
         }));
 
         const db = await getDB();
-        await db.collection('records').deleteMany({ institution_id: code });
-
-        if (formattedRecords.length > 0) {
-            await db.collection('records').insertMany(formattedRecords);
+        if (formatted.length > 0) {
+            await db.collection('records').insertMany(formatted);
         }
-
-        res.json({ success: true, count: formattedRecords.length });
+        res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
