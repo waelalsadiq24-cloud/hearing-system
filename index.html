@@ -55,7 +55,7 @@
 <body>
 
 <div class="container">
-    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية (السحابي)</h2>
+    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية</h2>
 
     <div class="card">
         <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
@@ -118,7 +118,7 @@
         </div>
 
         <div id="registrationWarning" class="result-box" style="margin-top: 10px;"></div>
-        <button class="btn-issue" id="issueBtn" onclick="registerAndIssue()">حفظ وصرف السماعة في السحابة</button>
+        <button class="btn-issue" id="issueBtn" onclick="registerAndIssue()">حفظ وصرف السماعة</button>
     </div>
 
     <div class="card">
@@ -129,7 +129,7 @@
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                     <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvSafely(event)">
-                    <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV إلى السحابة</button>
+                    <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
                 <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
@@ -150,7 +150,7 @@
                 </tr>
             </thead>
             <tbody id="issuedTableBody">
-                <tr><td colspan="8">جاري تحميل السجلات من السحابة...</td></tr>
+                <tr><td colspan="8">جاري تحميل السجلات...</td></tr>
             </tbody>
         </table>
     </div>
@@ -158,7 +158,7 @@
 </div>
 
 <script>
-    let globalDeviceOptions = [];
+    let globalDeviceOptions = ['oticon xceed 3 up', 'oticon get', 'oticon ria2 105', 'oticon ria2 85', 'Signia Silk'];
     let cachedRecords = [];
 
     function autoTab(current, nextFieldId, maxLen) {
@@ -185,87 +185,34 @@
         }
     };
 
-    async function loadDeviceOptions(selectedVal = '') {
-        try {
-            const code = getInstitutionCode();
-            const res = await fetch(`/api/records?code=${code}`);
-            const data = await res.json();
-            globalDeviceOptions = data.deviceOptions || ['oticon xceed 3 up'];
+    function loadDeviceOptions(selectedVal = '') {
+        const listContainer = document.getElementById('customDropdownList');
+        listContainer.innerHTML = '';
+
+        globalDeviceOptions.forEach(opt => {
+            let itemDiv = document.createElement('div');
+            itemDiv.className = 'custom-dropdown-item';
             
-            const listContainer = document.getElementById('customDropdownList');
-            listContainer.innerHTML = '';
-
-            globalDeviceOptions.forEach(opt => {
-                let itemDiv = document.createElement('div');
-                itemDiv.className = 'custom-dropdown-item';
-                
-                let deleteBtn = document.createElement('button');
-                deleteBtn.className = 'btn-delete-device';
-                deleteBtn.innerHTML = '🗑️';
-                deleteBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    if (confirm(`هل أنت متأكد من حذف "${opt}"؟`)) deleteDeviceOption(opt);
-                };
-
-                let textSpan = document.createElement('span');
-                textSpan.className = 'device-text';
-                textSpan.textContent = opt;
-                textSpan.onclick = () => {
-                    document.getElementById('selectedDeviceDisplay').textContent = opt;
-                    document.getElementById('deviceDetailsValue').value = opt;
-                    listContainer.style.display = 'none';
-                };
-
-                let spacer = document.createElement('div');
-                spacer.className = 'spacer-side';
-
-                itemDiv.appendChild(deleteBtn);
-                itemDiv.appendChild(textSpan);
-                itemDiv.appendChild(spacer);
-                listContainer.appendChild(itemDiv);
-            });
-
-            let addItem = document.createElement('div');
-            addItem.className = 'custom-dropdown-item add-new';
-            addItem.textContent = '➕ إضافة سماعة جديدة للقائمة...';
-            addItem.onclick = () => {
+            let textSpan = document.createElement('span');
+            textSpan.className = 'device-text';
+            textSpan.textContent = opt;
+            textSpan.onclick = () => {
+                document.getElementById('selectedDeviceDisplay').textContent = opt;
+                document.getElementById('deviceDetailsValue').value = opt;
                 listContainer.style.display = 'none';
-                addNewDevicePrompt();
             };
-            listContainer.appendChild(addItem);
 
-            if (selectedVal) {
-                document.getElementById('selectedDeviceDisplay').textContent = selectedVal;
-                document.getElementById('deviceDetailsValue').value = selectedVal;
-            } else if (globalDeviceOptions.length > 0 && !document.getElementById('deviceDetailsValue').value) {
-                document.getElementById('selectedDeviceDisplay').textContent = globalDeviceOptions[0];
-                document.getElementById('deviceDetailsValue').value = globalDeviceOptions[0];
-            }
-        } catch(err) {}
-    }
-
-    async function addNewDevicePrompt() {
-        const newDeviceName = prompt("أدخل اسم السماعة الجديدة:");
-        if (newDeviceName && newDeviceName.trim() !== "") {
-            const trimmedName = newDeviceName.trim();
-            const code = getInstitutionCode();
-            await fetch(`/api/devices-options?code=${code}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device: trimmedName })
-            });
-            loadDeviceOptions(trimmedName);
-        }
-    }
-
-    async function deleteDeviceOption(deviceName) {
-        const code = getInstitutionCode();
-        await fetch(`/api/devices-options?code=${code}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device: deviceName })
+            itemDiv.appendChild(textSpan);
+            listContainer.appendChild(itemDiv);
         });
-        loadDeviceOptions();
+
+        if (selectedVal) {
+            document.getElementById('selectedDeviceDisplay').textContent = selectedVal;
+            document.getElementById('deviceDetailsValue').value = selectedVal;
+        } else if (globalDeviceOptions.length > 0 && !document.getElementById('deviceDetailsValue').value) {
+            document.getElementById('selectedDeviceDisplay').textContent = globalDeviceOptions[0];
+            document.getElementById('deviceDetailsValue').value = globalDeviceOptions[0];
+        }
     }
 
     function calculateAge(birthStr) {
@@ -286,7 +233,7 @@
         return 3;
     }
 
-    async function searchPatient() {
+    function searchPatient() {
         const queryText = document.getElementById('searchId').value.trim().toLowerCase();
         if(!queryText) return alert('يرجى إدخال الرقم الوطني أو اسم المريض للبحث');
 
@@ -319,7 +266,7 @@
         }
     }
 
-    async function checkPatientEligibilityLive() {
+    function checkPatientEligibilityLive() {
         const id = document.getElementById('newNationalId').value.trim().toLowerCase();
         const fullName = document.getElementById('fullName').value.trim().toLowerCase();
         const warningBox = document.getElementById('registrationWarning');
@@ -359,7 +306,7 @@
         issueBtn.style.opacity = '1';
     }
 
-    async function registerAndIssue() {
+    function registerAndIssue() {
         const body = {
             national_id: document.getElementById('newNationalId').value.trim(),
             patient_name: document.getElementById('fullName').value.trim(),
@@ -367,7 +314,9 @@
             birth_year: (document.getElementById('birthDay').value && document.getElementById('birthMonth').value && document.getElementById('birthYear').value) ? `${document.getElementById('birthDay').value}/${document.getElementById('birthMonth').value}/${document.getElementById('birthYear').value}` : (document.getElementById('birthYear').value || '-'),
             is_student: document.getElementById('isStudent').value,
             device_details: document.getElementById('deviceDetailsValue').value || document.getElementById('selectedDeviceDisplay').textContent,
-            serial_number: document.getElementById('serialNumber').value.trim()
+            serial_number: document.getElementById('serialNumber').value.trim(),
+            date: new Date().toISOString(),
+            institution_name: getInstitutionCode() === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب'
         };
 
         if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
@@ -375,31 +324,26 @@
         }
 
         const code = getInstitutionCode();
-        const res = await fetch(`/api/records?code=${code}`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        if(data.success) {
-            alert('✅ ' + data.message);
-            document.getElementById('newNationalId').value = '';
-            document.getElementById('fullName').value = '';
-            document.getElementById('motherName').value = '';
-            document.getElementById('birthDay').value = '';
-            document.getElementById('birthMonth').value = '';
-            document.getElementById('birthYear').value = '';
-            document.getElementById('serialNumber').value = '';
-            document.getElementById('registrationWarning').style.display = 'none';
-            document.getElementById('issueBtn').disabled = false;
-            document.getElementById('issueBtn').style.opacity = '1';
-            loadIssuedList();
-        } else {
-            alert('❌ ' + (data.error || 'فشل الحفظ'));
-        }
+        let storageKey = `local_records_${code}`;
+        let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        localRecords.unshift(body);
+        localStorage.setItem(storageKey, JSON.stringify(localRecords));
+
+        alert('✅ تم حفظ وصرف السماعة بنجاح');
+        document.getElementById('newNationalId').value = '';
+        document.getElementById('fullName').value = '';
+        document.getElementById('motherName').value = '';
+        document.getElementById('birthDay').value = '';
+        document.getElementById('birthMonth').value = '';
+        document.getElementById('birthYear').value = '';
+        document.getElementById('serialNumber').value = '';
+        document.getElementById('registrationWarning').style.display = 'none';
+        document.getElementById('issueBtn').disabled = false;
+        document.getElementById('issueBtn').style.opacity = '1';
+        loadIssuedList();
     }
 
-    // 🚀 دالة استيراد متطورة تقرأ أعمدة ملفك الفعلي (اسم المريض، اسم الأم، التفاصيل، التاريخ) بدقة تامة
+    // 🚀 استيراد فوري يعرض كافة الأسماء والتواريخ بدون أي انتظار للسيرفر
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -407,7 +351,7 @@
         const reader = new FileReader();
         reader.readAsText(file, 'UTF-8');
         
-        reader.onload = async function(e) {
+        reader.onload = function(e) {
             try {
                 const text = e.target.result;
                 const lines = text.split(/\r\n|\n/);
@@ -430,21 +374,13 @@
                         continue;
                     }
 
-                    // التقاط البيانات بحسب أعمدة ملفك الفعلي تماماً:
-                    // العمود 0: اسم المريض
                     let patName = cols[0] || '';
-                    // العمود 1: اسم الأم
                     let momName = cols[1] || '-';
-                    // الرقم الوطني إن وجد
                     let natId = cols[2] && !cols[2].includes('/') && cols[2].length > 1 ? cols[2] : '-';
-                    // تاريخ الولادة إن وجد
                     let birth = cols[3] && cols[3].includes('/') ? cols[3] : '-';
-                    // تفاصيل السماعة (العمود 4 أو أي عمود يحتوي على اسم جهاز)
-                    let device = cols[4] || cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -'))) || 'oticon xceed 3 up';
-                    // الرقم التسلسلي
-                    let serial = cols.find(c => c && !isNaN(c) && c.length >= 6) || cols[5] || '0000';
+                    let device = cols[4] || 'oticon xceed 3 up';
+                    let serial = cols.find(c => c && !isNaN(c) && c.length >= 6) || '0000';
                     
-                    // استخراج تاريخ الصرف الحقيقي
                     let rawDate = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/));
                     let formattedDate = new Date().toISOString();
                     
@@ -458,7 +394,7 @@
                         }
                     }
 
-                    if (patName && patName !== 'undefined' && patName !== '' && !patName.includes('???')) {
+                    if (patName && patName !== 'undefined' && patName !== '') {
                         parsedRecords.push({
                             national_id: String(natId),
                             patient_name: patName,
@@ -479,65 +415,24 @@
                     return;
                 }
 
-                const importBtn = document.getElementById('importBtn');
-                importBtn.disabled = true;
+                let storageKey = `local_records_${code}`;
+                localStorage.setItem(storageKey, JSON.stringify(parsedRecords));
 
-                const chunkSize = 200;
-                let uploadedCount = 0;
-                const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
-
-                for (let i = 0; i < parsedRecords.length; i += chunkSize) {
-                    const chunk = parsedRecords.slice(i, i + chunkSize);
-                    let currentChunkNum = Math.floor(i / chunkSize) + 1;
-                    importBtn.innerText = `⏳ رفع السحابة (${currentChunkNum}/${totalChunks})...`;
-
-                    try {
-                        const res = await fetch(`/api/import-csv?code=${code}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ records: chunk })
-                        });
-                        const data = await res.json();
-                        if (data.success) {
-                            uploadedCount += chunk.length;
-                        } else {
-                            uploadedCount += chunk.length;
-                        }
-                    } catch (err) {}
-                    
-                    await new Promise(r => setTimeout(r, 50));
-                }
-
-                importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
-                importBtn.disabled = false;
-
-                alert(`🎉 تم استيراد وتحديث كافة السجلات (${parsedRecords.length} سجل) في السحابة بنجاح!`);
+                alert(`🎉 تم استيراد وعرض ${parsedRecords.length} سجل في الجدول بنجاح تام!`);
                 loadIssuedList();
             } catch (err) {
-                console.error(err);
-                alert('⚠️ حدث خطأ أثناء معالجة رفع الملف للسحابة.');
-                document.getElementById('importBtn').innerText = '📥 استيراد ملف CSV إلى السحابة';
-                document.getElementById('importBtn').disabled = false;
+                alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
             }
             event.target.value = '';
         };
     }
 
-    async function clearAllRecords() {
-        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات من السحابة نهائياً؟")) {
+    function clearAllRecords() {
+        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات؟")) {
             const code = getInstitutionCode();
-            try {
-                const res = await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
-                const data = await res.json();
-                if (data.success) {
-                    alert('✅ تم حذف كافة السجلات السحابية بنجاح.');
-                    loadIssuedList();
-                } else {
-                    alert('❌ فشل حذف السجلات');
-                }
-            } catch(e) {
-                alert('حدث خطأ أثناء الاتصال بالحذف');
-            }
+            localStorage.removeItem(`local_records_${code}`);
+            alert('✅ تم حذف كافة السجلات بنجاح.');
+            loadIssuedList();
         }
     }
 
@@ -545,15 +440,10 @@
         renderTable(cachedRecords);
     }
 
-    async function loadIssuedList() {
+    function loadIssuedList() {
         const code = getInstitutionCode();
-        try {
-            const res = await fetch(`/api/records?code=${code}`);
-            const responseData = await res.json();
-            cachedRecords = responseData.records || [];
-        } catch (e) {
-            cachedRecords = [];
-        }
+        let storageKey = `local_records_${code}`;
+        cachedRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
         renderTable(cachedRecords);
     }
 
@@ -580,18 +470,18 @@
 
         const displayData = filteredData.slice(0, 500);
 
-        displayData.forEach((item) => {
+        displayData.forEach((item, index) => {
             const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
             let tr = document.createElement('tr');
 
             tr.innerHTML = `
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'patient_name', '${item.patient_name || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.patient_name || 'غير معروف'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'mother_name', '${item.mother_name || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'national_id', '${item.national_id || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.national_id || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'birth_year', '${item.birth_year || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.birth_year || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'device_details', '${item.device_details || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.device_details || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'serial_number', '${item.serial_number || ''}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${item.serial_number || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'date', '${dateOnly}', '${item.patient_name || ''}', '${item.mother_name || ''}')">${dateOnly}</td>
+                <td ondblclick="makeEditable(this, ${index}, 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
+                <td ondblclick="makeEditable(this, ${index}, 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
+                <td ondblclick="makeEditable(this, ${index}, 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
+                <td ondblclick="makeEditable(this, ${index}, 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
+                <td ondblclick="makeEditable(this, ${index}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
+                <td ondblclick="makeEditable(this, ${index}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
+                <td ondblclick="makeEditable(this, ${index}, 'date', '${dateOnly}')">${dateOnly}</td>
                 <td>${item.institution_name || '-'}</td>
             `;
 
@@ -605,7 +495,7 @@
         }
     }
 
-    function makeEditable(cell, recordId, fieldName, currentValue, patName, momName) {
+    function makeEditable(cell, index, fieldName, currentValue) {
         if (cell.querySelector('input')) return;
 
         cell.innerHTML = `<input type="text" class="inline-edit-input" value="${currentValue === '-' ? '' : currentValue}">`;
@@ -613,28 +503,14 @@
         input.focus();
         input.select();
 
-        input.onkeydown = async function(e) {
+        input.onkeydown = function(e) {
             if (e.key === 'Enter') {
                 const newValue = input.value.trim();
                 cell.innerHTML = newValue === '' ? '-' : newValue;
 
-                try {
-                    const code = getInstitutionCode();
-                    const res = await fetch(`/api/records/update?code=${code}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: recordId, field: fieldName, value: newValue, patient_name: patName, mother_name: momName })
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        const rec = cachedRecords.find(r => r._id === recordId || r.patient_name === patName);
-                        if (rec) rec[fieldName] = newValue;
-                    } else {
-                        alert('❌ فشل حفظ التعديل في السحابة');
-                    }
-                } catch (err) {
-                    alert('⚠️ حدث خطأ أثناء الاتصال بالسحابة للحفظ.');
-                }
+                cachedRecords[index][fieldName] = newValue;
+                const code = getInstitutionCode();
+                localStorage.setItem(`local_records_${code}`, JSON.stringify(cachedRecords));
             } else if (e.key === 'Escape') {
                 cell.innerHTML = currentValue === '' ? '-' : currentValue;
             }
