@@ -20,6 +20,10 @@
         .btn-clear-all { background-color: #c0392b; width: auto; display: inline-block; padding: 8px 12px; margin-top: 0; font-size: 13px; }
         .btn-clear-all:hover { background-color: #962d22; }
         
+        /* زر تفعيل وضع الحذف */
+        .btn-toggle-delete { background-color: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; margin-top: 0; font-weight: bold; transition: 0.3s; width: auto; display: inline-block; }
+        .btn-toggle-delete.active { background-color: #c0392b; box-shadow: 0 0 8px rgba(192, 57, 43, 0.6); }
+
         .header-bar { display: flex; justify-content: space-between; align-items: center; background: #34495e; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
         .count-badge { font-weight: bold; font-size: 15px; }
         .actions-group { display: flex; gap: 10px; align-items: center; width: 100%; justify-content: space-between; flex-wrap: wrap; }
@@ -32,12 +36,10 @@
         .row { display: flex; gap: 10px; }
         .row > div { flex: 1; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th, td { padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 13px; color: #333; cursor: pointer; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 13px; color: #333; }
         th { background-color: #34495e; color: white; cursor: default; }
-        tr:hover { background-color: #f1f2f6; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
         
-        .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
-        .birth-group input { text-align: center; margin-top: 0; }
         .inline-edit-input { width: 100%; padding: 4px; font-size: 13px; text-align: center; border: 2px solid #27ae60; border-radius: 4px; background: #fff; }
     </style>
 </head>
@@ -73,12 +75,12 @@
             </div>
             <div>
                 <label>تاريخ الولادة (يوم / شهر / سنة):</label>
-                <div class="birth-group">
-                    <input type="text" id="birthDay" placeholder="اليوم" maxlength="2" oninput="autoTab(this, 'birthMonth', 2)">
+                <div class="birth-group" style="display: flex; gap: 5px; align-items: center; margin-top: 5px;">
+                    <input type="text" id="birthDay" placeholder="اليوم" maxlength="2" style="text-align: center; margin-top: 0;" oninput="autoTab(this, 'birthMonth', 2)">
                     <span>/</span>
-                    <input type="text" id="birthMonth" placeholder="الشهر" maxlength="2" oninput="autoTab(this, 'birthYear', 2)">
+                    <input type="text" id="birthMonth" placeholder="الشهر" maxlength="2" style="text-align: center; margin-top: 0;" oninput="autoTab(this, 'birthYear', 2)">
                     <span>/</span>
-                    <input type="text" id="birthYear" placeholder="السنة" maxlength="4" oninput="checkPatientEligibilityLive()">
+                    <input type="text" id="birthYear" placeholder="السنة" maxlength="4" style="text-align: center; margin-top: 0;" oninput="checkPatientEligibilityLive()">
                 </div>
             </div>
         </div>
@@ -108,7 +110,7 @@
 
     <div class="card">
         <h3>📋 السجل السحابي الدائم</h3>
-        <p style="font-size: 13px; color: #555; margin-top: -5px;">* (انقر <b>دبل كلك على الخلية</b> للتعديل الفوري) | (انقر <b>دبل كلك على الصف بأكمله</b> لحذفه).</p>
+        <p style="font-size: 13px; color: #555; margin-top: -5px;">* (انقر <b>دبل كلك على أي خلية</b> للتعديل) | (فعّل <b>زر وضع الحذف</b> بالأعلى ثم انقر دبل كلك على الصف لحذفه).</p>
         
         <div class="header-bar">
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
@@ -118,7 +120,11 @@
                     <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV السحابي (8000+ سجل)</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ تفريغ السجل السحابي</button>
                 </div>
-                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <!-- زر تفعيل وضع الحذف بجانب خانة التصفية -->
+                    <button id="deleteModeBtn" class="btn-toggle-delete" onclick="toggleDeleteMode()">🔒 وضع الحذف: مُعطّل</button>
+                    <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
+                </div>
             </div>
         </div>
 
@@ -145,6 +151,20 @@
 
 <script>
     let cachedRecords = [];
+    let isDeleteModeActive = false; // متغير حالة وضع الحذف
+
+    // دالة تبديل وضع الحذف عند الضغط على الزر بجانب التصفية
+    function toggleDeleteMode() {
+        isDeleteModeActive = !isDeleteModeActive;
+        const btn = document.getElementById('deleteModeBtn');
+        if (isDeleteModeActive) {
+            btn.innerText = '🔓 وضع الحذف: مَفعل (انقر دبل كلك للحذف)';
+            btn.classList.add('active');
+        } else {
+            btn.innerText = '🔒 وضع الحذف: مُعطّل';
+            btn.classList.remove('active');
+        }
+    }
 
     function autoTab(current, nextFieldId, maxLen) {
         if (current.value.length >= maxLen) {
@@ -404,7 +424,7 @@
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
-                importBtn.disabled, false;
+                importBtn.disabled = false;
 
                 alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) بنجاح تام!`);
                 await loadIssuedList();
@@ -461,11 +481,16 @@
         displayData.forEach((item) => {
             let tr = document.createElement('tr');
 
-            // 🗑️ عند النقر المزدوج (دبل كلك) على أي مكان في الصف، يتم سؤال المستخدم عن الحذف
+            // 🗑️ عند النقر المزدوج (دبل كلك) على الصف بأكمله، يتأكد من تفعيل وضع الحذف أولاً ثم يسأل للتأكيد
             tr.ondblclick = async function(e) {
-                if (e.target.tagName === 'INPUT') return; // منع التداخل عند التعديل
+                if (e.target.tagName === 'INPUT') return; // منع التداخل عند التعديل داخل الخلية
                 
-                if (confirm(`⚠️ هل تود حذف سجل المريض (${item.patient_name || 'غير معروف'}) نهائياً؟`)) {
+                if (!isDeleteModeActive) {
+                    alert('🔒 وضع الحذف مُعطّل حالياً. يرجى النقر على زر "وضع الحذف" بجانب خانة التصفية لتفعيله أولاً.');
+                    return;
+                }
+
+                if (confirm(`⚠️ هل تود حقاً حذف سجل المريض (${item.patient_name || 'غير معروف'}) نهائياً من السحابة؟`)) {
                     try {
                         const res = await fetch('/api/records/delete', {
                             method: 'POST',
