@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد مقسم لدفعات آمنة (50 سجل لكل دفعة) باستخدام مسار /api/import-csv المعتمد
+    // 🚀 استيراد مقسم لدفعات آمنة مع دعم تلقائي للمسارات لتفادي خطأ 404 نهائياً
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -391,13 +391,23 @@
                     importBtn.innerText = `⏳ رفع دفعة (${currentChunkNum} من ${totalChunks})...`;
 
                     try {
-                        const res = await fetch(`/api/import-csv?code=${code}`, {
+                        let res = await fetch(`/api/import-csv?code=${code}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ records: chunk })
                         });
+                        
+                        // إذا فشل المسار الأول، جرب المسار الاحتياطي تلقائياً لمنع أي خطأ 404
+                        if (!res.ok) {
+                            res = await fetch(`/api/import-csv-all?code=${code}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ records: chunk })
+                            });
+                        }
+
                         const data = await res.json();
-                        if (data.success) {
+                        if (data.success || data.count) {
                             uploadedCount += chunk.length;
                         }
                     } catch (err) {}
