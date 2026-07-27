@@ -86,10 +86,9 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// المسار الأساسي لاستقبال الدفعات
 app.post('/api/import-csv', async (req, res) => {
     const { records } = req.body;
-    if (!records || !Array.isArray(records)) return.json({ success: false });
+    if (!records || !Array.isArray(records)) return res.json({ success: false });
 
     const code = req.query.code || 'yarmok';
     const currentInst = institutions[code] || institutions['yarmok'];
