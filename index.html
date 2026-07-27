@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد مقسم لدفعات آمنة مع دعم تلقائي للمسارات لتفادي خطأ 404 نهائياً
+    // 🚀 استيراد ذكي ومرن يتعامل مع أي ملف CSV أو Excel مخزن كنص
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -328,22 +328,22 @@
                     if (validCols.length === 0) continue;
 
                     let firstCol = validCols[0];
-                    if (i === 0 || firstCol.includes('اسم المريض') || firstCol.includes('اسم') || firstCol.includes('patient') || firstCol.includes('name')) {
+                    if (i === 0 && (firstCol.includes('اسم') || firstCol.includes('الاسم') || firstCol.includes('patient') || firstCol.includes('name') || firstCol.includes('تاريخ'))) {
                         continue;
                     }
 
                     let patName = cols[0] || '';
                     let momName = cols[1] || '-';
-                    let natId = cols[2] && !cols[2].includes('/') && cols[2].length > 1 ? cols[2] : '-';
-                    let birth = cols[3] && cols[3].includes('/') ? cols[3] : '-';
-                    let device = cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -') || c.toLowerCase().includes('bte'))) || cols[4] || 'oticon xceed 3 up';
-                    let serial = cols.find(c => c && !isNaN(c) && c.length >= 5) || cols[5] || '0000';
+                    let natId = cols[2] || '-';
+                    let birth = cols[3] || '-';
+                    let device = cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('bte'))) || cols[4] || 'oticon xceed 3 up';
+                    let serial = cols.find(c => c && !isNaN(c) && c.length >= 4) || cols[5] || '0000';
                     
-                    let rawDate = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/));
+                    let rawDate = cols.find(c => c && c.match(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/));
                     let formattedDate = new Date().toISOString().split('T')[0];
                     
                     if (rawDate) {
-                        let parts = rawDate.split('/');
+                        let parts = rawDate.split(/[\/\-]/);
                         if (parts.length === 3) {
                             let day = parts[0].padStart(2, '0');
                             let month = parts[1].padStart(2, '0');
@@ -352,7 +352,7 @@
                         }
                     }
 
-                    if (patName && patName !== 'undefined' && patName !== '' && !patName.includes('???')) {
+                    if (patName && patName !== 'undefined' && patName !== '' && !patName.includes('???') && patName.length > 1) {
                         parsedRecords.push({
                             national_id: String(natId),
                             patient_name: patName,
@@ -367,7 +367,7 @@
                 }
 
                 if (parsedRecords.length === 0) {
-                    alert('⚠️ لم يتم قراءة أي سجلات صحيحة من الملف.');
+                    alert('⚠️ لم يتم قراءة أي سجلات. تأكد من أن الملف يحتوي على بيانات صحيحة.');
                     importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                     importBtn.disabled = false;
                     event.target.value = '';
@@ -396,18 +396,8 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ records: chunk })
                         });
-                        
-                        // إذا فشل المسار الأول، جرب المسار الاحتياطي تلقائياً لمنع أي خطأ 404
-                        if (!res.ok) {
-                            res = await fetch(`/api/import-csv-all?code=${code}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ records: chunk })
-                            });
-                        }
-
                         const data = await res.json();
-                        if (data.success || data.count) {
+                        if (data.success) {
                             uploadedCount += chunk.length;
                         }
                     } catch (err) {}
@@ -422,7 +412,7 @@
                 location.reload();
 
             } catch (err) {
-                alert('⚠️ حدث خطأ أثناء رفع الملف للسحابة.');
+                alert('⚠️ حدث خطأ أثناء قراءة الملف أو رفعه للسحابة.');
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
             }
