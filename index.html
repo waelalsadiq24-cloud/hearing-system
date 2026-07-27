@@ -301,7 +301,6 @@
         }
     }
 
-    // 🚀 استيراد آمن على دفعات صغيرة (10 سجلات) لتجنب الأخطاء كلياً
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -399,7 +398,7 @@
                         }
                     } catch (err) {}
                     
-                    await new Promise(r => setTimeout(r, 50));
+                    await new Promise(r => setTimeout(r, 60));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
