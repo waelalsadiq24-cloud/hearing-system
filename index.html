@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد مقسم لدفعات خفيفة ومستقرة تماماً (50 سجل لكل دفعة مع مسح القديم أولاً)
+    // 🚀 استيراد مقسم لدفعات خفيفة وآمنة مع التحديث الفوري للجدول
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -408,8 +408,10 @@
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام وفعال!`);
-                await loadIssuedList();
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام وسريع!`);
+                
+                // 🚀 إعادة تحميل الصفحة بالكامل لضمان تحديث واجهة الجدول وجلب كافة السجلات فورا
+                location.reload();
 
             } catch (err) {
                 alert('⚠️ حدث خطأ أثناء رفع الملف للسحابة.');
@@ -427,7 +429,7 @@
                 const res = await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 const data = await res.json();
                 alert('✅ تم حذف كافة السجلات السحابية بنجاح.');
-                loadIssuedList();
+                location.reload();
             } catch(e) {
                 alert('خطأ في الاتصال');
             }
