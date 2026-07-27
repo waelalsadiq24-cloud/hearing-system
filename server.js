@@ -2,8 +2,8 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(express.static(__dirname));
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
@@ -86,9 +86,10 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-app.post('/api/import-csv', async (req, res) => {
+// 🚀 مسار استقبال كامل السجلات دفعة واحدة وبسرعة فائقة
+app.post('/api/import-csv-all', async (req, res) => {
     const { records } = req.body;
-    if (!records || !Array.isArray(records)) return res.json({ success: false });
+    if (!records || !Array.isArray(records)) return.json({ success: false });
 
     const code = req.query.code || 'yarmok';
     const currentInst = institutions[code] || institutions['yarmok'];
@@ -108,20 +109,26 @@ app.post('/api/import-csv', async (req, res) => {
 
     try {
         const db = await getDB();
+        // تفريغ المؤسسة الحالية وإدخال البيانات الجديدة دفعة واحدة
+        await db.collection('records').deleteMany({ institution_id: code });
         if (formattedRecords.length > 0) {
             await db.collection('records').insertMany(formattedRecords, { ordered: false });
         }
-        res.json({ success: true });
+        res.json({ success: true, count: formattedRecords.length });
     } catch (e) {
-        res.json({ success: true });
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
 app.post('/api/clear-records', async (req, res) => {
-    res.json({ success: true });
-});
-app.delete('/api/clear-records', async (req, res) => {
-    res.json({ success: true });
+    const code = req.query.code || 'yarmok';
+    try {
+        const db = await getDB();
+        await db.collection('records').deleteMany({ institution_id: code });
+        res.json({ success: true });
+    } catch (e) {
+        res.json({ success: true });
+    }
 });
 
 const PORT = process.env.PORT || 3000;
