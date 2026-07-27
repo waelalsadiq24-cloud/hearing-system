@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد آمن مقسم لدفعات (50 سجل) مع محاولات ذكية واستراحة لمنع خطأ 502 والتحديث الفوري
+    // 🚀 استيراد مقسم لدفعات خفيفة جداً (20 سجل) لتفادي خطأ 502 نهائياً
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -381,7 +381,8 @@
                     await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 } catch(err) {}
 
-                const chunkSize = 50;
+                // استخدام دفعات من 20 سجل لحماية تامة من خطأ 502
+                const chunkSize = 20;
                 let uploadedCount = 0;
                 const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
 
@@ -410,8 +411,8 @@
                         }
                     }
                     
-                    // استراحة 300 ميلي ثانية لحماية السيرفر من الانهيار
-                    await new Promise(r => setTimeout(r, 300));
+                    // استراحة آمنة 200 ميلي ثانية بين الدفعات
+                    await new Promise(r => setTimeout(r, 200));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
