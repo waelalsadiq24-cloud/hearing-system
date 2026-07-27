@@ -2,9 +2,8 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-// زيادة حد حجم البيانات المسموح به لاستيعاب الملفات الضخمة جداً براحة مطلقة
-app.use(express.json({ limit: '500mb' }));
-app.use(express.urlencoded({ limit: '500mb', extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static(__dirname));
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
@@ -86,18 +85,18 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// المسار الوحيد المعتمد والآمن لاستيراد وحفظ كافة السجلات دفعة واحدة دون أي أخطاء
-app.post('/api/import-all-secure', async (req, res) => {
+// استقبال دفعة آمنة (100 سجل في كل مرة) لمنع انهيار الخادم نهائياً
+app.post('/api/import-chunk-safe', async (req, res) => {
     try {
         const { records } = req.body;
         if (!records || !Array.isArray(records)) {
-            return res.json({ success: false, count: 0 });
+            return res.json({ success: false });
         }
 
         const code = req.query.code || 'yarmok';
         const currentInst = institutions[code] || institutions['yarmok'];
 
-        const formattedRecords = records.map(r => ({
+        const formatted = records.map(r => ({
             national_id: String(r.national_id || '-'),
             patient_name: String(r.patient_name || 'غير معروف'),
             mother_name: String(r.mother_name || '-'),
@@ -111,17 +110,12 @@ app.post('/api/import-all-secure', async (req, res) => {
         }));
 
         const db = await getDB();
-        
-        // تفريغ سجلات المؤسسة القديمة لتحديثها بالملف الجديد نظيفة 100%
-        await db.collection('records').deleteMany({ institution_id: code });
-
-        if (formattedRecords.length > 0) {
-            await db.collection('records').insertMany(formattedRecords);
+        if (formatted.length > 0) {
+            await db.collection('records').insertMany(formatted);
         }
-
-        res.json({ success: true, count: formattedRecords.length });
+        res.json({ success: true });
     } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
+        res.status(500).json({ success: false });
     }
 });
 
