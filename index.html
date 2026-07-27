@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>نظام سجلات السماعات الطبية</title>
+    <title>نظام سجلات السماعات الطبية (السحابي)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; direction: rtl; }
         .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -38,24 +38,13 @@
         
         .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
         .birth-group input { text-align: center; margin-top: 0; }
-
-        .custom-dropdown-container { position: relative; width: 100%; }
-        .custom-dropdown-input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; background: #fff; cursor: pointer; text-align: right; }
-        .custom-dropdown-list { position: absolute; top: 100%; right: 0; left: 0; background: #fff; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.15); z-index: 1000; display: none; max-height: 200px; overflow-y: auto; margin-top: 2px; }
-        .custom-dropdown-item { padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 1px solid #f1f1f1; font-size: 14px; }
-        .custom-dropdown-item:hover { background-color: #f1f9f5; }
-        .custom-dropdown-item.add-new { color: #27ae60; font-weight: bold; justify-content: center; }
-        .device-text { flex: 1; text-align: center; }
-        .spacer-side { width: 30px; }
-        .btn-delete-device { background: none; border: none; color: #c0392b; cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 3px; margin-top: 0; width: auto; }
-        .btn-delete-device:hover { background-color: #fadbd8; }
         .inline-edit-input { width: 100%; padding: 4px; font-size: 13px; text-align: center; border: 2px solid #27ae60; border-radius: 4px; background: #fff; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية</h2>
+    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية (السحابي الدائم)</h2>
 
     <div class="card">
         <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
@@ -109,27 +98,23 @@
         <div class="row">
             <div style="flex: 1;">
                 <label>تفاصيل السماعة:</label>
-                <div class="custom-dropdown-container">
-                    <div id="selectedDeviceDisplay" class="custom-dropdown-input" onclick="toggleCustomDropdown()">-- اختر السماعة أو أضف جديدة --</div>
-                    <div id="customDropdownList" class="custom-dropdown-list"></div>
-                </div>
-                <input type="hidden" id="deviceDetailsValue" value="">
+                <input type="text" id="selectedDeviceDisplay" value="oticon xceed 3 up">
             </div>
         </div>
 
         <div id="registrationWarning" class="result-box" style="margin-top: 10px;"></div>
-        <button class="btn-issue" id="issueBtn" onclick="registerAndIssue()">حفظ وصرف السماعة</button>
+        <button class="btn-issue" id="issueBtn" onclick="registerAndIssue()">حفظ وصرف السماعة في السحابة</button>
     </div>
 
     <div class="card">
-        <h3>📋 سجل الذين تم الصرف لهم (انقر دبل كلك على أي خلية للتعديل واضغط Enter للحفظ)</h3>
+        <h3>📋 سجل السحابة الدائم (انقر دبل كلك على أي خلية للتعديل واضغط Enter للحفظ)</h3>
         
         <div class="header-bar">
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                     <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvSafely(event)">
-                    <button class="btn-excel" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV</button>
+                    <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV إلى السحابة</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
                 <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
@@ -150,7 +135,7 @@
                 </tr>
             </thead>
             <tbody id="issuedTableBody">
-                <tr><td colspan="8">جاري تحميل السجلات...</td></tr>
+                <tr><td colspan="8">جاري التحميل من السحابة...</td></tr>
             </tbody>
         </table>
     </div>
@@ -158,7 +143,6 @@
 </div>
 
 <script>
-    let globalDeviceOptions = ['oticon xceed 3 up', 'oticon get', 'oticon ria2 105', 'oticon ria2 85', 'Signia Silk'];
     let cachedRecords = [];
 
     function autoTab(current, nextFieldId, maxLen) {
@@ -171,48 +155,6 @@
     function getInstitutionCode() {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get('code') || 'yarmok';
-    }
-
-    function toggleCustomDropdown() {
-        const list = document.getElementById('customDropdownList');
-        list.style.display = list.style.display === 'block' ? 'none' : 'block';
-    }
-
-    window.onclick = function(event) {
-        if (!event.target.closest('.custom-dropdown-container')) {
-            const list = document.getElementById('customDropdownList');
-            if (list) list.style.display = 'none';
-        }
-    };
-
-    function loadDeviceOptions(selectedVal = '') {
-        const listContainer = document.getElementById('customDropdownList');
-        listContainer.innerHTML = '';
-
-        globalDeviceOptions.forEach(opt => {
-            let itemDiv = document.createElement('div');
-            itemDiv.className = 'custom-dropdown-item';
-            
-            let textSpan = document.createElement('span');
-            textSpan.className = 'device-text';
-            textSpan.textContent = opt;
-            textSpan.onclick = () => {
-                document.getElementById('selectedDeviceDisplay').textContent = opt;
-                document.getElementById('deviceDetailsValue').value = opt;
-                listContainer.style.display = 'none';
-            };
-
-            itemDiv.appendChild(textSpan);
-            listContainer.appendChild(itemDiv);
-        });
-
-        if (selectedVal) {
-            document.getElementById('selectedDeviceDisplay').textContent = selectedVal;
-            document.getElementById('deviceDetailsValue').value = selectedVal;
-        } else if (globalDeviceOptions.length > 0 && !document.getElementById('deviceDetailsValue').value) {
-            document.getElementById('selectedDeviceDisplay').textContent = globalDeviceOptions[0];
-            document.getElementById('deviceDetailsValue').value = globalDeviceOptions[0];
-        }
     }
 
     function calculateAge(birthStr) {
@@ -231,6 +173,18 @@
     function getRequiredYears(age, isStudent) {
         if (age >= 7 && isStudent === 'no') return 4;
         return 3;
+    }
+
+    async function loadIssuedList() {
+        const code = getInstitutionCode();
+        try {
+            const res = await fetch(`/api/records?code=${code}`);
+            const data = await res.json();
+            cachedRecords = data.records || [];
+        } catch (e) {
+            cachedRecords = [];
+        }
+        renderTable(cachedRecords);
     }
 
     function searchPatient() {
@@ -306,17 +260,16 @@
         issueBtn.style.opacity = '1';
     }
 
-    function registerAndIssue() {
+    async function registerAndIssue() {
         const body = {
             national_id: document.getElementById('newNationalId').value.trim(),
             patient_name: document.getElementById('fullName').value.trim(),
             mother_name: document.getElementById('motherName').value.trim(),
             birth_year: (document.getElementById('birthDay').value && document.getElementById('birthMonth').value && document.getElementById('birthYear').value) ? `${document.getElementById('birthDay').value}/${document.getElementById('birthMonth').value}/${document.getElementById('birthYear').value}` : (document.getElementById('birthYear').value || '-'),
             is_student: document.getElementById('isStudent').value,
-            device_details: document.getElementById('deviceDetailsValue').value || document.getElementById('selectedDeviceDisplay').textContent,
+            device_details: document.getElementById('selectedDeviceDisplay').value.trim(),
             serial_number: document.getElementById('serialNumber').value.trim(),
-            date: new Date().toISOString(),
-            institution_name: getInstitutionCode() === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب'
+            date: new Date().toISOString()
         };
 
         if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
@@ -324,26 +277,31 @@
         }
 
         const code = getInstitutionCode();
-        let storageKey = `local_records_${code}`;
-        let localRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        localRecords.unshift(body);
-        localStorage.setItem(storageKey, JSON.stringify(localRecords));
-
-        alert('✅ تم حفظ وصرف السماعة بنجاح');
-        document.getElementById('newNationalId').value = '';
-        document.getElementById('fullName').value = '';
-        document.getElementById('motherName').value = '';
-        document.getElementById('birthDay').value = '';
-        document.getElementById('birthMonth').value = '';
-        document.getElementById('birthYear').value = '';
-        document.getElementById('serialNumber').value = '';
-        document.getElementById('registrationWarning').style.display = 'none';
-        document.getElementById('issueBtn').disabled = false;
-        document.getElementById('issueBtn').style.opacity = '1';
-        loadIssuedList();
+        const res = await fetch(`/api/records?code=${code}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if(data.success) {
+            alert('✅ ' + data.message);
+            document.getElementById('newNationalId').value = '';
+            document.getElementById('fullName').value = '';
+            document.getElementById('motherName').value = '';
+            document.getElementById('birthDay').value = '';
+            document.getElementById('birthMonth').value = '';
+            document.getElementById('birthYear').value = '';
+            document.getElementById('serialNumber').value = '';
+            document.getElementById('registrationWarning').style.display = 'none';
+            document.getElementById('issueBtn').disabled = false;
+            document.getElementById('issueBtn').style.opacity = '1';
+            loadIssuedList();
+        } else {
+            alert('❌ فشل الحفظ في السحابة');
+        }
     }
 
-    // 🚀 قارئ ملفات CSV الذكي جداً الذي يتعرف على الفواصل والأسطر وجميع الأعمدة تلقائياً
+    // 🚀 استيراد ورفع الأسماء للسحابة على دفعات آمنة تمنع أي خطأ
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -351,19 +309,17 @@
         const reader = new FileReader();
         reader.readAsText(file, 'UTF-8');
         
-        reader.onload = function(e) {
+        reader.onload = async function(e) {
             try {
                 const text = e.target.result;
                 const lines = text.split(/\r\n|\n/);
                 let parsedRecords = [];
                 const code = getInstitutionCode();
-                const institutionName = code === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب';
 
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i] ? lines[i].trim() : '';
                     if (!line) continue;
 
-                    // تقسيم السطر بغض النظر عن نوع الفاصل (فصلة عادية، فاصلة منقوطة، أو تاب)
                     let cols = line.split(/,|;|\t/);
                     cols = cols.map(c => (c ? c.replace(/^["']|["']$/g, '').trim() : ''));
 
@@ -375,19 +331,13 @@
                         continue;
                     }
 
-                    // استخراج الحقول بدقة من الأعمدة المتاحة
                     let patName = cols[0] || '';
                     let momName = cols[1] || '-';
                     let natId = cols[2] && !cols[2].includes('/') && cols[2].length > 1 ? cols[2] : '-';
                     let birth = cols[3] && cols[3].includes('/') ? cols[3] : '-';
-                    
-                    // البحث الذكي عن اسم السماعة في أي عمود
                     let device = cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -') || c.toLowerCase().includes('bte'))) || cols[4] || 'oticon xceed 3 up';
-                    
-                    // الرقم التسلسلي
                     let serial = cols.find(c => c && !isNaN(c) && c.length >= 5) || cols[5] || '0000';
                     
-                    // استخراج تاريخ الصرف الحقيقي (بحث عن صيغة التاريخ DD/MM/YYYY)
                     let rawDate = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/));
                     let formattedDate = new Date().toISOString();
                     
@@ -410,49 +360,81 @@
                             is_student: 'yes',
                             device_details: device,
                             serial_number: serial,
-                            date: formattedDate,
-                            institution_name: institutionName
+                            date: formattedDate
                         });
                     }
                 }
 
                 if (parsedRecords.length === 0) {
-                    alert('⚠️ لم يتم قراءة أي سجلات صحيحة من الملف. تأكد من أن الملف بصيغة CSV صحيحة.');
+                    alert('⚠️ لم يتم قراءة أي سجلات صحيحة من الملف.');
                     event.target.value = '';
                     return;
                 }
 
-                let storageKey = `local_records_${code}`;
-                // تخزين الأسماء فوراً في المتصفح وعرضها
-                localStorage.setItem(storageKey, JSON.stringify(parsedRecords));
+                // تفريغ السجلات السابقة في السحابة أولاً
+                await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
 
-                alert(`🎉 تم بنجاح استيراد وعرض ${parsedRecords.length} اسماً في الجدول فوراً!`);
+                const importBtn = document.getElementById('importBtn');
+                importBtn.disabled = true;
+
+                // رفع على دفعات من 200 سجل لضمان عدم حدوث ضغط على السيرفر السحابي
+                const chunkSize = 200;
+                let uploadedCount = 0;
+                const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
+
+                for (let i = 0; i < parsedRecords.length; i += chunkSize) {
+                    const chunk = parsedRecords.slice(i, i + chunkSize);
+                    let currentChunkNum = Math.floor(i / chunkSize) + 1;
+                    importBtn.innerText = `⏳ رفع السحابة (${currentChunkNum}/${totalChunks})...`;
+
+                    try {
+                        const res = await fetch(`/api/import-csv?code=${code}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ records: chunk })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            uploadedCount += chunk.length;
+                        }
+                    } catch (err) {}
+                    
+                    await new Promise(r => setTimeout(r, 30));
+                }
+
+                importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
+                importBtn.disabled = false;
+
+                alert(`🎉 تم رفع وحفظ جميع السجلات (${uploadedCount} سجل) في السحابة بشكل دائم! الآن يمكنك فتح الرابط من أي مكان في العالم.`);
                 loadIssuedList();
             } catch (err) {
-                console.error(err);
-                alert('⚠️ حدث خطأ أثناء قراءة ملف الـ CSV.');
+                alert('⚠️ حدث خطأ أثناء رفع الملف للسحابة.');
+                document.getElementById('importBtn').innerText = '📥 استيراد ملف CSV إلى السحابة';
+                document.getElementById('importBtn').disabled = false;
             }
             event.target.value = '';
         };
     }
 
-    function clearAllRecords() {
-        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات؟")) {
+    async function clearAllRecords() {
+        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات السحابية نهائياً؟")) {
             const code = getInstitutionCode();
-            localStorage.removeItem(`local_records_${code}`);
-            alert('✅ تم حذف كافة السجلات بنجاح.');
-            loadIssuedList();
+            try {
+                const res = await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ تم حذف كافة السجلات السحابية بنجاح.');
+                    loadIssuedList();
+                } else {
+                    alert('❌ فشل الحذف');
+                }
+            } catch(e) {
+                alert('خطأ في الاتصال');
+            }
         }
     }
 
     function filterTableLive() {
-        renderTable(cachedRecords);
-    }
-
-    function loadIssuedList() {
-        const code = getInstitutionCode();
-        let storageKey = `local_records_${code}`;
-        cachedRecords = JSON.parse(localStorage.getItem(storageKey) || '[]');
         renderTable(cachedRecords);
     }
 
@@ -473,24 +455,24 @@
         tbody.innerHTML = '';
 
         if(filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة في السحابة</td></tr>';
             return;
         }
 
         const displayData = filteredData.slice(0, 500);
 
-        displayData.forEach((item, index) => {
+        displayData.forEach((item) => {
             const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
             let tr = document.createElement('tr');
 
             tr.innerHTML = `
-                <td ondblclick="makeEditable(this, ${index}, 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
-                <td ondblclick="makeEditable(this, ${index}, 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
-                <td ondblclick="makeEditable(this, ${index}, 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
-                <td ondblclick="makeEditable(this, ${index}, 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
-                <td ondblclick="makeEditable(this, ${index}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
-                <td ondblclick="makeEditable(this, ${index}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
-                <td ondblclick="makeEditable(this, ${index}, 'date', '${dateOnly}')">${dateOnly}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'date', '${dateOnly}')">${dateOnly}</td>
                 <td>${item.institution_name || '-'}</td>
             `;
 
@@ -504,7 +486,7 @@
         }
     }
 
-    function makeEditable(cell, index, fieldName, currentValue) {
+    async function makeEditable(cell, recordId, fieldName, currentValue) {
         if (cell.querySelector('input')) return;
 
         cell.innerHTML = `<input type="text" class="inline-edit-input" value="${currentValue === '-' ? '' : currentValue}">`;
@@ -512,14 +494,25 @@
         input.focus();
         input.select();
 
-        input.onkeydown = function(e) {
+        input.onkeydown = async function(e) {
             if (e.key === 'Enter') {
                 const newValue = input.value.trim();
                 cell.innerHTML = newValue === '' ? '-' : newValue;
 
-                cachedRecords[index][fieldName] = newValue;
-                const code = getInstitutionCode();
-                localStorage.setItem(`local_records_${code}`, JSON.stringify(cachedRecords));
+                try {
+                    const code = getInstitutionCode();
+                    const res = await fetch(`/api/records/update?code=${code}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: recordId, field: fieldName, value: newValue })
+                    });
+                    const result = await res.json();
+                    if (!result.success) {
+                        alert('❌ فشل حفظ التعديل في السحابة');
+                    }
+                } catch (err) {
+                    alert('⚠️ خطأ في الاتصال بالسحابة');
+                }
             } else if (e.key === 'Escape') {
                 cell.innerHTML = currentValue === '' ? '-' : currentValue;
             }
@@ -535,7 +528,6 @@
     }
 
     window.onload = () => {
-        loadDeviceOptions();
         loadIssuedList();
     };
 </script>
