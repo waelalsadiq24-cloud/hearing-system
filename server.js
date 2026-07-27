@@ -2,8 +2,8 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(__dirname));
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
@@ -36,12 +36,10 @@ app.get('/api/records', async (req, res) => {
             .limit(5000)
             .toArray();
 
-        const formattedRecords = records.map(r => ({
-            ...r,
-            _id: r._id.toString()
-        }));
-
-        res.json({ records: formattedRecords, currentInstitution: currentInst });
+        res.json({ 
+            records: records.map(r => ({ ...r, _id: r._id.toString() })), 
+            currentInstitution: currentInst 
+        });
     } catch (e) {
         res.json({ records: [] });
     }
@@ -68,7 +66,7 @@ app.post('/api/records', async (req, res) => {
     try {
         const db = await getDB();
         await db.collection('records').insertOne(newRecord);
-        res.json({ success: true, message: 'تم الحفظ بنجاح' });
+        res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false });
     }
@@ -87,17 +85,15 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// مسار استقبال الدفعات الآمنة (إضافة للسجلات الموجودة أو إدخال دفعة جديدة)
+// استقبال دفعات صغيرة جداً وآمنة (10 سجلات في كل طلب لضمان عدم حدوث 500)
 app.post('/api/import-chunk', async (req, res) => {
     const { records } = req.body;
-    if (!records || !Array.isArray(records)) {
-        return res.json({ success: false });
-    }
+    if (!records || !Array.isArray(records)) return res.json({ success: false });
 
     const code = req.query.code || 'yarmok';
     const currentInst = institutions[code] || institutions['yarmok'];
 
-    const formattedRecords = records.map(r => ({
+    const formatted = records.map(r => ({
         national_id: String(r.national_id || '-'),
         patient_name: String(r.patient_name || 'غير معروف'),
         mother_name: String(r.mother_name || '-'),
@@ -112,8 +108,8 @@ app.post('/api/import-chunk', async (req, res) => {
 
     try {
         const db = await getDB();
-        if (formattedRecords.length > 0) {
-            await db.collection('records').insertMany(formattedRecords);
+        if (formatted.length > 0) {
+            await db.collection('records').insertMany(formatted);
         }
         res.json({ success: true });
     } catch (e) {
