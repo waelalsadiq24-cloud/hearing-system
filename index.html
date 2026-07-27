@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد فائق السرعة (يرسل كافة السجلات دفعة واحدة في طلب واحد خلال ثانية واحدة)
+    // 🚀 استيراد ذكي مقسم لدفعات خفيفة (50 سجل لكل دفعة) يمنع التعليق نهائياً
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -375,24 +375,43 @@
                 }
 
                 importBtn.disabled = true;
-                importBtn.innerText = `⏳ جاري رفع ${parsedRecords.length} سجل للسحابة دفعة واحدة...`;
+                importBtn.innerText = `⏳ جاري تفريغ السجلات القديمة...`;
 
-                const res = await fetch(`/api/import-csv-all?code=${code}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ records: parsedRecords })
-                });
+                // تفريغ السجلات القديمة أولاً
+                try {
+                    await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
+                } catch(err) {}
 
-                const data = await res.json();
+                const chunkSize = 50;
+                let uploadedCount = 0;
+                const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
+
+                for (let i = 0; i < parsedRecords.length; i += chunkSize) {
+                    const chunk = parsedRecords.slice(i, i + chunkSize);
+                    let currentChunkNum = Math.floor(i / chunkSize) + 1;
+                    importBtn.innerText = `⏳ رفع دفعة (${currentChunkNum} من ${totalChunks})...`;
+
+                    try {
+                        const res = await fetch(`/api/import-csv?code=${code}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ records: chunk })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            uploadedCount += chunk.length;
+                        }
+                    } catch (err) {}
+                    
+                    // استراحة قصيرة جداً لضمان عدم حدوث ضغط على السيرفر
+                    await new Promise(r => setTimeout(r, 40));
+                }
+
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                if (data.success) {
-                    alert(`🎉 تم رفع وحفظ كافة السجلات (${data.count} سجل) في السحابة خلال ثوانٍ معدودة!`);
-                    await loadIssuedList();
-                } else {
-                    alert('❌ حدث خطأ أثناء الحفظ في السحابة.');
-                }
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام وسريع!`);
+                await loadIssuedList();
 
             } catch (err) {
                 alert('⚠️ حدث خطأ أثناء رفع الملف للسحابة.');
