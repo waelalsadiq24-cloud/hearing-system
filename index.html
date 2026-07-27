@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد ذكي مقسم لدفعات خفيفة (50 سجل لكل دفعة) يمنع التعليق نهائياً
+    // 🚀 استيراد مقسم لدفعات خفيفة ومستقرة تماماً (50 سجل لكل دفعة مع مسح القديم أولاً)
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -377,7 +377,6 @@
                 importBtn.disabled = true;
                 importBtn.innerText = `⏳ جاري تفريغ السجلات القديمة...`;
 
-                // تفريغ السجلات القديمة أولاً
                 try {
                     await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 } catch(err) {}
@@ -403,14 +402,13 @@
                         }
                     } catch (err) {}
                     
-                    // استراحة قصيرة جداً لضمان عدم حدوث ضغط على السيرفر
-                    await new Promise(r => setTimeout(r, 40));
+                    await new Promise(r => setTimeout(r, 30));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام وسريع!`);
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام وفعال!`);
                 await loadIssuedList();
 
             } catch (err) {
