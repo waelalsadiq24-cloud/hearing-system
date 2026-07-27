@@ -20,6 +20,7 @@ async function getDB() {
 
 const institutions = {
     'yarmok': { id: 'yarmok', name: 'مستشفى اليرموك' },
+    'medcity': { id: 'medcity', name: 'مدينة الطب' },
     'tibb': { id: 'tibb', name: 'مدينة الطب' }
 };
 
@@ -53,7 +54,7 @@ app.get('/api/records', async (req, res) => {
     }
 });
 
-// حفظ سجل فردي جديد في السحابة
+// حفظ سجل فردي جديد
 app.post('/api/records', async (req, res) => {
     const code = req.query.code || 'yarmok';
     const currentInst = institutions[code] || institutions['yarmok'];
@@ -81,7 +82,7 @@ app.post('/api/records', async (req, res) => {
     }
 });
 
-// تعديل سجل في السحابة عند الضغط على Enter
+// تعديل سجل
 app.post('/api/records/update', async (req, res) => {
     const { id, field, value, patient_name } = req.body;
     if (!field) return res.status(400).json({ success: false });
@@ -102,7 +103,7 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// استيراد دفعات CSV وحفظها مباشرة في السحابة
+// استيراد الدفعات الصغيرة
 app.post('/api/import-csv', async (req, res) => {
     const { records } = req.body;
     if (!records || !Array.isArray(records) || records.length === 0) {
@@ -130,19 +131,19 @@ app.post('/api/import-csv', async (req, res) => {
         await db.collection('records').insertMany(formattedRecords, { ordered: false });
         res.json({ success: true, count: formattedRecords.length });
     } catch (e) {
-        res.json({ success: false, error: 'فشل التخزين في السحابة' });
+        res.status(500).json({ success: false, error: 'فشل التخزين' });
     }
 });
 
-// حذف كافة السجلات من السحابة
+// حذف السجلات
 async function handleClearRecords(req, res) {
     const code = req.query.code || 'yarmok';
     try {
         const db = await getDB();
         await db.collection('records').deleteMany({ institution_id: code });
-        res.json({ success: true, message: 'تم حذف كافة السجلات السحابية بنجاح' });
+        res.json({ success: true, message: 'تم الحذف بنجاح' });
     } catch (e) {
-        res.status(500).json({ success: false, error: 'فشل الحذف من السحابة' });
+        res.status(500).json({ success: false, error: 'فشل الحذف' });
     }
 }
 
