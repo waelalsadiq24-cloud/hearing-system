@@ -16,11 +16,21 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// مسار استقبال واستيراد ملفات الـ CSV (تمت إضافته لحل مشكلة 404)
+// مسار استرجاع وجلب السجلات المخزنة (تمت إضافته لحل مشكلة 404 للجدول)
+app.get('/api/records', (req, res) => {
+  try {
+    // يمكنك ربط هذا المسار بقاعدة بيانات أو ملف تخزين السجلات لديك
+    res.json({ success: true, data: [] });
+  } catch (error) {
+    console.error('Error fetching records:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// مسار استقبال واستيراد ملفات الـ CSV
 app.post('/api/import-chunk-safe', (req, res) => {
   try {
     const data = req.body;
-    // يمكنك إضافة كود حفظ البيانات هنا أو معالجتها حسب منطق النظام لديك
     console.log('Received chunk data successfully');
     
     res.json({ 
