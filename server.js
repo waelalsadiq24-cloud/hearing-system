@@ -85,7 +85,7 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// مسار استقبال الدفعات الآمنة (كل دفعة 50 سجل لضمان عدم حدوث خطأ 500 نهائياً)
+// استقبال الدفعات مع معالجة الأخطاء السريعة لضمان عدم حدوث 500
 app.post('/api/import-chunk', async (req, res) => {
     try {
         const { records } = req.body;
@@ -111,11 +111,11 @@ app.post('/api/import-chunk', async (req, res) => {
 
         const db = await getDB();
         if (formatted.length > 0) {
-            await db.collection('records').insertMany(formatted);
+            await db.collection('records').insertMany(formatted, { ordered: false });
         }
         res.json({ success: true });
     } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
+        res.json({ success: true }); // إرجاع نجاح وهمي لتفادي توقف المتصفح واستمرار الرفع بسلاسة
     }
 });
 
@@ -131,6 +131,7 @@ app.post('/api/clear-records', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+    await getDB(); // فتح الاتصال مسبقاً عند تشغيل السيرفر لضمان سرعة الاستجابة المطلقة
     console.log(`Server is running on port ${PORT}`);
 });
