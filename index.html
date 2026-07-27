@@ -257,11 +257,11 @@
 
             if (diffYears >= requiredYears) {
                 box.className = 'result-box eligible';
-                box.innerHTML = `✅ المريض (${foundRecord.patient_name}) مستحق! آخر صرف كان بتاريخ ${foundRecord.date.split('T')[0]} وفترة الاستحقاق هي ${requiredYears} سنوات.`;
+                box.innerHTML = `✅ المريض (${foundRecord.patient_name}) مستحق! آخر صرف كان بتاريخ ${foundRecord.date} وفترة الاستحقاق هي ${requiredYears} سنوات.`;
             } else {
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 box.className = 'result-box not-eligible';
-                box.innerHTML = `⚠️ المريض (${foundRecord.patient_name}) غير مستحق حالياً! استلم بتاريخ ${foundRecord.date.split('T')[0]}. متبقي حوالي ${remainingYears} سنة.`;
+                box.innerHTML = `⚠️ المريض (${foundRecord.patient_name}) غير مستحق حالياً! استلم بتاريخ ${foundRecord.date}. متبقي حوالي ${remainingYears} سنة.`;
             }
         }
     }
@@ -294,7 +294,7 @@
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 warningBox.style.display = 'block';
                 warningBox.className = 'result-box not-eligible';
-                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${foundRecord.patient_name}): غير مستحق! استلم بتاريخ ${foundRecord.date.split('T')[0]}. متبقي ${remainingYears} سنة.`;
+                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${foundRecord.patient_name}): غير مستحق! استلم بتاريخ ${foundRecord.date}. متبقي ${remainingYears} سنة.`;
                 issueBtn.disabled = true;
                 issueBtn.style.opacity = '0.5';
                 return;
@@ -307,6 +307,9 @@
     }
 
     function registerAndIssue() {
+        let d = new Date();
+        let todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
         const body = {
             national_id: document.getElementById('newNationalId').value.trim(),
             patient_name: document.getElementById('fullName').value.trim(),
@@ -315,7 +318,7 @@
             is_student: document.getElementById('isStudent').value,
             device_details: document.getElementById('deviceDetailsValue').value || document.getElementById('selectedDeviceDisplay').textContent,
             serial_number: document.getElementById('serialNumber').value.trim(),
-            date: new Date().toISOString(),
+            date: todayStr,
             institution_name: getInstitutionCode() === 'yarmok' ? 'مستشفى اليرموك' : 'مدينة الطب'
         };
 
@@ -343,7 +346,7 @@
         loadIssuedList();
     }
 
-    // 🚀 قارئ ملفات CSV الذكي جداً الذي يتعرف على الفواصل والأسطر وجميع الأعمدة تلقائياً
+    // 🚀 استيراد ذكي يضمن ضبط التاريخ بالصيغة الصحيحة (يوم/شهر/سنة)
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -363,7 +366,6 @@
                     let line = lines[i] ? lines[i].trim() : '';
                     if (!line) continue;
 
-                    // تقسيم السطر بغض النظر عن نوع الفاصل (فصلة عادية، فاصلة منقوطة، أو تاب)
                     let cols = line.split(/,|;|\t/);
                     cols = cols.map(c => (c ? c.replace(/^["']|["']$/g, '').trim() : ''));
 
@@ -375,21 +377,16 @@
                         continue;
                     }
 
-                    // استخراج الحقول بدقة من الأعمدة المتاحة
                     let patName = cols[0] || '';
                     let momName = cols[1] || '-';
                     let natId = cols[2] && !cols[2].includes('/') && cols[2].length > 1 ? cols[2] : '-';
                     let birth = cols[3] && cols[3].includes('/') ? cols[3] : '-';
-                    
-                    // البحث الذكي عن اسم السماعة في أي عمود
                     let device = cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -') || c.toLowerCase().includes('bte'))) || cols[4] || 'oticon xceed 3 up';
-                    
-                    // الرقم التسلسلي
                     let serial = cols.find(c => c && !isNaN(c) && c.length >= 5) || cols[5] || '0000';
                     
-                    // استخراج تاريخ الصرف الحقيقي (بحث عن صيغة التاريخ DD/MM/YYYY)
+                    // 🚀 تصحيح قراءة وترتيب التاريخ بدقة (يوم / شهر / سنة)
                     let rawDate = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/));
-                    let formattedDate = new Date().toISOString();
+                    let formattedDate = '-';
                     
                     if (rawDate) {
                         let parts = rawDate.split('/');
@@ -397,8 +394,12 @@
                             let day = parts[0].padStart(2, '0');
                             let month = parts[1].padStart(2, '0');
                             let year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
-                            formattedDate = `${year}-${month}-${day}T00:00:00.000Z`;
+                            // ترتيب التاريخ بشكل صحيح: يوم / شهر / سنة
+                            formattedDate = `${day}/${month}/${year}`;
                         }
+                    } else {
+                        let d = new Date();
+                        formattedDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
                     }
 
                     if (patName && patName !== 'undefined' && patName !== '' && !patName.includes('???')) {
@@ -417,20 +418,18 @@
                 }
 
                 if (parsedRecords.length === 0) {
-                    alert('⚠️ لم يتم قراءة أي سجلات صحيحة من الملف. تأكد من أن الملف بصيغة CSV صحيحة.');
+                    alert('⚠️ لم يتم قراءة أي سجلات صحيحة من الملف.');
                     event.target.value = '';
                     return;
                 }
 
                 let storageKey = `local_records_${code}`;
-                // تخزين الأسماء فوراً في المتصفح وعرضها
                 localStorage.setItem(storageKey, JSON.stringify(parsedRecords));
 
-                alert(`🎉 تم بنجاح استيراد وعرض ${parsedRecords.length} اسماً في الجدول فوراً!`);
+                alert(`🎉 تم استيراد وعرض ${parsedRecords.length} سجل بنجاح وتصحيح التواريخ!`);
                 loadIssuedList();
             } catch (err) {
-                console.error(err);
-                alert('⚠️ حدث خطأ أثناء قراءة ملف الـ CSV.');
+                alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
             }
             event.target.value = '';
         };
@@ -480,7 +479,6 @@
         const displayData = filteredData.slice(0, 500);
 
         displayData.forEach((item, index) => {
-            const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
             let tr = document.createElement('tr');
 
             tr.innerHTML = `
@@ -490,7 +488,7 @@
                 <td ondblclick="makeEditable(this, ${index}, 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
                 <td ondblclick="makeEditable(this, ${index}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
                 <td ondblclick="makeEditable(this, ${index}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
-                <td ondblclick="makeEditable(this, ${index}, 'date', '${dateOnly}')">${dateOnly}</td>
+                <td ondblclick="makeEditable(this, ${index}, 'date', '${item.date || '-'}')">${item.date || '-'}</td>
                 <td>${item.institution_name || '-'}</td>
             `;
 
