@@ -301,6 +301,7 @@
         }
     }
 
+    // 🚀 استيراد الملف بطلب واحد آمن ومحصن تماماً ينهي المشكلة للأبد
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -362,43 +363,24 @@
                 }
 
                 importBtn.disabled = true;
-                importBtn.innerText = `⏳ جاري تفريغ السجلات القديمة...`;
+                importBtn.innerText = `⏳ جاري رفع وحفظ ${parsedRecords.length} سجل بطلب آمن واحد...`;
 
-                try {
-                    await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
-                } catch(err) {}
+                const res = await fetch(`/api/import-all-safe?code=${code}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ records: parsedRecords })
+                });
 
-                // استخدام دفعات بحجم 20 مع مهلة أطول لضمان عمل السيرفر بدون أي ضغط
-                const chunkSize = 20;
-                let uploadedCount = 0;
-                const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
-
-                for (let i = 0; i < parsedRecords.length; i += chunkSize) {
-                    const chunk = parsedRecords.slice(i, i + chunkSize);
-                    let currentChunkNum = Math.floor(i / chunkSize) + 1;
-                    importBtn.innerText = `⏳ جاري الرفع (${currentChunkNum} من ${totalChunks})...`;
-
-                    try {
-                        let res = await fetch(`/api/import-chunk?code=${code}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ records: chunk })
-                        });
-                        let data = await res.json();
-                        if (data.success) {
-                            uploadedCount += chunk.length;
-                        }
-                    } catch (err) {}
-                    
-                    // استراحة 50 ميلي ثانية لتأمين راحة الخادم وعدم تجميده
-                    await new Promise(r => setTimeout(r, 50));
-                }
-
+                const data = await res.json();
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام ونهائي!`);
-                await loadIssuedList();
+                if (data.success) {
+                    alert(`🎉 تم رفع وحفظ كافة السجلات (${data.count} سجل) في السحابة بنجاح تام ونهائي!`);
+                    await loadIssuedList();
+                } else {
+                    alert('❌ حدث خطأ أثناء الحفظ في السحابة.');
+                }
 
             } catch (err) {
                 alert('⚠️ حدث خطأ أثناء قراءة الملف أو رفعه.');
