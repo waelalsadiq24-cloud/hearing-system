@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد مباشر وفوري يقبل أي صف يحتوي على بيانات بدون شروط معقدة
+    // 🚀 استيراد مباشر وسريع جداً بطلب مدمج واحد لضمان رفع كافة البيانات بدون أي فقدان
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -324,12 +324,15 @@
                     let cols = line.split(/,|;|\t/);
                     cols = cols.map(c => (c ? c.replace(/^["']|["']$/g, '').trim() : ''));
 
-                    // تخطي صف العناوين الأول فقط إذا كان يحتوي على كلمة "اسم" أو "الاسم"
-                    if (i === 0 && (cols[0].includes('اسم') || cols[0].includes('الاسم') || cols[0].includes('patient') || cols[0].includes('name'))) {
+                    let validCols = cols.filter(c => c !== '');
+                    if (validCols.length === 0) continue;
+
+                    let firstCol = validCols[0];
+                    // تخطي صف العناوين فقط إذا كان يحتوي على مصطلحات الرأس
+                    if (i === 0 && (firstCol.includes('اسم') || firstCol.includes('الاسم') || firstCol.includes('patient') || firstCol.includes('name') || firstCol.includes('تاريخ'))) {
                         continue;
                     }
 
-                    // أخذ القيم مباشرة حسب ترتيب الأعمدة
                     let patName = cols[0] || '';
                     let momName = cols[1] || '-';
                     let natId = cols[2] || '-';
@@ -338,7 +341,6 @@
                     let serial = cols[5] || '0000';
                     let formattedDate = new Date().toISOString().split('T')[0];
 
-                    // إذا كان العمود الأول يحتوي على اسم مريض صالح، قم بإضافته مباشرة
                     if (patName && patName !== '' && patName !== 'undefined') {
                         parsedRecords.push({
                             national_id: String(natId),
@@ -354,7 +356,7 @@
                 }
 
                 if (parsedRecords.length === 0) {
-                    alert('⚠️ لم يتم العثور على بيانات صالحة في الملف.');
+                    alert('⚠️ لم يتم قراءة أي سجلات. تأكد من أن الملف يحتوي على بيانات صالحة.');
                     importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                     importBtn.disabled = false;
                     event.target.value = '';
@@ -362,42 +364,24 @@
                 }
 
                 importBtn.disabled = true;
-                importBtn.innerText = `⏳ جاري تفريغ السجلات القديمة...`;
+                importBtn.innerText = `⏳ جاري رفع وحفظ ${parsedRecords.length} سجل دفعة واحدة...`;
 
-                try {
-                    await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
-                } catch(err) {}
+                const res = await fetch(`/api/import-all-records?code=${code}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ records: parsedRecords })
+                });
 
-                // إرسال البيانات على دفعات آمنة (100 سجل) لضمان عدم حدوث خطأ 500
-                const chunkSize = 100;
-                let uploadedCount = 0;
-                const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
-
-                for (let i = 0; i < parsedRecords.length; i += chunkSize) {
-                    const chunk = parsedRecords.slice(i, i + chunkSize);
-                    let currentChunkNum = Math.floor(i / chunkSize) + 1;
-                    importBtn.innerText = `⏳ جاري الرفع (${currentChunkNum} من ${totalChunks})...`;
-
-                    try {
-                        let res = await fetch(`/api/import-csv?code=${code}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ records: chunk })
-                        });
-                        const data = await res.json();
-                        if (data.success) {
-                            uploadedCount += chunk.length;
-                        }
-                    } catch (err) {}
-                    
-                    await new Promise(r => setTimeout(r, 20));
-                }
-
+                const data = await res.json();
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام!`);
-                await loadIssuedList();
+                if (data.success) {
+                    alert(`🎉 تم رفع وحفظ كافة السجلات (${data.count} سجل) في السحابة بنجاح تام وفوري!`);
+                    await loadIssuedList();
+                } else {
+                    alert('❌ حدث خطأ أثناء الحفظ في السحابة.');
+                }
 
             } catch (err) {
                 alert('⚠️ حدث خطأ أثناء قراءة الملف أو رفعه.');
