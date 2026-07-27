@@ -86,7 +86,6 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// مسار استقبال الدفعات الآمنة (100 سجل لكل دفعة)
 app.post('/api/import-csv', async (req, res) => {
     const { records } = req.body;
     if (!records || !Array.isArray(records)) return res.json({ success: false });
@@ -114,7 +113,7 @@ app.post('/api/import-csv', async (req, res) => {
         }
         res.json({ success: true });
     } catch (e) {
-        res.json({ success: false, error: e.message });
+        res.json({ success: false });
     }
 });
 
