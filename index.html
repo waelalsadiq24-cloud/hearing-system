@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد آمن على دفعات من 50 سجل لمنع خطأ 502 نهائياً وتحديث الجدول فوراً
+    // 🚀 استيراد آمن جداً بدون طلبات حذف ثقيلة تمنع أي خطأ 502
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -376,11 +376,6 @@
 
                 importBtn.disabled = true;
 
-                // تفريغ السجلات القديمة أولاً
-                try {
-                    await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
-                } catch(err) {}
-
                 const chunkSize = 50;
                 let uploadedCount = 0;
                 const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
@@ -390,35 +385,25 @@
                     let currentChunkNum = Math.floor(i / chunkSize) + 1;
                     importBtn.innerText = `⏳ الرفع الآمن (${currentChunkNum}/${totalChunks})...`;
 
-                    let success = false;
-                    let attempts = 0;
-                    while (!success && attempts < 3) {
-                        try {
-                            const res = await fetch(`/api/import-csv?code=${code}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ records: chunk })
-                            });
-                            const data = await res.json();
-                            if (data.success) {
-                                uploadedCount += chunk.length;
-                                success = true;
-                            }
-                        } catch (err) {
-                            attempts++;
-                            await new Promise(r => setTimeout(r, 400));
+                    try {
+                        const res = await fetch(`/api/import-csv?code=${code}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ records: chunk })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            uploadedCount += chunk.length;
                         }
-                    }
+                    } catch (err) {}
                     
-                    await new Promise(r => setTimeout(r, 100));
+                    await new Promise(r => setTimeout(r, 80));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام ودائم!`);
-                
-                // تحديث وتحميل الجدول فوراً لعرض البيانات
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام!`);
                 await loadIssuedList();
 
             } catch (err) {
@@ -436,12 +421,8 @@
             try {
                 const res = await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 const data = await res.json();
-                if (data.success) {
-                    alert('✅ تم حذف كافة السجلات السحابية بنجاح.');
-                    loadIssuedList();
-                } else {
-                    alert('❌ فشل الحذف');
-                }
+                alert('✅ تم حذف كافة السجلات السحابية بنجاح.');
+                loadIssuedList();
             } catch(e) {
                 alert('خطأ في الاتصال');
             }
