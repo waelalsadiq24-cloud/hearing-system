@@ -4,38 +4,75 @@ const fs = require('fs');
 
 const app = express();
 
-// إعدادات استقبال البيانات بحجم كبير لملفات الـ CSV الضخمة
+// إعدادات استقبال البيانات بحجم كبير لملفات الـ CSV والـ JSON الضخمة
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // تقديم الملفات الثابتة من المجلد الحالي
 app.use(express.static(path.join(__dirname)));
 
+// مسار ملف قاعدة البيانات المحلية
+const dbFilePath = path.join(__dirname, 'database.json');
+
+// دالة مساعدة لقراءة البيانات
+function readDatabase() {
+  try {
+    if (fs.existsSync(dbFilePath)) {
+      const data = fs.readFileSync(dbFilePath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('Error reading database:', err);
+  }
+  return [];
+}
+
+// دالة مساعدة لحفظ البيانات
+function saveDatabase(data) {
+  try {
+    fs.writeFileSync(dbFilePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('Error saving database:', err);
+    return false;
+  }
+}
+
 // مسار رئيسي لتشغيل الواجهة
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// مسار استرجاع وجلب السجلات المخزنة
+// مسار استرجاع وجلب السجلات المخزنة حقيقياً
 app.get('/api/records', (req, res) => {
   try {
-    res.json({ success: true, data: [] });
+    const records = readDatabase();
+    res.json({ success: true, data: records });
   } catch (error) {
     console.error('Error fetching records:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// مسار استقبال واستيراد ملفات الـ CSV
+// مسار استقبال واستيراد ملفات الـ CSV وحفظها بشكل دائم
 app.post('/api/import-chunk-safe', (req, res) => {
   try {
-    const data = req.body;
-    console.log('Received chunk data successfully');
+    const incomingData = req.body;
+    let currentRecords = readDatabase();
+    
+    // دمج أو استبدال البيانات حسب الحاجة
+    if (Array.isArray(incomingData)) {
+      currentRecords = currentRecords.concat(incomingData);
+    } else if (incomingData) {
+      currentRecords.push(incomingData);
+    }
+    
+    saveDatabase(currentRecords);
     
     res.json({ 
       success: true, 
-      message: 'Chunk imported successfully',
-      receivedCount: Array.isArray(data) ? data.length : 1 
+      message: 'Chunk imported and saved successfully',
+      receivedCount: Array.isArray(incomingData) ? incomingData.length : 1 
     });
   } catch (error) {
     console.error('Error handling import:', error);
@@ -43,12 +80,10 @@ app.post('/api/import-chunk-safe', (req, res) => {
   }
 });
 
-// مسار تفريغ / مسح السجلات (تمت إضافته لحل مشكلة 404 لزر التفريغ)
+// مسار تفريغ / مسح السجلات
 app.post('/api/clear-records', (req, res) => {
   try {
-    const code = req.query.code;
-    console.log(`Clearing records for code: ${code}`);
-    
+    saveDatabase([]); // تفريغ الملف
     res.json({ success: true, message: 'Records cleared successfully' });
   } catch (error) {
     console.error('Error clearing records:', error);
