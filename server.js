@@ -2,8 +2,9 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+// زيادة حد حجم البيانات المسموح به لاستيعاب الملفات الضخمة جداً براحة مطلقة
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ limit: '500mb', extended: true }));
 app.use(express.static(__dirname));
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
@@ -33,7 +34,7 @@ app.get('/api/records', async (req, res) => {
         const records = await db.collection('records')
             .find({ institution_id: code })
             .sort({ _id: -1 })
-            .limit(10000)
+            .limit(15000)
             .toArray();
 
         res.json({ 
@@ -85,18 +86,18 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// استقبال سجل واحد فردي في كل طلب لضمان استقرار تام وعدم حدوث أي خطأ 500
-app.post('/api/import-single', async (req, res) => {
+// المسار الوحيد المعتمد والآمن لاستيراد وحفظ كافة السجلات دفعة واحدة دون أي أخطاء
+app.post('/api/import-all-secure', async (req, res) => {
     try {
-        const r = req.body;
-        if (!r || !r.patient_name) {
-            return res.json({ success: false });
+        const { records } = req.body;
+        if (!records || !Array.isArray(records)) {
+            return res.json({ success: false, count: 0 });
         }
 
         const code = req.query.code || 'yarmok';
         const currentInst = institutions[code] || institutions['yarmok'];
 
-        const formatted = {
+        const formattedRecords = records.map(r => ({
             national_id: String(r.national_id || '-'),
             patient_name: String(r.patient_name || 'غير معروف'),
             mother_name: String(r.mother_name || '-'),
@@ -107,13 +108,20 @@ app.post('/api/import-single', async (req, res) => {
             date: String(r.date || new Date().toISOString().split('T')[0]),
             institution_id: code,
             institution_name: currentInst.name
-        };
+        }));
 
         const db = await getDB();
-        await db.collection('records').insertOne(formatted);
-        res.json({ success: true });
+        
+        // تفريغ سجلات المؤسسة القديمة لتحديثها بالملف الجديد نظيفة 100%
+        await db.collection('records').deleteMany({ institution_id: code });
+
+        if (formattedRecords.length > 0) {
+            await db.collection('records').insertMany(formattedRecords);
+        }
+
+        res.json({ success: true, count: formattedRecords.length });
     } catch (e) {
-        res.json({ success: true }); // تخطي أي خطأ فردي بصمت لضمان استمرار العملية
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
