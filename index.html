@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد آمن ومقسم لدفعات (100 سجل لكل دفعة) مع استراحة ذكية
+    // 🚀 استيراد مقسم لدفعات آمنة (50 سجل لكل دفعة) باستخدام مسار /api/import-csv المعتمد
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -381,8 +381,7 @@
                     await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 } catch(err) {}
 
-                // استخدام دفعات من 100 سجل لحفظ متوازن وآمن تماماً
-                const chunkSize = 100;
+                const chunkSize = 50;
                 let uploadedCount = 0;
                 const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
 
@@ -391,27 +390,18 @@
                     let currentChunkNum = Math.floor(i / chunkSize) + 1;
                     importBtn.innerText = `⏳ رفع دفعة (${currentChunkNum} من ${totalChunks})...`;
 
-                    let success = false;
-                    let retries = 5;
-                    while (!success && retries > 0) {
-                        try {
-                            const res = await fetch(`/api/import-csv?code=${code}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ records: chunk })
-                            });
-                            const data = await res.json();
-                            if (data.success) {
-                                uploadedCount += chunk.length;
-                                success = true;
-                            }
-                        } catch (err) {
-                            retries--;
-                            await new Promise(r => setTimeout(r, 1000));
+                    try {
+                        const res = await fetch(`/api/import-csv?code=${code}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ records: chunk })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            uploadedCount += chunk.length;
                         }
-                    }
+                    } catch (err) {}
                     
-                    // استراحة قصيرة 100 ميلي ثانية بين الدفعات لضمان عدم ضغط السيرفر
                     await new Promise(r => setTimeout(r, 100));
                 }
 
