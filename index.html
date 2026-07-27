@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد ذكي ومرن يتعامل مع أي ملف CSV أو Excel مخزن كنص
+    // 🚀 استيراد ذكي مع التحديث الفوري للجدول بعد الاكتمال
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -409,7 +409,9 @@
                 importBtn.disabled = false;
 
                 alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام وسريع!`);
-                location.reload();
+                
+                // 🔄 جلب البيانات وتحديث الجدول فوراً لعرض الأسماء مباشرة
+                await loadIssuedList();
 
             } catch (err) {
                 alert('⚠️ حدث خطأ أثناء قراءة الملف أو رفعه للسحابة.');
@@ -427,7 +429,7 @@
                 const res = await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 const data = await res.json();
                 alert('✅ تم حذف كافة السجلات السحابية بنجاح.');
-                location.reload();
+                loadIssuedList();
             } catch(e) {
                 alert('خطأ في الاتصال');
             }
