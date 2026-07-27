@@ -211,11 +211,11 @@
 
             if (diffYears >= requiredYears) {
                 box.className = 'result-box eligible';
-                box.innerHTML = `✅ المريض (${foundRecord.patient_name}) مستحق! آخر صرف كان بتاريخ ${foundRecord.date.split('T')[0]} وفترة الاستحقاق هي ${requiredYears} سنوات.`;
+                box.innerHTML = `✅ المريض (${foundRecord.patient_name}) مستحق! آخر صرف كان بتاريخ ${foundRecord.date} وفترة الاستحقاق هي ${requiredYears} سنوات.`;
             } else {
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 box.className = 'result-box not-eligible';
-                box.innerHTML = `⚠️ المريض (${foundRecord.patient_name}) غير مستحق حالياً! استلم بتاريخ ${foundRecord.date.split('T')[0]}. متبقي حوالي ${remainingYears} سنة.`;
+                box.innerHTML = `⚠️ المريض (${foundRecord.patient_name}) غير مستحق حالياً! استلم بتاريخ ${foundRecord.date}. متبقي حوالي ${remainingYears} سنة.`;
             }
         }
     }
@@ -248,7 +248,7 @@
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 warningBox.style.display = 'block';
                 warningBox.className = 'result-box not-eligible';
-                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${foundRecord.patient_name}): غير مستحق! استلم بتاريخ ${foundRecord.date.split('T')[0]}. متبقي ${remainingYears} سنة.`;
+                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${foundRecord.patient_name}): غير مستحق! استلم بتاريخ ${foundRecord.date}. متبقي ${remainingYears} سنة.`;
                 issueBtn.disabled = true;
                 issueBtn.style.opacity = '0.5';
                 return;
@@ -269,7 +269,7 @@
             is_student: document.getElementById('isStudent').value,
             device_details: document.getElementById('selectedDeviceDisplay').value.trim(),
             serial_number: document.getElementById('serialNumber').value.trim(),
-            date: new Date().toISOString()
+            date: new Date().toISOString().split('T')[0]
         };
 
         if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
@@ -284,7 +284,7 @@
         });
         const data = await res.json();
         if(data.success) {
-            alert('✅ ' + data.message);
+            alert('✅ تم الحفظ بنجاح');
             document.getElementById('newNationalId').value = '';
             document.getElementById('fullName').value = '';
             document.getElementById('motherName').value = '';
@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد ورفع الأسماء للسحابة على دفعات صغيرة وآمنة (30 سجل لكل دفعة)
+    // 🚀 استيراد آمن على دفعات صغيرة (10 سجلات) لتجنب الأخطاء كلياً
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -339,7 +339,7 @@
                     let serial = cols.find(c => c && !isNaN(c) && c.length >= 5) || cols[5] || '0000';
                     
                     let rawDate = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/));
-                    let formattedDate = new Date().toISOString();
+                    let formattedDate = new Date().toISOString().split('T')[0];
                     
                     if (rawDate) {
                         let parts = rawDate.split('/');
@@ -347,7 +347,7 @@
                             let day = parts[0].padStart(2, '0');
                             let month = parts[1].padStart(2, '0');
                             let year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
-                            formattedDate = `${year}-${month}-${day}T00:00:00.000Z`;
+                            formattedDate = `${year}-${month}-${day}`;
                         }
                     }
 
@@ -374,12 +374,11 @@
                 const importBtn = document.getElementById('importBtn');
                 importBtn.disabled = true;
 
-                // حذف السجلات القديمة أولاً من السحابة
                 try {
                     await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 } catch(err) {}
 
-                const chunkSize = 30;
+                const chunkSize = 10;
                 let uploadedCount = 0;
                 const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
 
@@ -388,28 +387,19 @@
                     let currentChunkNum = Math.floor(i / chunkSize) + 1;
                     importBtn.innerText = `⏳ رفع للسحابة (${currentChunkNum}/${totalChunks})...`;
 
-                    let success = false;
-                    let retries = 3;
-                    
-                    while (!success && retries > 0) {
-                        try {
-                            const res = await fetch(`/api/import-csv?code=${code}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ records: chunk })
-                            });
-                            const data = await res.json();
-                            if (data.success) {
-                                uploadedCount += chunk.length;
-                                success = true;
-                            }
-                        } catch (err) {
-                            retries--;
-                            await new Promise(r => setTimeout(r, 500));
+                    try {
+                        const res = await fetch(`/api/import-csv?code=${code}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ records: chunk })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            uploadedCount += chunk.length;
                         }
-                    }
+                    } catch (err) {}
                     
-                    await new Promise(r => setTimeout(r, 100));
+                    await new Promise(r => setTimeout(r, 50));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
@@ -472,7 +462,6 @@
         const displayData = filteredData.slice(0, 500);
 
         displayData.forEach((item) => {
-            const dateOnly = item.date ? item.date.split('T')[0] : 'غير محدد';
             let tr = document.createElement('tr');
 
             tr.innerHTML = `
@@ -482,7 +471,7 @@
                 <td ondblclick="makeEditable(this, '${item._id || ''}', 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
                 <td ondblclick="makeEditable(this, '${item._id || ''}', 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
                 <td ondblclick="makeEditable(this, '${item._id || ''}', 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'date', '${dateOnly}')">${dateOnly}</td>
+                <td ondblclick="makeEditable(this, '${item._id || ''}', 'date', '${item.date || ''}')">${item.date || '-'}</td>
                 <td>${item.institution_name || '-'}</td>
             `;
 
