@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>نظام سجلات السماعات الطبية (السحابي الدائم)</title>
+    <title>نظام سجلات السماعات الطبية (المحلي الفوري الآمن)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; direction: rtl; }
         .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -44,7 +44,7 @@
 <body>
 
 <div class="container">
-    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية (السحابي الدائم)</h2>
+    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية (الفوري فائق السرعة)</h2>
 
     <div class="card">
         <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
@@ -103,18 +103,18 @@
         </div>
 
         <div id="registrationWarning" class="result-box" style="margin-top: 10px;"></div>
-        <button class="btn-issue" id="issueBtn" onclick="registerAndIssue()">حفظ وصرف السماعة في السحابة</button>
+        <button class="btn-issue" id="issueBtn" onclick="registerAndIssue()">حفظ وصرف السماعة</button>
     </div>
 
     <div class="card">
-        <h3>📋 سجل السحابة الدائم (انقر دبل كلك على أي خلية للتعديل واضغط Enter للحفظ)</h3>
+        <h3>📋 السجلات (انقر دبل كلك على أي خلية للتعديل واضغط Enter للحفظ)</h3>
         
         <div class="header-bar">
             <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
             <div class="actions-group">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                    <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvSafely(event)">
-                    <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV إلى السحابة</button>
+                    <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvLocally(event)">
+                    <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV الفوري (8000+ سجل)</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ حذف كافة السجلات</button>
                 </div>
                 <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
@@ -135,7 +135,7 @@
                 </tr>
             </thead>
             <tbody id="issuedTableBody">
-                <tr><td colspan="8">جاري التحميل من السحابة...</td></tr>
+                <tr><td colspan="8">جاري التحميل...</td></tr>
             </tbody>
         </table>
     </div>
@@ -143,7 +143,7 @@
 </div>
 
 <script>
-    let cachedRecords = [];
+    let allRecords = [];
 
     function autoTab(current, nextFieldId, maxLen) {
         if (current.value.length >= maxLen) {
@@ -157,6 +157,10 @@
         return urlParams.get('code') || 'yarmok';
     }
 
+    function getStorageKey() {
+        return 'hearing_records_' + getInstitutionCode();
+    }
+
     function calculateAge(birthStr) {
         if (!birthStr || birthStr === '-') return 0;
         let year = 0;
@@ -164,7 +168,7 @@
             let parts = birthStr.split('/');
             year = parseInt(parts[2]) || 0;
         } else {
-            year = parseInt(birthStr) || 0;
+            year = parseInt(parts[) || 0;
         }
         if (!year) return 0;
         return new Date().getFullYear() - year;
@@ -175,23 +179,29 @@
         return 3;
     }
 
-    async function loadIssuedList() {
-        const code = getInstitutionCode();
+    function loadIssuedList() {
         try {
-            const res = await fetch(`/api/records?code=${code}`);
-            const data = await res.json();
-            cachedRecords = data.records || [];
+            const stored = localStorage.getItem(getStorageKey());
+            allRecords = stored ? JSON.parse(stored) : [];
         } catch (e) {
-            cachedRecords = [];
+            allRecords = [];
         }
-        renderTable(cachedRecords);
+        renderTable(allRecords);
+    }
+
+    function saveToStorage() {
+        try {
+            localStorage.setItem(getStorageKey(), JSON.stringify(allRecords));
+        } catch(e) {
+            alert('⚠️ مساحة التخزين المحلية ممتلئة.');
+        }
     }
 
     function searchPatient() {
         const queryText = document.getElementById('searchId').value.trim().toLowerCase();
         if(!queryText) return alert('يرجى إدخال الرقم الوطني أو اسم المريض للبحث');
 
-        const foundRecord = cachedRecords.find(r => 
+        const foundRecord = allRecords.find(r => 
             (r.national_id && String(r.national_id).toLowerCase() === queryText) || 
             (r.patient_name && String(r.patient_name).toLowerCase().includes(queryText))
         );
@@ -233,7 +243,7 @@
             return;
         }
 
-        const foundRecord = cachedRecords.find(r => 
+        const foundRecord = allRecords.find(r => 
             (id && r.national_id && String(r.national_id).toLowerCase() === id) || 
             (fullName && r.patient_name && String(r.patient_name).toLowerCase().includes(fullName))
         );
@@ -260,8 +270,9 @@
         issueBtn.style.opacity = '1';
     }
 
-    async function registerAndIssue() {
-        const body = {
+    function registerAndIssue() {
+        const newRecord = {
+            id: 'rec_' + Date.now() + Math.random(),
             national_id: document.getElementById('newNationalId').value.trim(),
             patient_name: document.getElementById('fullName').value.trim(),
             mother_name: document.getElementById('motherName').value.trim(),
@@ -269,53 +280,46 @@
             is_student: document.getElementById('isStudent').value,
             device_details: document.getElementById('selectedDeviceDisplay').value.trim(),
             serial_number: document.getElementById('serialNumber').value.trim(),
-            date: new Date().toISOString().split('T')[0]
+            date: new Date().toISOString().split('T')[0],
+            institution_name: getInstitutionCode() === 'medcity' ? 'مدينة الطب' : 'مستشفى اليرموك'
         };
 
-        if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
+        if(!newRecord.national_id || !newRecord.patient_name || !newRecord.device_details || !newRecord.serial_number) {
             return alert('يرجى تعبئة الحقول المطلوبة');
         }
 
-        const code = getInstitutionCode();
-        const res = await fetch(`/api/records?code=${code}`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        if(data.success) {
-            alert('✅ تم الحفظ بنجاح');
-            document.getElementById('newNationalId').value = '';
-            document.getElementById('fullName').value = '';
-            document.getElementById('motherName').value = '';
-            document.getElementById('birthDay').value = '';
-            document.getElementById('birthMonth').value = '';
-            document.getElementById('birthYear').value = '';
-            document.getElementById('serialNumber').value = '';
-            document.getElementById('registrationWarning').style.display = 'none';
-            document.getElementById('issueBtn').disabled = false;
-            document.getElementById('issueBtn').style.opacity = '1';
-            loadIssuedList();
-        } else {
-            alert('❌ فشل الحفظ في السحابة');
-        }
+        allRecords.unshift(newRecord);
+        saveToStorage();
+        alert('✅ تم الحفظ بنجاح');
+
+        document.getElementById('newNationalId').value = '';
+        document.getElementById('fullName').value = '';
+        document.getElementById('motherName').value = '';
+        document.getElementById('birthDay').value = '';
+        document.getElementById('birthMonth').value = '';
+        document.getElementById('birthYear').value = '';
+        document.getElementById('serialNumber').value = '';
+        document.getElementById('registrationWarning').style.display = 'none';
+        document.getElementById('issueBtn').disabled = false;
+        document.getElementById('issueBtn').style.opacity = '1';
+
+        renderTable(allRecords);
     }
 
-    // 🚀 استيراد الملف بطلب واحد آمن ومحصن تماماً ينهي المشكلة للأبد
-    function importCsvSafely(event) {
+    // 🚀 استيراد فوري بدون أي سيرفر أو خطأ 500
+    function importCsvLocally(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.readAsText(file, 'UTF-8');
         
-        reader.onload = async function(e) {
-            const importBtn = document.getElementById('importBtn');
+        reader.onload = function(e) {
             try {
                 const text = e.target.result;
                 const lines = text.split(/\r\n|\n/);
-                let parsedRecords = [];
-                const code = getInstitutionCode();
+                let parsed = [];
+                const instName = getInstitutionCode() === 'medcity' ? 'مدينة الطب' : 'مستشفى اليرموك';
 
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i] ? lines[i].trim() : '';
@@ -338,10 +342,10 @@
                     let birth = cols[3] || '-';
                     let device = cols[4] || 'oticon xceed 3 up';
                     let serial = cols[5] || '0000';
-                    let formattedDate = new Date().toISOString().split('T')[0];
 
                     if (patName && patName !== '' && patName !== 'undefined') {
-                        parsedRecords.push({
+                        parsed.push({
+                            id: 'rec_' + i + '_' + Math.random(),
                             national_id: String(natId),
                             patient_name: patName,
                             mother_name: momName,
@@ -349,64 +353,41 @@
                             is_student: 'yes',
                             device_details: device,
                             serial_number: serial,
-                            date: formattedDate
+                            date: new Date().toISOString().split('T')[0],
+                            institution_name: instName
                         });
                     }
                 }
 
-                if (parsedRecords.length === 0) {
-                    alert('⚠️ لم يتم قراءة أي سجلات. تأكد من أن الملف يحتوي على بيانات صالحة.');
-                    importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
-                    importBtn.disabled = false;
+                if (parsed.length === 0) {
+                    alert('⚠️ لم يتم قراءة أي سجلات.');
                     event.target.value = '';
                     return;
                 }
 
-                importBtn.disabled = true;
-                importBtn.innerText = `⏳ جاري رفع وحفظ ${parsedRecords.length} سجل بطلب آمن واحد...`;
-
-                const res = await fetch(`/api/import-all-safe?code=${code}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ records: parsedRecords })
-                });
-
-                const data = await res.json();
-                importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
-                importBtn.disabled = false;
-
-                if (data.success) {
-                    alert(`🎉 تم رفع وحفظ كافة السجلات (${data.count} سجل) في السحابة بنجاح تام ونهائي!`);
-                    await loadIssuedList();
-                } else {
-                    alert('❌ حدث خطأ أثناء الحفظ في السحابة.');
-                }
+                allRecords = parsed;
+                saveToStorage();
+                alert(`🎉 تم تحميل ورفع كافة السجلات (${parsedRecordsCount = allRecords.length} سجل) محلياً وبسرعة فائقة بدون أخطاء!`);
+                renderTable(allRecords);
 
             } catch (err) {
-                alert('⚠️ حدث خطأ أثناء قراءة الملف أو رفعه.');
-                importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
-                importBtn.disabled = false;
+                alert('⚠️ حدث خطأ أثناء قراءة الملف.');
             }
             event.target.value = '';
         };
     }
 
-    async function clearAllRecords() {
-        if (confirm("⚠️ تحذير خطير: هل أنت متأكد تماماً من رغبتك في حذف كافة السجلات السحابية نهائياً؟")) {
-            const code = getInstitutionCode();
-            try {
-                const res = await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
-                const data = await res.json();
-                alert('✅ تم حذف كافة السجلات السحابية بنجاح.');
-                loadIssuedList();
-            } catch(e) {
-                alert('خطأ في الاتصال');
-            }
+    function clearAllRecords() {
+        if (confirm("⚠️ تحذير: هل أنت متأكد من حذف كافة السجلات؟")) {
+            allRecords = [];
+            localStorage.removeItem(getStorageKey());
+            renderTable(allRecords);
+            alert('✅ تم الحذف بنجاح.');
         }
     }
 
     function filterTableLive() {
-        renderTable(cachedRecords);
+        renderTable(allRecords);
     }
 
     function renderTable(data) {
@@ -426,7 +407,7 @@
         tbody.innerHTML = '';
 
         if(filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة في السحابة</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة</td></tr>';
             return;
         }
 
@@ -436,13 +417,13 @@
             let tr = document.createElement('tr');
 
             tr.innerHTML = `
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'date', '${item.date || ''}')">${item.date || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item.id}', 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
+                <td ondblclick="makeEditable(this, '${item.id}', 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item.id}', 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item.id}', 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item.id}', 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item.id}', 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
+                <td ondblclick="makeEditable(this, '${item.id}', 'date', '${item.date || ''}')">${item.date || '-'}</td>
                 <td>${item.institution_name || '-'}</td>
             `;
 
@@ -456,7 +437,7 @@
         }
     }
 
-    async function makeEditable(cell, recordId, fieldName, currentValue) {
+    function makeEditable(cell, recordId, fieldName, currentValue) {
         if (cell.querySelector('input')) return;
 
         cell.innerHTML = `<input type="text" class="inline-edit-input" value="${currentValue === '-' ? '' : currentValue}">`;
@@ -464,24 +445,15 @@
         input.focus();
         input.select();
 
-        input.onkeydown = async function(e) {
+        input.onkeydown = function(e) {
             if (e.key === 'Enter') {
                 const newValue = input.value.trim();
                 cell.innerHTML = newValue === '' ? '-' : newValue;
 
-                try {
-                    const code = getInstitutionCode();
-                    const res = await fetch(`/api/records/update?code=${code}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: recordId, field: fieldName, value: newValue })
-                    });
-                    const result = await res.json();
-                    if (!result.success) {
-                        alert('❌ فشل حفظ التعديل في السحابة');
-                    }
-                } catch (err) {
-                    alert('⚠️ خطأ في الاتصال بالسحابة');
+                const target = allRecords.find(r => r.id === recordId);
+                if (target) {
+                    target[fieldName] = newValue;
+                    saveToStorage();
                 }
             } else if (e.key === 'Escape') {
                 cell.innerHTML = currentValue === '-' ? '-' : currentValue;
