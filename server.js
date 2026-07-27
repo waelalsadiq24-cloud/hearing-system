@@ -69,26 +69,27 @@ app.post('/api/records', async (req, res) => {
         await db.collection('records').insertOne(newRecord);
         res.json({ success: true, message: 'تم الحفظ بنجاح' });
     } catch (e) {
-        res.status(500).json({ success: false });
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
 app.post('/api/records/update', async (req, res) => {
-    const { id, field, value, patient_name } = req.body;
+    const { id, field, value } = req.body;
     try {
         const db = await getDB();
-        let query = (id && id.length === 24) ? { _id: new ObjectId(id) } : { patient_name: patient_name };
-        await db.collection('records').updateOne(query, { $set: { [field]: value } });
+        if (id && id.length === 24) {
+            await db.collection('records').updateOne({ _id: new ObjectId(id) }, { $set: { [field]: value } });
+        }
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false });
     }
 });
 
-// مسار الاستيراد المبسط والآمن تماماً
+// استيراد آمن جداً بدون مسح قديم يسبب أخطاء
 app.post('/api/import-csv', async (req, res) => {
     const { records } = req.body;
-    if (!records || !Array.isArray(records)) return res.json({ success: false });
+    if (!records || !Array.isArray(records)) return.json({ success: false });
 
     const code = req.query.code || 'yarmok';
     const currentInst = institutions[code] || institutions['yarmok'];
@@ -108,10 +109,12 @@ app.post('/api/import-csv', async (req, res) => {
 
     try {
         const db = await getDB();
-        await db.collection('records').insertMany(formattedRecords);
+        if (formattedRecords.length > 0) {
+            await db.collection('records').insertMany(formattedRecords);
+        }
         res.json({ success: true });
     } catch (e) {
-        res.status(500).json({ success: false });
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
