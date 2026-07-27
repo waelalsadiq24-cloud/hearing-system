@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>نظام سجلات السماعات الطبية (المحلي الفوري)</title>
+    <title>نظام سجلات السماعات الطبية (الفوري فائق السرعة)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; direction: rtl; }
         .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -44,7 +44,7 @@
 <body>
 
 <div class="container">
-    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية (الفوري الآمن)</h2>
+    <h2>🏥 نظام فحص وتسجيل وصرف السماعات الطبية (الفوري فائق السرعة)</h2>
 
     <div class="card">
         <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
@@ -135,7 +135,7 @@
                 </tr>
             </thead>
             <tbody id="issuedTableBody">
-                <tr><td colspan="8">جاري التحميل...</td></tr>
+                <tr><td colspan="8">قم برفع ملف الـ CSV للبدء...</td></tr>
             </tbody>
         </table>
     </div>
@@ -157,10 +157,6 @@
         return urlParams.get('code') || 'yarmok';
     }
 
-    function getStorageKey() {
-        return 'hearing_records_local_' + getInstitutionCode();
-    }
-
     function calculateAge(birthStr) {
         if (!birthStr || birthStr === '-') return 0;
         let year = 0;
@@ -180,21 +176,7 @@
     }
 
     function loadIssuedList() {
-        try {
-            const stored = localStorage.getItem(getStorageKey());
-            allRecords = stored ? JSON.parse(stored) : [];
-        } catch (e) {
-            allRecords = [];
-        }
         renderTable(allRecords);
-    }
-
-    function saveToStorage() {
-        try {
-            localStorage.setItem(getStorageKey(), JSON.stringify(allRecords));
-        } catch(e) {
-            alert('⚠️ مساحة التخزين المحلية ممتلئة.');
-        }
     }
 
     function searchPatient() {
@@ -289,8 +271,7 @@
         }
 
         allRecords.unshift(newRecord);
-        saveToStorage();
-        alert('✅ تم الحفظ بنجاح');
+        alert('✅ تم الحفظ بنجاح في الذاكرة');
 
         document.getElementById('newNationalId').value = '';
         document.getElementById('fullName').value = '';
@@ -365,8 +346,7 @@
                 }
 
                 allRecords = parsed;
-                saveToStorage();
-                alert(`🎉 تم تحميل كافة السجلات (${allRecords.length} سجل) محلياً وبسرعة صاروخية دون أي أخطاء سيرفر!`);
+                alert(`🎉 تم تحميل كافة السجلات (${allRecords.length} سجل) في الذاكرة ببرمجة فورية صاروخية وبدون أي أخطاء!`);
                 renderTable(allRecords);
 
             } catch (err) {
@@ -379,7 +359,6 @@
     function clearAllRecords() {
         if (confirm("⚠️ تحذير: هل أنت متأكد من حذف كافة السجلات؟")) {
             allRecords = [];
-            localStorage.removeItem(getStorageKey());
             renderTable(allRecords);
             alert('✅ تم الحذف بنجاح.');
         }
@@ -452,7 +431,6 @@
                 const target = allRecords.find(r => r.id === recordId);
                 if (target) {
                     target[fieldName] = newValue;
-                    saveToStorage();
                 }
             } else if (e.key === 'Escape') {
                 cell.innerHTML = currentValue === '-' ? '-' : currentValue;
@@ -467,10 +445,6 @@
             }, 200);
         };
     }
-
-    window.onload = () => {
-        loadIssuedList();
-    };
 </script>
 
 </body>
