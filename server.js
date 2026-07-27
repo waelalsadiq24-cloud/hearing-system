@@ -76,7 +76,6 @@ app.post('/api/records', (req, res) => {
   }
 });
 
-// مسار تعديل الخلية
 app.post('/api/records/update', (req, res) => {
   try {
     const { index, field, value } = req.body;
@@ -93,14 +92,13 @@ app.post('/api/records/update', (req, res) => {
   }
 });
 
-// مسار حذف سجل محدد
 app.post('/api/records/delete', (req, res) => {
   try {
     const { index } = req.body;
     let records = readDatabase();
     
     if (records[index] !== undefined) {
-      records.splice(index, 1); // حذف السجل من المصفوفة
+      records.splice(index, 1);
       saveDatabase(records);
       return res.json({ success: true });
     }
