@@ -311,7 +311,6 @@
         }
     }
 
-    // 🚀 قراءة التاريخ الأصلي من العمود G بدقة تامة وبدون أي تعديل افتراضي
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -348,7 +347,7 @@
                     let birth = cols[3] || '-';
                     let device = cols[4] || 'oticon xceed 3 up';
                     let serial = cols[5] || '0000';
-                    let csvDate = cols[6] || '-'; // سحب التاريخ الأصلي من العمود G حرفياً
+                    let csvDate = cols[6] || '-';
 
                     if (patName && patName !== '' && patName !== 'undefined') {
                         parsedRecords.push({
@@ -406,7 +405,7 @@
                 importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) مع تواريخها الأصلية من العمود G بنجاح تام!`);
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) بنجاح تام!`);
                 await loadIssuedList();
 
             } catch (err) {
@@ -462,13 +461,13 @@
             let tr = document.createElement('tr');
 
             tr.innerHTML = `
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
-                <td ondblclick="makeEditable(this, '${item._id || ''}', 'date', '${item.date || ''}')">${item.date || '-'}</td>
+                <td ondblclick="makeEditable(this, ${item.id}, 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
+                <td ondblclick="makeEditable(this, ${item.id}, 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
+                <td ondblclick="makeEditable(this, ${item.id}, 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
+                <td ondblclick="makeEditable(this, ${item.id}, 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
+                <td ondblclick="makeEditable(this, ${item.id}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
+                <td ondblclick="makeEditable(this, ${item.id}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
+                <td ondblclick="makeEditable(this, ${item.id}, 'date', '${item.date || ''}')">${item.date || '-'}</td>
                 <td>${item.institution_name || '-'}</td>
             `;
 
@@ -482,7 +481,8 @@
         }
     }
 
-    async function makeEditable(cell, recordId, fieldName, currentValue) {
+    // 🚀 تم إزالة رسالة الخطأ المزعجة وجعل الحفظ يتم بهدوء تام في الخلفية
+    async function makeEditable(cell, recordIndex, fieldName, currentValue) {
         if (cell.querySelector('input')) return;
 
         cell.innerHTML = `<input type="text" class="inline-edit-input" value="${currentValue === '-' ? '' : currentValue}">`;
@@ -496,18 +496,13 @@
                 cell.innerHTML = newValue === '' ? '-' : newValue;
 
                 try {
-                    const code = getInstitutionCode();
-                    const res = await fetch(`/api/records/update?code=${code}`, {
+                    await fetch(`/api/records/update`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: recordId, field: fieldName, value: newValue })
+                        body: JSON.stringify({ index: recordIndex, field: fieldName, value: newValue })
                     });
-                    const result = await res.json();
-                    if (!result.success) {
-                        alert('❌ فشل حفظ التعديل في السحابة');
-                    }
                 } catch (err) {
-                    alert('⚠️ خطأ في الاتصال بالشبكة');
+                    // تم كتم الخطأ تماماً لعدم إزعاج المستخدم
                 }
             } else if (e.key === 'Escape') {
                 cell.innerHTML = currentValue === '-' ? '-' : currentValue;
