@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد ذكي مع التحديث الفوري للجدول بعد الاكتمال
+    // 🚀 استيراد فائق السرعة بدفعات كبيرة (500 سجل دفعة واحدة)
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -381,14 +381,15 @@
                     await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 } catch(err) {}
 
-                const chunkSize = 50;
+                // زيادة حجم الدفعة إلى 500 سجل لتنفيذ التحميل بأقصى سرعة ممكنة
+                const chunkSize = 500;
                 let uploadedCount = 0;
                 const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
 
                 for (let i = 0; i < parsedRecords.length; i += chunkSize) {
                     const chunk = parsedRecords.slice(i, i + chunkSize);
                     let currentChunkNum = Math.floor(i / chunkSize) + 1;
-                    importBtn.innerText = `⏳ رفع دفعة (${currentChunkNum} من ${totalChunks})...`;
+                    importBtn.innerText = `⚡ جاري رفع السجلات بسرعة (${currentChunkNum} من ${totalChunks})...`;
 
                     try {
                         let res = await fetch(`/api/import-csv?code=${code}`, {
@@ -401,16 +402,14 @@
                             uploadedCount += chunk.length;
                         }
                     } catch (err) {}
-                    
-                    await new Promise(r => setTimeout(r, 100));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام وسريع!`);
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بسرعة فائقة!`);
                 
-                // 🔄 جلب البيانات وتحديث الجدول فوراً لعرض الأسماء مباشرة
+                // تحديث الجدول فوراً لعرض النتائج
                 await loadIssuedList();
 
             } catch (err) {
@@ -515,14 +514,14 @@
                     alert('⚠️ خطأ في الاتصال بالسحابة');
                 }
             } else if (e.key === 'Escape') {
-                cell.innerHTML = currentValue === '' ? '-' : currentValue;
+                cell.innerHTML = currentValue === '-' ? '-' : currentValue;
             }
         };
 
         input.onblur = function() {
             setTimeout(() => {
                 if (cell.querySelector('input')) {
-                    cell.innerHTML = currentValue === '' ? '-' : currentValue;
+                    cell.innerHTML = currentValue === '-' ? '-' : currentValue;
                 }
             }, 200);
         };
