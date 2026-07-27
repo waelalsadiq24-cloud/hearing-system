@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد فائق السرعة على دفعات من 200 سجل
+    // 🚀 استيراد فائق السرعة وتحديث الجدول تلقائياً فور الانتهاء
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -374,6 +374,7 @@
                 const importBtn = document.getElementById('importBtn');
                 importBtn.disabled = true;
 
+                // تفريغ القديم أولاً من السحابة
                 try {
                     await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 } catch(err) {}
@@ -405,8 +406,11 @@
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بسرعة فائقة ودائمة!`);
-                loadIssuedList();
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام!`);
+                
+                // 🚀 استدعاء دالة تحميل الجدول فوراً لتظهر الأسماء أمامك مباشرة
+                await loadIssuedList();
+
             } catch (err) {
                 alert('⚠️ حدث خطأ أثناء رفع الملف للسحابة.');
                 document.getElementById('importBtn').innerText = '📥 استيراد ملف CSV إلى السحابة';
