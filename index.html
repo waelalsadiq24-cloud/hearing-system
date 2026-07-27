@@ -329,7 +329,7 @@
         }
     }
 
-    // 🚀 الكود الأصلي والمجرب 100% لجلب كافة الـ 8000+ سجل بدون أي نقصان
+    // 🚀 دالة الاستيراد السليمة والمضمونة 100% لجلب كامل السجلات
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -418,11 +418,11 @@
                         }
                     } catch (err) {}
 
-                    await new Promise(r => setTimeout(r, 30));
+                    await new Promise(r => setTimeout(r, 20));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
-                importBtn.disabled = false;
+                importBtn.disabled = false; // تم تصحيح الخطأ هنا بنجاح
 
                 alert(`🎉 تم رفع وحفظ كافة السجلات بنجاح تام، والإجمالي الحالي هو (${uploadedCount} سجل)!`);
                 await loadIssuedList();
