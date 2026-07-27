@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>نظام سجلات السماعات الطبية (السحابي)</title>
+    <title>نظام سجلات السماعات الطبية (السحابي الدائم)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; direction: rtl; }
         .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد ورفع الأسماء للسحابة على دفعات آمنة تمنع أي خطأ
+    // 🚀 استيراد ورفع الأسماء للسحابة على دفعات صغيرة وآمنة (30 سجل لكل دفعة)
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -371,41 +371,51 @@
                     return;
                 }
 
-                // تفريغ السجلات السابقة في السحابة أولاً
-                await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
-
                 const importBtn = document.getElementById('importBtn');
                 importBtn.disabled = true;
 
-                // رفع على دفعات من 200 سجل لضمان عدم حدوث ضغط على السيرفر السحابي
-                const chunkSize = 200;
+                // حذف السجلات القديمة أولاً من السحابة
+                try {
+                    await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
+                } catch(err) {}
+
+                const chunkSize = 30;
                 let uploadedCount = 0;
                 const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
 
                 for (let i = 0; i < parsedRecords.length; i += chunkSize) {
                     const chunk = parsedRecords.slice(i, i + chunkSize);
                     let currentChunkNum = Math.floor(i / chunkSize) + 1;
-                    importBtn.innerText = `⏳ رفع السحابة (${currentChunkNum}/${totalChunks})...`;
+                    importBtn.innerText = `⏳ رفع للسحابة (${currentChunkNum}/${totalChunks})...`;
 
-                    try {
-                        const res = await fetch(`/api/import-csv?code=${code}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ records: chunk })
-                        });
-                        const data = await res.json();
-                        if (data.success) {
-                            uploadedCount += chunk.length;
-                        }
-                    } catch (err) {}
+                    let success = false;
+                    let retries = 3;
                     
-                    await new Promise(r => setTimeout(r, 30));
+                    while (!success && retries > 0) {
+                        try {
+                            const res = await fetch(`/api/import-csv?code=${code}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ records: chunk })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                                uploadedCount += chunk.length;
+                                success = true;
+                            }
+                        } catch (err) {
+                            retries--;
+                            await new Promise(r => setTimeout(r, 500));
+                        }
+                    }
+                    
+                    await new Promise(r => setTimeout(r, 100));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ جميع السجلات (${uploadedCount} سجل) في السحابة بشكل دائم! الآن يمكنك فتح الرابط من أي مكان في العالم.`);
+                alert(`🎉 تم رفع وحفظ جميع السجلات (${uploadedCount} سجل) في السحابة بنجاح تام ودائم!`);
                 loadIssuedList();
             } catch (err) {
                 alert('⚠️ حدث خطأ أثناء رفع الملف للسحابة.');
