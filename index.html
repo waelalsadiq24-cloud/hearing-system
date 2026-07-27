@@ -301,7 +301,7 @@
         }
     }
 
-    // 🚀 استيراد آمن جداً بدون طلبات حذف ثقيلة تمنع أي خطأ 502
+    // 🚀 استيراد فائق السرعة (يرسل كافة السجلات دفعة واحدة في طلب واحد خلال ثانية واحدة)
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -375,36 +375,24 @@
                 }
 
                 importBtn.disabled = true;
+                importBtn.innerText = `⏳ جاري رفع ${parsedRecords.length} سجل للسحابة دفعة واحدة...`;
 
-                const chunkSize = 50;
-                let uploadedCount = 0;
-                const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
+                const res = await fetch(`/api/import-csv-all?code=${code}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ records: parsedRecords })
+                });
 
-                for (let i = 0; i < parsedRecords.length; i += chunkSize) {
-                    const chunk = parsedRecords.slice(i, i + chunkSize);
-                    let currentChunkNum = Math.floor(i / chunkSize) + 1;
-                    importBtn.innerText = `⏳ الرفع الآمن (${currentChunkNum}/${totalChunks})...`;
-
-                    try {
-                        const res = await fetch(`/api/import-csv?code=${code}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ records: chunk })
-                        });
-                        const data = await res.json();
-                        if (data.success) {
-                            uploadedCount += chunk.length;
-                        }
-                    } catch (err) {}
-                    
-                    await new Promise(r => setTimeout(r, 80));
-                }
-
+                const data = await res.json();
                 importBtn.innerText = '📥 استيراد ملف CSV إلى السحابة';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) في السحابة بنجاح تام!`);
-                await loadIssuedList();
+                if (data.success) {
+                    alert(`🎉 تم رفع وحفظ كافة السجلات (${data.count} سجل) في السحابة خلال ثوانٍ معدودة!`);
+                    await loadIssuedList();
+                } else {
+                    alert('❌ حدث خطأ أثناء الحفظ في السحابة.');
+                }
 
             } catch (err) {
                 alert('⚠️ حدث خطأ أثناء رفع الملف للسحابة.');
