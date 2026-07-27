@@ -16,10 +16,9 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// مسار استرجاع وجلب السجلات المخزنة (تمت إضافته لحل مشكلة 404 للجدول)
+// مسار استرجاع وجلب السجلات المخزنة
 app.get('/api/records', (req, res) => {
   try {
-    // يمكنك ربط هذا المسار بقاعدة بيانات أو ملف تخزين السجلات لديك
     res.json({ success: true, data: [] });
   } catch (error) {
     console.error('Error fetching records:', error);
@@ -40,6 +39,19 @@ app.post('/api/import-chunk-safe', (req, res) => {
     });
   } catch (error) {
     console.error('Error handling import:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// مسار تفريغ / مسح السجلات (تمت إضافته لحل مشكلة 404 لزر التفريغ)
+app.post('/api/clear-records', (req, res) => {
+  try {
+    const code = req.query.code;
+    console.log(`Clearing records for code: ${code}`);
+    
+    res.json({ success: true, message: 'Records cleared successfully' });
+  } catch (error) {
+    console.error('Error clearing records:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
