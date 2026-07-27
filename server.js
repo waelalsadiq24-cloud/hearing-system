@@ -2,8 +2,8 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
 app.use(express.static(__dirname));
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
@@ -33,7 +33,7 @@ app.get('/api/records', async (req, res) => {
         const records = await db.collection('records')
             .find({ institution_id: code })
             .sort({ _id: -1 })
-            .limit(5000)
+            .limit(10000)
             .toArray();
 
         res.json({ 
@@ -85,8 +85,7 @@ app.post('/api/records/update', async (req, res) => {
     }
 });
 
-// 🚀 مسار واحد آمن ومحصن تماماً يستقبل الملف بالكامل ويعالجه ويدخله بداخل قاعدة البيانات بدون أي ضغط
-app.post('/api/import-all-safe', async (req, res) => {
+app.post('/api/import-all-bulk', async (req, res) => {
     try {
         const { records } = req.body;
         if (!records || !Array.isArray(records)) {
@@ -110,17 +109,10 @@ app.post('/api/import-all-safe', async (req, res) => {
         }));
 
         const db = await getDB();
-        
-        // تفريغ السجلات القديمة الخاصة بالمؤسسة فقط أولاً
         await db.collection('records').deleteMany({ institution_id: code });
 
         if (formattedRecords.length > 0) {
-            // إدخال البيانات على دفعات داخلية آمنة (كل 500 سجل معاً داخل الخادم لعدم استهلاك الذاكرة)
-            const internalChunk = 500;
-            for (let i = 0; i < formattedRecords.length; i += internalChunk) {
-                const chunk = formattedRecords.slice(i, i + internalChunk);
-                await db.collection('records').insertMany(chunk);
-            }
+            await db.collection('records').insertMany(formattedRecords);
         }
 
         res.json({ success: true, count: formattedRecords.length });
