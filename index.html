@@ -481,7 +481,6 @@
         }
     }
 
-    // 🚀 تم إزالة رسالة الخطأ المزعجة وجعل الحفظ يتم بهدوء تام في الخلفية
     async function makeEditable(cell, recordIndex, fieldName, currentValue) {
         if (cell.querySelector('input')) return;
 
@@ -496,13 +495,17 @@
                 cell.innerHTML = newValue === '' ? '-' : newValue;
 
                 try {
-                    await fetch(`/api/records/update`, {
+                    const res = await fetch(`/api/records/update`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ index: recordIndex, field: fieldName, value: newValue })
                     });
+                    const result = await res.json();
+                    if (!result.success) {
+                        alert('❌ فشل حفظ التعديل في السحابة');
+                    }
                 } catch (err) {
-                    // تم كتم الخطأ تماماً لعدم إزعاج المستخدم
+                    alert('⚠️ خطأ في الاتصال بالشبكة');
                 }
             } else if (e.key === 'Escape') {
                 cell.innerHTML = currentValue === '-' ? '-' : currentValue;
