@@ -329,7 +329,7 @@
         }
     }
 
-    // 🚀 دالة قاسة ومحسنّة لقراءة كافة الـ 8000+ سجل بدقة متناهية وتجنب تفكك الأسطر
+    // 🚀 تحديث شامل ونهائي لقراءة كافة الـ 8000+ سجل بدقة متناهية وبدون توقف
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -349,7 +349,6 @@
                     let line = lines[i] ? lines[i].trim() : '';
                     if (!line) continue;
 
-                    // تحليل احترافي للسطر يتجاهل الفواصل داخل علامات التنصيص
                     let cols = [];
                     let current = '';
                     let inQuotes = false;
@@ -366,14 +365,6 @@
                     cols.push(current.trim());
                     cols = cols.map(c => c.replace(/^["']|["']$/g, '').trim());
 
-                    let validCols = cols.filter(c => c !== '');
-                    if (validCols.length === 0) continue;
-
-                    let firstCol = validCols[0];
-                    if (i === 0 && (firstCol.includes('اسم') || firstCol.includes('الاسم') || firstCol.includes('patient') || firstCol.includes('name') || firstCol.includes('تاريخ'))) {
-                        continue;
-                    }
-
                     let patName = cols[0] || '';
                     let momName = cols[1] || '-';
                     let natId = cols[2] || '-';
@@ -381,6 +372,11 @@
                     let device = cols[4] || 'oticon xceed 3 up';
                     let serial = cols[5] || '0000';
                     let csvDate = cols[6] || '-';
+
+                    // تجاهل سطر العناوين أو الأسطر الفارغة تماماً
+                    if (i === 0 && (patName.includes('اسم') || patName.includes('الاسم') || patName.includes('patient'))) {
+                        continue;
+                    }
 
                     if (patName && patName !== '' && patName !== 'undefined' && patName.length > 1) {
                         parsedRecords.push({
@@ -411,7 +407,7 @@
                     await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
                 } catch(err) {}
 
-                const chunkSize = 100;
+                const chunkSize = 200;
                 let uploadedCount = 0;
                 const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
 
@@ -432,7 +428,7 @@
                         }
                     } catch (err) {}
 
-                    await new Promise(r => setTimeout(r, 20));
+                    await new Promise(r => setTimeout(r, 10));
                 }
 
                 importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
