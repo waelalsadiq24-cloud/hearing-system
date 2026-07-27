@@ -253,7 +253,7 @@
             let studentVal = foundRecord.is_student || 'yes';
             let age = calculateAge(birthVal);
             let requiredYears = getRequiredYears(age, studentVal);
-            let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
+            let diffYears = (new Date() - new Date(foundRecord.date.split('/').reverse().join('-'))) / (1000 * 60 * 60 * 24 * 365.25);
 
             if (diffYears >= requiredYears) {
                 box.className = 'result-box eligible';
@@ -288,7 +288,7 @@
             let age = calculateAge(foundRecord.birth_year || '-');
             let studentVal = document.getElementById('isStudent').value;
             let requiredYears = getRequiredYears(age, studentVal);
-            let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
+            let diffYears = (new Date() - new Date(foundRecord.date.split('/').reverse().join('-'))) / (1000 * 60 * 60 * 24 * 365.25);
 
             if (diffYears < requiredYears) {
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
@@ -308,7 +308,7 @@
 
     function registerAndIssue() {
         let d = new Date();
-        let todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        let todayStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 
         const body = {
             national_id: document.getElementById('newNationalId').value.trim(),
@@ -346,7 +346,7 @@
         loadIssuedList();
     }
 
-    // 🚀 استيراد ذكي يضمن ضبط التاريخ بالصيغة الصحيحة (يوم/شهر/سنة)
+    // 🚀 قراءة التاريخ وترتيبه بالشكل الصحيح تماماً (يوم / شهر / سنة)
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -384,18 +384,24 @@
                     let device = cols.find(c => c && (c.toLowerCase().includes('widex') || c.toLowerCase().includes('phonak') || c.toLowerCase().includes('oticon') || c.toLowerCase().includes('interton') || c.toLowerCase().includes('up') || c.toLowerCase().includes('fa') || c.toLowerCase().includes('d -') || c.toLowerCase().includes('bte'))) || cols[4] || 'oticon xceed 3 up';
                     let serial = cols.find(c => c && !isNaN(c) && c.length >= 5) || cols[5] || '0000';
                     
-                    // 🚀 تصحيح قراءة وترتيب التاريخ بدقة (يوم / شهر / سنة)
                     let rawDate = cols.find(c => c && c.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/));
                     let formattedDate = '-';
                     
                     if (rawDate) {
                         let parts = rawDate.split('/');
                         if (parts.length === 3) {
-                            let day = parts[0].padStart(2, '0');
-                            let month = parts[1].padStart(2, '0');
+                            let p1 = parts[0].padStart(2, '0');
+                            let p2 = parts[1].padStart(2, '0');
                             let year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
-                            // ترتيب التاريخ بشكل صحيح: يوم / شهر / سنة
-                            formattedDate = `${day}/${month}/${year}`;
+                            
+                            // إذا جاء التاريخ بصيغة سنة أولاً، نقوم بترتيبه ليصبح يوم/شهر/سنة، وإذا كان يوم أولاً نتركه كذلك
+                            if (p1.length === 4) {
+                                // تنسيق ملفك الأصلي كان سنة/شهر/يوم أو يوم/شهر/سنة
+                                formattedDate = `${p2}/${year}/${p1}`; // أو ترتيب قياسي صحيح
+                            } else {
+                                // ضبط الترتيب القياسي (يوم / شهر / سنة)
+                                formattedDate = `${p1}/${p2}/${year}`;
+                            }
                         }
                     } else {
                         let d = new Date();
@@ -426,7 +432,7 @@
                 let storageKey = `local_records_${code}`;
                 localStorage.setItem(storageKey, JSON.stringify(parsedRecords));
 
-                alert(`🎉 تم استيراد وعرض ${parsedRecords.length} سجل بنجاح وتصحيح التواريخ!`);
+                alert(`🎉 تم استيراد وعرض ${parsedRecords.length} سجل بنجاح وتنسيق التواريخ بالشكل الصحيح!`);
                 loadIssuedList();
             } catch (err) {
                 alert('⚠️ حدث خطأ أثناء معالجة ملف الـ CSV.');
