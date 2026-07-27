@@ -311,7 +311,7 @@
         }
     }
 
-    // 🚀 قراءة التاريخ الحقيقي من العمود الثامن (h / index 7) بدقة تامة
+    // 🚀 قراءة الأعمدة بناءً على ترتيب صورة الإكسل (العمود G لتاريخ الصرف)
     function importCsvSafely(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -348,7 +348,7 @@
                     let birth = cols[3] || '-';
                     let device = cols[4] || 'oticon xceed 3 up';
                     let serial = cols[5] || '0000';
-                    let csvDate = cols[7] || cols[6] || new Date().toISOString().split('T')[0]; // العمود الثامن (index 7) لتاريخ الصرف
+                    let csvDate = cols[6] || new Date().toISOString().split('T')[0]; // العمود السابع (G) لتاريخ الصرف
 
                     if (patName && patName !== '' && patName !== 'undefined') {
                         parsedRecords.push({
@@ -406,7 +406,7 @@
                 importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
                 importBtn.disabled = false;
 
-                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) وتاريخ الصرف الحقيقي من العمود الثامن بنجاح تام!`);
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) وتاريخ الصرف من العمود G بنجاح تام!`);
                 await loadIssuedList();
 
             } catch (err) {
