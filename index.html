@@ -50,7 +50,7 @@
         <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
         <label>بحث بالرقم الوطني أو اسم المريض:</label>
         <input type="text" id="searchId" placeholder="أدخل الرقم الوطني أو اسم المريض">
-        <button onclick="searchPatient()">بحث وفحص الاستحقاق وعدد مرات الاستلام</button>
+        <button onclick="searchPatient()">بحث وفحص الاستحقاق وتاريخه التفصيلي</button>
         <div id="searchResult" class="result-box"></div>
     </div>
 
@@ -177,6 +177,12 @@
         return 3;
     }
 
+    // دالة لتنسيق التاريخ ليظهر (اسم اليوم، اليوم/الشهر/السنة) بوضوح
+    function formatDayMonthYearDate(dateObj) {
+        const options = { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' };
+        return dateObj.toLocaleDateString('ar-IQ', options); // مثال: الأحد، 27/04/2029
+    }
+
     async function loadIssuedList() {
         const code = getInstitutionCode();
         if (code === 'medcity' || code === 'tibb') {
@@ -228,6 +234,7 @@
             targetDueDate.setFullYear(lastDate.getFullYear() + requiredYears);
 
             let currentDate = new Date();
+            let formattedDueDate = formatDayMonthYearDate(targetDueDate);
 
             let detailsHTML = `
                 📂 <b>تفاصيل السجل الكاملة للمريض:</b><br>
@@ -237,7 +244,7 @@
                 📅 <b>تاريخ الولادة:</b> ${birthVal}<br>
                 🔢 <b>عدد مرات الاستلام الكلية:</b> <span style="color: #2980b9;">${totalTimes} مرة</span><br>
                 📆 <b>تاريخ آخر استلام:</b> ${latestRecord.date || '-'}<br>
-                🎯 <b>تاريخ الاستحقاق القادم:</b> <span style="color: #c0392b;">${targetDueDate.toISOString().split('T')[0]}</span><br>
+                🎯 <b>تاريخ الاستحقاق القادم (اليوم، اليوم/الشهر/السنة):</b> <span style="color: #c0392b;">${formattedDueDate}</span><br>
                 🦻 <b>تفاصيل آخر سماعة:</b> ${latestRecord.device_details || '-'}<br>
                 📌 <b>الملاحظات:</b> ${noteVal}<br>
                 🏥 <b>المؤسسة / المركز:</b> ${latestRecord.institution_name || '-'}<br>
@@ -253,7 +260,7 @@
                 let remainingYears = (diffDays / 365.25).toFixed(1);
 
                 box.className = 'result-box not-eligible';
-                box.innerHTML = detailsHTML + `⚠️ <b>حالة الاستحقاق:</b> المريض <b>غير مستحق</b> حالياً! استلم آخر مرة في ${latestRecord.date}، وموعد الاستحقاق القانوني هو <b>${targetDueDate.toISOString().split('T')[0]}</b> (متبقي حوالي ${remainingYears} سنة).`;
+                box.innerHTML = detailsHTML + `⚠️ <b>حالة الاستحقاق:</b> المريض <b>غير مستحق</b> حالياً! استلم آخر مرة في ${latestRecord.date}، وموعد الاستحقاق القانوني هو: <b>${formattedDueDate}</b> (متبقي حوالي ${remainingYears} سنة).`;
             }
         }
     }
@@ -291,6 +298,7 @@
             targetDueDate.setFullYear(lastDate.getFullYear() + requiredYears);
 
             let currentDate = new Date();
+            let formattedDueDate = formatDayMonthYearDate(targetDueDate);
 
             if (currentDate < targetDueDate) {
                 let diffTime = targetDueDate - currentDate;
@@ -298,7 +306,7 @@
 
                 warningBox.style.display = 'block';
                 warningBox.className = 'result-box not-eligible';
-                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${latestRecord.patient_name}): غير مستحق! استلم ${matchedRecords.length} مرات، وآخره في ${latestRecord.date}. موعد الاستحقاق القانوني هو <b>${targetDueDate.toISOString().split('T')[0]}</b> (متبقي ${remainingYears} سنة).`;
+                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${latestRecord.patient_name}): غير مستحق! استلم ${matchedRecords.length} مرات، وآخره في ${latestRecord.date}. موعد الاستحقاق القانوني هو: <b>${formattedDueDate}</b> (متبقي ${remainingYears} سنة).`;
                 issueBtn.disabled = true;
                 issueBtn.style.opacity = '0.5';
                 return;
