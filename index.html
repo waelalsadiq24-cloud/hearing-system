@@ -50,7 +50,7 @@
         <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
         <label>بحث بالرقم الوطني أو اسم المريض:</label>
         <input type="text" id="searchId" placeholder="أدخل الرقم الوطني أو اسم المريض">
-        <button onclick="searchPatient()">بحث وفحص الاستحقاق والتفاصيل</button>
+        <button onclick="searchPatient()">بحث وفحص الاستحقاق والتفاصيل الكاملة</button>
         <div id="searchResult" class="result-box"></div>
     </div>
 
@@ -85,7 +85,7 @@
         <div class="row">
             <div>
                 <label>الملاحظات:</label>
-                <select id="isStudent" onchange="checkPatientEligibilityLive()">
+                <select id="patientNote" onchange="checkPatientEligibilityLive()">
                     <option value="طالب">طالب</option>
                     <option value="استثناء">استثناء</option>
                 </select>
@@ -131,12 +131,11 @@
                     <th>تفاصيل السماعة</th>
                     <th>الرقم التسلسلي</th>
                     <th>تاريخ الصرف</th>
-                    <th>الملاحظات</th>
                     <th>المؤسسة / المركز</th>
                 </tr>
             </thead>
             <tbody id="issuedTableBody">
-                <tr><td colspan="9">جاري مزامنة السجلات من السحابة...</td></tr>
+                <tr><td colspan="8">جاري مزامنة السجلات من السحابة...</td></tr>
             </tbody>
         </table>
     </div>
@@ -262,7 +261,7 @@
 
         if (foundRecord) {
             let age = calculateAge(foundRecord.birth_year || '-');
-            let noteVal = document.getElementById('isStudent').value;
+            let noteVal = document.getElementById('patientNote').value;
             let requiredYears = getRequiredYears(age, noteVal);
             let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
@@ -288,7 +287,7 @@
             patient_name: document.getElementById('fullName').value.trim(),
             mother_name: document.getElementById('motherName').value.trim(),
             birth_year: (document.getElementById('birthDay').value && document.getElementById('birthMonth').value && document.getElementById('birthYear').value) ? `${document.getElementById('birthDay').value}/${document.getElementById('birthMonth').value}/${document.getElementById('birthYear').value}` : (document.getElementById('birthYear').value || '-'),
-            is_student: document.getElementById('isStudent').value,
+            is_student: document.getElementById('patientNote').value,
             device_details: document.getElementById('selectedDeviceDisplay').value.trim(),
             serial_number: document.getElementById('serialNumber').value.trim(),
             date: new Date().toISOString().split('T')[0]
@@ -364,7 +363,6 @@
                     let device = cols[4] || 'oticon xceed 3 up';
                     let serial = cols[5] || '0000';
                     let csvDate = cols[6] || '-';
-                    let note = cols[7] || 'طالب';
 
                     if (patName && patName !== '' && patName !== 'undefined') {
                         parsedRecords.push({
@@ -372,7 +370,7 @@
                             patient_name: patName,
                             mother_name: momName,
                             birth_year: birth,
-                            is_student: note,
+                            is_student: 'طالب',
                             device_details: device,
                             serial_number: serial,
                             date: csvDate
@@ -460,8 +458,7 @@
             const natId = (item.national_id || '').toLowerCase();
             const device = (item.device_details || '').toLowerCase();
             const serial = (item.serial_number || '').toLowerCase();
-            const note = (item.is_student || '').toLowerCase();
-            return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query) || note.includes(query);
+            return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
         });
 
         const tbody = document.getElementById('issuedTableBody');
@@ -469,7 +466,7 @@
         tbody.innerHTML = '';
 
         if(filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة في السحابة</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة في السحابة</td></tr>';
             return;
         }
 
@@ -486,7 +483,6 @@
                 <td ondblclick="makeEditable(this, ${item.id}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
                 <td ondblclick="makeEditable(this, ${item.id}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
                 <td ondblclick="makeEditable(this, ${item.id}, 'date', '${item.date || ''}')">${item.date || '-'}</td>
-                <td ondblclick="makeEditableSelect(this, ${item.id}, 'is_student', '${item.is_student || 'طالب'}')">${item.is_student || 'طالب'}</td>
                 <td>${item.institution_name || '-'}</td>
             `;
 
@@ -495,46 +491,9 @@
 
         if (filteredData.length > 500) {
             let noteTr = document.createElement('tr');
-            noteTr.innerHTML = `<td colspan="9" style="background-color: #fff3cd; color: #856404; font-weight: bold;">ملاحظة: يتم عرض أول 500 سجل من أصل ${filteredData.length} لتسريع التصفح. يمكنك استخدام خانة البحث لتصفية النتائج بدقة.</td>`;
+            noteTr.innerHTML = `<td colspan="8" style="background-color: #fff3cd; color: #856404; font-weight: bold;">ملاحظة: يتم عرض أول 500 سجل من أصل ${filteredData.length} لتسريع التصفح. يمكنك استخدام خانة البحث لتصفية النتائج بدقة.</td>`;
             tbody.appendChild(noteTr);
         }
-    }
-
-    async function makeEditableSelect(cell, recordIndex, fieldName, currentValue) {
-        if (cell.querySelector('select')) return;
-
-        cell.innerHTML = `
-            <select class="inline-edit-input">
-                <option value="طالب" ${currentValue === 'طالب' ? 'selected' : ''}>طالب</option>
-                <option value="استثناء" ${currentValue === 'استثناء' ? 'selected' : ''}>استثناء</option>
-            </select>
-        `;
-        const select = cell.querySelector('select');
-        select.focus();
-
-        select.onchange = async function() {
-            const newValue = select.value;
-            cell.innerHTML = newValue;
-
-            try {
-                await fetch(`/api/records/update`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ index: recordIndex, field: fieldName, value: newValue })
-                });
-                loadIssuedList();
-            } catch (err) {
-                alert('⚠️ خطأ في الاتصال بالشبكة');
-            }
-        };
-
-        select.onblur = function() {
-            setTimeout(() => {
-                if (cell.querySelector('select')) {
-                    cell.innerHTML = currentValue;
-                }
-            }, 200);
-        };
     }
 
     async function makeEditable(cell, recordIndex, fieldName, currentValue) {
