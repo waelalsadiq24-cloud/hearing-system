@@ -88,6 +88,7 @@
                 <select id="patientNote" onchange="checkPatientEligibilityLive()">
                     <option value="طالب">طالب</option>
                     <option value="استثناء">استثناء</option>
+                    <option value="لاتوجد">لاتوجد</option>
                 </select>
             </div>
             <div>
@@ -211,7 +212,7 @@
             box.innerHTML = `✅ المريض غير مسجل مسبقاً في السجل السحابي ويمكنه الاستلام.`;
         } else {
             let birthVal = foundRecord.birth_year || '-';
-            let noteVal = foundRecord.is_student || 'طالب';
+            let noteVal = foundRecord.is_student || 'لاتوجد';
             let age = calculateAge(birthVal);
             let requiredYears = getRequiredYears(age, noteVal);
             let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
@@ -370,7 +371,7 @@
                             patient_name: patName,
                             mother_name: momName,
                             birth_year: birth,
-                            is_student: 'طالب',
+                            is_student: 'لاتوجد',
                             device_details: device,
                             serial_number: serial,
                             date: csvDate
