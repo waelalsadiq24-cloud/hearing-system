@@ -50,7 +50,7 @@
         <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
         <label>بحث بالرقم الوطني أو اسم المريض:</label>
         <input type="text" id="searchId" placeholder="أدخل الرقم الوطني أو اسم المريض">
-        <button onclick="searchPatient()">بحث وفحص الاستحقاق والتفاصيل الكاملة</button>
+        <button onclick="searchPatient()">بحث وفحص الاستحقاق وعدد مرات الاستلام</button>
         <div id="searchResult" class="result-box"></div>
     </div>
 
@@ -165,7 +165,7 @@
             let parts = birthStr.split('/');
             year = parseInt(parts[2]) || 0;
         } else {
-            year = parseInt(birthStr) || 0;
+            year = parseInt(parts[2]) || parseInt(birthStr) || 0;
         }
         if (!year) return 0;
         return new Date().getFullYear() - year;
@@ -199,45 +199,52 @@
         const queryText = document.getElementById('searchId').value.trim().toLowerCase();
         if(!queryText) return alert('يرجى إدخال الرقم الوطني أو اسم المريض للبحث');
 
-        const foundRecord = cachedRecords.find(r => 
-            (r.national_id && String(r.national_id).toLowerCase() === queryText) || 
-            (r.patient_name && String(r.patient_name).toLowerCase().includes(queryText))
+        // جمع كافة السجلات المطابقة للمريض (نفس الرقم الوطني أو الاسم)
+        const matchedRecords = cachedRecords.filter(r => 
+            (queryText && r.national_id && String(r.national_id).toLowerCase() === queryText) || 
+            (queryText && r.patient_name && String(r.patient_name).toLowerCase().includes(queryText))
         );
 
         const box = document.getElementById('searchResult');
         box.style.display = 'block';
 
-        if(!foundRecord) {
+        if(matchedRecords.length === 0) {
             box.className = 'result-box eligible';
-            box.innerHTML = `✅ المريض غير مسجل مسبقاً في السجل السحابي ويمكنه الاستلام.`;
+            box.innerHTML = `✅ المريض غير مسجل مسبقاً في السجل السحابي ويمكنه الاستلام لأول مرة.`;
         } else {
-            let birthVal = foundRecord.birth_year || '-';
-            let noteVal = foundRecord.is_student || 'لاتوجد';
+            // ترتيب السجلات تنازلياً حسب التاريخ للحصول على آخر عملية صرف
+            matchedRecords.sort((a, b) => new Date(b.date || '2000-01-01') - new Date(a.date || '2000-01-01'));
+            
+            const latestRecord = matchedRecords[0];
+            const totalTimes = matchedRecords.length;
+
+            let birthVal = latestRecord.birth_year || '-';
+            let noteVal = latestRecord.is_student || 'لاتوجد';
             let age = calculateAge(birthVal);
             let requiredYears = getRequiredYears(age, noteVal);
-            let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
+            let diffYears = (new Date() - new Date(latestRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
             let detailsHTML = `
                 📂 <b>تفاصيل السجل الكاملة للمريض:</b><br>
-                👤 <b>اسم المريض:</b> ${foundRecord.patient_name || '-'}<br>
-                👩 <b>اسم الأم:</b> ${foundRecord.mother_name || '-'}<br>
-                🆔 <b>الرقم الوطني:</b> ${foundRecord.national_id || '-'}<br>
+                👤 <b>اسم المريض:</b> ${latestRecord.patient_name || '-'}<br>
+                👩 <b>اسم الأم:</b> ${latestRecord.mother_name || '-'}<br>
+                🆔 <b>الرقم الوطني:</b> ${latestRecord.national_id || '-'}<br>
                 📅 <b>تاريخ الولادة:</b> ${birthVal}<br>
-                🦻 <b>تفاصيل السماعة:</b> ${foundRecord.device_details || '-'}<br>
-                🔢 <b>الرقم التسلسلي:</b> ${foundRecord.serial_number || '-'}<br>
-                📆 <b>تاريخ الصرف السابق:</b> ${foundRecord.date || '-'}<br>
+                🔢 <b>عدد مرات الاستلام الكلية:</b> <span style="color: #2980b9;">${totalTimes} مرة</span><br>
+                📆 <b>تاريخ آخر استلام سابقة:</b> ${latestRecord.date || '-'}<br>
+                🦻 <b>تفاصيل آخر سماعة:</b> ${latestRecord.device_details || '-'}<br>
                 📌 <b>الملاحظات:</b> ${noteVal}<br>
-                🏥 <b>المؤسسة / المركز:</b> ${foundRecord.institution_name || '-'}<br>
+                🏥 <b>المؤسسة / المركز:</b> ${latestRecord.institution_name || '-'}<br>
                 <hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">
             `;
 
-            if (diffYears >= requiredYears) {
+            if (isNaN(diffYears) || diffYears >= requiredYears) {
                 box.className = 'result-box eligible';
-                box.innerHTML = detailsHTML + `✅ <b>الحالة:</b> المريض مستحق! (مضت فترة الاستحقاق ${requiredYears} سنوات أو أكثر).`;
+                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق</b> للصرف! (مضت فترة الاستحقاق المطلوبة وهي ${requiredYears} سنوات منذ آخر استلام).`;
             } else {
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 box.className = 'result-box not-eligible';
-                box.innerHTML = detailsHTML + `⚠️ <b>الحالة:</b> المريض غير مستحق حالياً! متبقي حوالي ${remainingYears} سنة على موعد الاستحقاق القادم.`;
+                box.innerHTML = detailsHTML + `⚠️ <b>حالة الاستحقاق:</b> المريض <b>غير مستحق</b> حالياً! استلم آخر مرة بتاريخ ${latestRecord.date}، ومتبقي حوالي ${remainingYears} سنة على موعد الاستحقاق القادم.`;
             }
         }
     }
@@ -255,22 +262,25 @@
             return;
         }
 
-        const foundRecord = cachedRecords.find(r => 
+        const matchedRecords = cachedRecords.filter(r => 
             (id && r.national_id && String(r.national_id).toLowerCase() === id) || 
             (fullName && r.patient_name && String(r.patient_name).toLowerCase().includes(fullName))
         );
 
-        if (foundRecord) {
-            let age = calculateAge(foundRecord.birth_year || '-');
+        if (matchedRecords.length > 0) {
+            matchedRecords.sort((a, b) => new Date(b.date || '2000-01-01') - new Date(a.date || '2000-01-01'));
+            const latestRecord = matchedRecords[0];
+
+            let age = calculateAge(latestRecord.birth_year || '-');
             let noteVal = document.getElementById('patientNote').value;
             let requiredYears = getRequiredYears(age, noteVal);
-            let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
+            let diffYears = (new Date() - new Date(latestRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
-            if (diffYears < requiredYears) {
+            if (!isNaN(diffYears) && diffYears < requiredYears) {
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 warningBox.style.display = 'block';
                 warningBox.className = 'result-box not-eligible';
-                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${foundRecord.patient_name}): غير مستحق! آخر صرف كان في ${foundRecord.date}. متبقي ${remainingYears} سنة.`;
+                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${latestRecord.patient_name}): غير مستحق! استلم ${matchedRecords.length} مرات، وكان آخر صرف في ${latestRecord.date}. متبقي ${remainingYears} سنة.`;
                 issueBtn.disabled = true;
                 issueBtn.style.opacity = '0.5';
                 return;
