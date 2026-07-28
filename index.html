@@ -88,7 +88,7 @@
                 <select id="patientNote" onchange="checkPatientEligibilityLive()">
                     <option value="طالب">طالب (3 سنوات)</option>
                     <option value="استثناء">استثناء (معفى من الفترة الزمنية)</option>
-                    <option value="لاتوجد">لاتوجد (4 سنوات)</option>
+                    <option value="لاتوجد">لاتوجد (حسب العمر)</option>
                 </select>
             </div>
             <div>
@@ -158,17 +158,46 @@
         return urlParams.get('code') || 'yarmok';
     }
 
-    function calculateAge(birthStr) {
-        if (!birthStr || birthStr === '-') return 0;
-        let year = 0;
+    // حساب العمر بالأشهر بدقة لمعرفة إذا كان بين شهر و 6 سنوات (من 1 إلى 72 شهر)
+    function getPatientAgeInMonths(birthStr) {
+        if (!birthStr || birthStr === '-') return -1;
+        let day = 1, month = 1, year = 0;
+        
         if (birthStr.includes('/')) {
             let parts = birthStr.split('/');
+            day = parseInt(parts[0]) || 1;
+            month = parseInt(parts[1]) || 1;
             year = parseInt(parts[2]) || 0;
         } else {
-            year = parseInt(parts[2]) || parseInt(birthStr) || 0;
+            year = parseInt(birthStr) || 0;
         }
-        if (!year) return 0;
-        return new Date().getFullYear() - year;
+
+        if (!year) return -1;
+
+        let birthDate = new Date(year, month - 1, day);
+        let currentDate = new Date();
+
+        let diffMonths = (currentDate.getFullYear() - birthDate.getFullYear()) * 12 + (currentDate.getMonth() - birthDate.getMonth());
+        if (currentDate.getDate() < birthDate.getDate()) diffMonths--;
+
+        return diffMonths >= 0 ? diffMonths : -1;
+    }
+
+    // تحديد سنوات الاستحقاق:
+    // 1. استثناء = 0 (معفى)
+    // 2. طالب = 3 سنوات
+    // 3. العمر من شهر إلى 6 سنوات (من 1 إلى 72 شهر) = 3 سنوات
+    // 4. البقية = 4 سنوات
+    function getRequiredYears(birthStr, noteVal) {
+        if (noteVal === 'استثناء') return 0;
+        if (noteVal === 'طالب') return 3;
+
+        let ageInMonths = getPatientAgeInMonths(birthStr);
+        if (ageInMonths >= 1 && ageInMonths <= 72) {
+            return 3;
+        }
+
+        return 4;
     }
 
     function formatDayMonthYearDate(dateObj) {
@@ -232,15 +261,13 @@
                 <hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">
             `;
 
-            // إذا كان المريض لديه ملاحظة "استثناء"، فهو مستحق مباشرة دون التقيد بالمدة الزمنية
             if (noteVal === 'استثناء') {
                 box.className = 'result-box eligible';
                 box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق للصرف</b>! (حالة مسجلة كـ <b>استثناء رسمي</b> معفى من الفترة الزمنية المحددة).`;
                 return;
             }
 
-            // الحساب الاعتيادي للطالب (3 سنوات) أو البقية (4 سنوات)
-            let requiredYears = (noteVal === 'طالب') ? 3 : 4;
+            let requiredYears = getRequiredYears(birthVal, noteVal);
             let lastDate = new Date(latestRecord.date);
             if (isNaN(lastDate)) lastDate = new Date();
             
@@ -249,6 +276,8 @@
 
             let currentDate = new Date();
             let formattedDueDate = formatDayMonthYearDate(targetDueDate);
+
+            detailsHTML = detailsHTML.replace('<hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">', `🎯 <b>تاريخ الاستحقاق القادم (${requiredYears} سنوات):</b> <span style="color: #c0392b;">${formattedDueDate}</span><hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">`);
 
             if (currentDate >= targetDueDate) {
                 box.className = 'result-box eligible';
@@ -259,7 +288,7 @@
                 let remainingYears = (diffDays / 365.25).toFixed(1);
 
                 box.className = 'result-box not-eligible';
-                box.innerHTML = detailsHTML + `⚠️ <b>حالة الاستحقاق:</b> المريض <b>غير مستحق</b> حالياً! استلم آخر مرة في ${latestRecord.date}، وموعد الاستحقاق القانوني هو: <b>${formattedDueDate}</b> (متبقي حوالي ${remainingYears} سنة).`;
+                box.innerHTML = detailsHTML + `⚠️ <b>حالة الاستحقاق:</b> المريض <b>غير مستحق</b> حالياً! استلم آخر مرة في ${latestRecord.date}، وموعد الاستحقاق القانوني (بعد ${requiredYears} سنوات) هو: <b>${formattedDueDate}</b> (متبقي حوالي ${remainingYears} سنة).`;
             }
         }
     }
@@ -270,8 +299,10 @@
         const warningBox = document.getElementById('registrationWarning');
         const issueBtn = document.getElementById('issueBtn');
         const noteVal = document.getElementById('patientNote').value;
+        const birthDay = document.getElementById('birthDay').value;
+        const birthMonth = document.getElementById('birthMonth').value;
+        const birthYear = document.getElementById('birthYear').value;
 
-        // إذا كان الخيار المختار هو "استثناء"، يُسمح بالصرف فوراً ولا يوجد أي قيد زمني
         if (noteVal === 'استثناء') {
             warningBox.style.display = 'none';
             issueBtn.disabled = false;
@@ -295,7 +326,9 @@
             matchedRecords.sort((a, b) => new Date(b.date || '2000-01-01') - new Date(a.date || '2000-01-01'));
             const latestRecord = matchedRecords[0];
 
-            let requiredYears = (noteVal === 'طالب') ? 3 : 4;
+            let birthStr = (birthDay && birthMonth && birthYear) ? `${birthDay}/${birthMonth}/${birthYear}` : (latestRecord.birth_year || '-');
+            let requiredYears = getRequiredYears(birthStr, noteVal);
+
             let lastDate = new Date(latestRecord.date);
             if (isNaN(lastDate)) lastDate = new Date();
 
