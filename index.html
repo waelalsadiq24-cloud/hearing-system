@@ -191,7 +191,8 @@
         if (noteVal === 'طالب') return 3;
 
         let ageInMonths = getPatientAgeInMonths(birthStr);
-        if (ageInMonths >= 1 && ageInMonths <= 72) {
+        // إذا لم يكن هناك تاريخ ولادة صالح (-1)، نعتبر المدة الافتراضية 4 سنوات
+        if (ageInMonths !== -1 && ageInMonths >= 1 && ageInMonths <= 72) {
             return 3;
         }
 
@@ -412,19 +413,16 @@
         }
     }
 
-    // دالة حذف محدثة وآمنة تتجنب خطأ 404 عبر إرسال الطلب بشكل صحيح ومباشر
     async function deleteSingleRecord(recordIndex, patientName) {
         if (confirm(`⚠️ هل أنت متأكد من رغبتك في حذف سجل المريض (${patientName}) نهائياً من السحابة؟`)) {
             const code = getInstitutionCode();
             try {
-                // إرسال الـ index أو الـ id بالطريقة المتوافقة تماماً مع السيرفر
                 const res = await fetch(`/api/records/delete?code=${code}&index=${recordIndex}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ index: recordIndex })
                 });
                 
-                // في حال كان المسار البديل مطلوباً، نقوم بمعالجة الرد
                 if (res.ok) {
                     const result = await res.json().catch(() => ({ success: true }));
                     if (result.success !== false) {
@@ -434,12 +432,10 @@
                     }
                 }
                 
-                // محاولة ثانية بمسار بديل للإزالة المباشرة إذا لزم الأمر
                 const resAlt = await fetch(`/api/records?code=${code}`);
                 const dataAlt = await resAlt.json();
                 let currentList = dataAlt.records || [];
                 
-                // حذف العنصر محلياً وإعادة المزامنة
                 currentList = currentList.filter(r => r.id !== recordIndex);
                 
                 await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
