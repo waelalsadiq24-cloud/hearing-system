@@ -165,7 +165,7 @@
             let parts = birthStr.split('/');
             year = parseInt(parts[2]) || 0;
         } else {
-            year = parseInt(parts[2]) || parseInt(birthStr) || 0;
+            year = parseInt(birthStr) || 0;
         }
         if (!year) return 0;
         return new Date().getFullYear() - year;
@@ -199,7 +199,6 @@
         const queryText = document.getElementById('searchId').value.trim().toLowerCase();
         if(!queryText) return alert('يرجى إدخال الرقم الوطني أو اسم المريض للبحث');
 
-        // جمع كافة السجلات المطابقة للمريض (نفس الرقم الوطني أو الاسم)
         const matchedRecords = cachedRecords.filter(r => 
             (queryText && r.national_id && String(r.national_id).toLowerCase() === queryText) || 
             (queryText && r.patient_name && String(r.patient_name).toLowerCase().includes(queryText))
@@ -212,7 +211,6 @@
             box.className = 'result-box eligible';
             box.innerHTML = `✅ المريض غير مسجل مسبقاً في السجل السحابي ويمكنه الاستلام لأول مرة.`;
         } else {
-            // ترتيب السجلات تنازلياً حسب التاريخ للحصول على آخر عملية صرف
             matchedRecords.sort((a, b) => new Date(b.date || '2000-01-01') - new Date(a.date || '2000-01-01'));
             
             const latestRecord = matchedRecords[0];
@@ -222,7 +220,14 @@
             let noteVal = latestRecord.is_student || 'لاتوجد';
             let age = calculateAge(birthVal);
             let requiredYears = getRequiredYears(age, noteVal);
-            let diffYears = (new Date() - new Date(latestRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
+
+            let lastDate = new Date(latestRecord.date);
+            if (isNaN(lastDate)) lastDate = new Date();
+            
+            let targetDueDate = new Date(lastDate);
+            targetDueDate.setFullYear(lastDate.getFullYear() + requiredYears);
+
+            let currentDate = new Date();
 
             let detailsHTML = `
                 📂 <b>تفاصيل السجل الكاملة للمريض:</b><br>
@@ -231,20 +236,24 @@
                 🆔 <b>الرقم الوطني:</b> ${latestRecord.national_id || '-'}<br>
                 📅 <b>تاريخ الولادة:</b> ${birthVal}<br>
                 🔢 <b>عدد مرات الاستلام الكلية:</b> <span style="color: #2980b9;">${totalTimes} مرة</span><br>
-                📆 <b>تاريخ آخر استلام سابقة:</b> ${latestRecord.date || '-'}<br>
+                📆 <b>تاريخ آخر استلام:</b> ${latestRecord.date || '-'}<br>
+                🎯 <b>تاريخ الاستحقاق القادم:</b> <span style="color: #c0392b;">${targetDueDate.toISOString().split('T')[0]}</span><br>
                 🦻 <b>تفاصيل آخر سماعة:</b> ${latestRecord.device_details || '-'}<br>
                 📌 <b>الملاحظات:</b> ${noteVal}<br>
                 🏥 <b>المؤسسة / المركز:</b> ${latestRecord.institution_name || '-'}<br>
                 <hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">
             `;
 
-            if (isNaN(diffYears) || diffYears >= requiredYears) {
+            if (currentDate >= targetDueDate) {
                 box.className = 'result-box eligible';
-                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق</b> للصرف! (مضت فترة الاستحقاق المطلوبة وهي ${requiredYears} سنوات منذ آخر استلام).`;
+                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق</b> للصرف تماماً! (اكتملت المدة القانونية المطلوبة).`;
             } else {
-                let remainingYears = (requiredYears - diffYears).toFixed(1);
+                let diffTime = targetDueDate - currentDate;
+                let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                let remainingYears = (diffDays / 365.25).toFixed(1);
+
                 box.className = 'result-box not-eligible';
-                box.innerHTML = detailsHTML + `⚠️ <b>حالة الاستحقاق:</b> المريض <b>غير مستحق</b> حالياً! استلم آخر مرة بتاريخ ${latestRecord.date}، ومتبقي حوالي ${remainingYears} سنة على موعد الاستحقاق القادم.`;
+                box.innerHTML = detailsHTML + `⚠️ <b>حالة الاستحقاق:</b> المريض <b>غير مستحق</b> حالياً! استلم آخر مرة في ${latestRecord.date}، وموعد الاستحقاق القانوني هو <b>${targetDueDate.toISOString().split('T')[0]}</b> (متبقي حوالي ${remainingYears} سنة).`;
             }
         }
     }
@@ -274,13 +283,22 @@
             let age = calculateAge(latestRecord.birth_year || '-');
             let noteVal = document.getElementById('patientNote').value;
             let requiredYears = getRequiredYears(age, noteVal);
-            let diffYears = (new Date() - new Date(latestRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
-            if (!isNaN(diffYears) && diffYears < requiredYears) {
-                let remainingYears = (requiredYears - diffYears).toFixed(1);
+            let lastDate = new Date(latestRecord.date);
+            if (isNaN(lastDate)) lastDate = new Date();
+
+            let targetDueDate = new Date(lastDate);
+            targetDueDate.setFullYear(lastDate.getFullYear() + requiredYears);
+
+            let currentDate = new Date();
+
+            if (currentDate < targetDueDate) {
+                let diffTime = targetDueDate - currentDate;
+                let remainingYears = (diffTime / (1000 * 60 * 60 * 24 * 365.25)).toFixed(1);
+
                 warningBox.style.display = 'block';
                 warningBox.className = 'result-box not-eligible';
-                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${latestRecord.patient_name}): غير مستحق! استلم ${matchedRecords.length} مرات، وكان آخر صرف في ${latestRecord.date}. متبقي ${remainingYears} سنة.`;
+                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${latestRecord.patient_name}): غير مستحق! استلم ${matchedRecords.length} مرات، وآخره في ${latestRecord.date}. موعد الاستحقاق القانوني هو <b>${targetDueDate.toISOString().split('T')[0]}</b> (متبقي ${remainingYears} سنة).`;
                 issueBtn.disabled = true;
                 issueBtn.style.opacity = '0.5';
                 return;
