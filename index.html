@@ -26,7 +26,7 @@
 
         .table-search-box { width: 220px; padding: 6px 10px; font-size: 13px; border-radius: 4px; border: 1px solid #ccc; margin-top: 0; background: #fff; color: #000; }
 
-        .result-box { padding: 15px; border-radius: 5px; font-weight: bold; margin-top: 15px; display: none; line-height: 1.6; }
+        .result-box { padding: 15px; border-radius: 5px; font-weight: bold; margin-top: 15px; display: none; line-height: 1.8; font-size: 14px; }
         .eligible { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .not-eligible { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         .row { display: flex; gap: 10px; }
@@ -50,7 +50,7 @@
         <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
         <label>بحث بالرقم الوطني أو اسم المريض:</label>
         <input type="text" id="searchId" placeholder="أدخل الرقم الوطني أو اسم المريض">
-        <button onclick="searchPatient()">بحث وفحص الاستحقاق</button>
+        <button onclick="searchPatient()">بحث وفحص الاستحقاق والتفاصيل</button>
         <div id="searchResult" class="result-box"></div>
     </div>
 
@@ -84,10 +84,10 @@
         </div>
         <div class="row">
             <div>
-                <label>هل المريض طالب؟</label>
+                <label>الملاحظات:</label>
                 <select id="isStudent" onchange="checkPatientEligibilityLive()">
-                    <option value="yes">نعم (طالب)</option>
-                    <option value="no">ليس طالب</option>
+                    <option value="طالب">طالب</option>
+                    <option value="استثناء">استثناء</option>
                 </select>
             </div>
             <div>
@@ -131,11 +131,12 @@
                     <th>تفاصيل السماعة</th>
                     <th>الرقم التسلسلي</th>
                     <th>تاريخ الصرف</th>
+                    <th>الملاحظات</th>
                     <th>المؤسسة / المركز</th>
                 </tr>
             </thead>
             <tbody id="issuedTableBody">
-                <tr><td colspan="8">جاري مزامنة السجلات من السحابة...</td></tr>
+                <tr><td colspan="9">جاري مزامنة السجلات من السحابة...</td></tr>
             </tbody>
         </table>
     </div>
@@ -170,8 +171,9 @@
         return new Date().getFullYear() - year;
     }
 
-    function getRequiredYears(age, isStudent) {
-        if (age >= 7 && isStudent === 'no') return 4;
+    function getRequiredYears(age, noteVal) {
+        if (noteVal === 'استثناء') return 3;
+        if (age >= 7 && noteVal !== 'طالب') return 4;
         return 3;
     }
 
@@ -207,21 +209,35 @@
 
         if(!foundRecord) {
             box.className = 'result-box eligible';
-            box.innerHTML = `✅ المريض غير مسجل مسبقاً ويمكنه الاستلام.`;
+            box.innerHTML = `✅ المريض غير مسجل مسبقاً في السجل السحابي ويمكنه الاستلام.`;
         } else {
             let birthVal = foundRecord.birth_year || '-';
-            let studentVal = foundRecord.is_student || 'yes';
+            let noteVal = foundRecord.is_student || 'طالب';
             let age = calculateAge(birthVal);
-            let requiredYears = getRequiredYears(age, studentVal);
+            let requiredYears = getRequiredYears(age, noteVal);
             let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
+
+            let detailsHTML = `
+                📂 <b>تفاصيل السجل الكاملة للمريض:</b><br>
+                👤 <b>اسم المريض:</b> ${foundRecord.patient_name || '-'}<br>
+                👩 <b>اسم الأم:</b> ${foundRecord.mother_name || '-'}<br>
+                🆔 <b>الرقم الوطني:</b> ${foundRecord.national_id || '-'}<br>
+                📅 <b>تاريخ الولادة:</b> ${birthVal}<br>
+                🦻 <b>تفاصيل السماعة:</b> ${foundRecord.device_details || '-'}<br>
+                🔢 <b>الرقم التسلسلي:</b> ${foundRecord.serial_number || '-'}<br>
+                📆 <b>تاريخ الصرف السابق:</b> ${foundRecord.date || '-'}<br>
+                📌 <b>الملاحظات:</b> ${noteVal}<br>
+                🏥 <b>المؤسسة / المركز:</b> ${foundRecord.institution_name || '-'}<br>
+                <hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">
+            `;
 
             if (diffYears >= requiredYears) {
                 box.className = 'result-box eligible';
-                box.innerHTML = `✅ المريض (${foundRecord.patient_name}) مستحق! آخر صرف كان بتاريخ ${foundRecord.date} وفترة الاستحقاق هي ${requiredYears} سنوات.`;
+                box.innerHTML = detailsHTML + `✅ <b>الحالة:</b> المريض مستحق! (مضت فترة الاستحقاق ${requiredYears} سنوات أو أكثر).`;
             } else {
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 box.className = 'result-box not-eligible';
-                box.innerHTML = `⚠️ المريض (${foundRecord.patient_name}) غير مستحق حالياً! استلم بتاريخ ${foundRecord.date}. متبقي حوالي ${remainingYears} سنة.`;
+                box.innerHTML = detailsHTML + `⚠️ <b>الحالة:</b> المريض غير مستحق حالياً! متبقي حوالي ${remainingYears} سنة على موعد الاستحقاق القادم.`;
             }
         }
     }
@@ -246,15 +262,15 @@
 
         if (foundRecord) {
             let age = calculateAge(foundRecord.birth_year || '-');
-            let studentVal = document.getElementById('isStudent').value;
-            let requiredYears = getRequiredYears(age, studentVal);
+            let noteVal = document.getElementById('isStudent').value;
+            let requiredYears = getRequiredYears(age, noteVal);
             let diffYears = (new Date() - new Date(foundRecord.date)) / (1000 * 60 * 60 * 24 * 365.25);
 
             if (diffYears < requiredYears) {
                 let remainingYears = (requiredYears - diffYears).toFixed(1);
                 warningBox.style.display = 'block';
                 warningBox.className = 'result-box not-eligible';
-                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${foundRecord.patient_name}): غير مستحق! استلم بتاريخ ${foundRecord.date}. متبقي ${remainingYears} سنة.`;
+                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${foundRecord.patient_name}): غير مستحق! آخر صرف كان في ${foundRecord.date}. متبقي ${remainingYears} سنة.`;
                 issueBtn.disabled = true;
                 issueBtn.style.opacity = '0.5';
                 return;
@@ -348,6 +364,7 @@
                     let device = cols[4] || 'oticon xceed 3 up';
                     let serial = cols[5] || '0000';
                     let csvDate = cols[6] || '-';
+                    let note = cols[7] || 'طالب';
 
                     if (patName && patName !== '' && patName !== 'undefined') {
                         parsedRecords.push({
@@ -355,7 +372,7 @@
                             patient_name: patName,
                             mother_name: momName,
                             birth_year: birth,
-                            is_student: 'yes',
+                            is_student: note,
                             device_details: device,
                             serial_number: serial,
                             date: csvDate
@@ -443,7 +460,8 @@
             const natId = (item.national_id || '').toLowerCase();
             const device = (item.device_details || '').toLowerCase();
             const serial = (item.serial_number || '').toLowerCase();
-            return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
+            const note = (item.is_student || '').toLowerCase();
+            return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query) || note.includes(query);
         });
 
         const tbody = document.getElementById('issuedTableBody');
@@ -451,7 +469,7 @@
         tbody.innerHTML = '';
 
         if(filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8">لا توجد سجلات مطابقة في السحابة</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة في السحابة</td></tr>';
             return;
         }
 
@@ -468,6 +486,7 @@
                 <td ondblclick="makeEditable(this, ${item.id}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
                 <td ondblclick="makeEditable(this, ${item.id}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
                 <td ondblclick="makeEditable(this, ${item.id}, 'date', '${item.date || ''}')">${item.date || '-'}</td>
+                <td ondblclick="makeEditableSelect(this, ${item.id}, 'is_student', '${item.is_student || 'طالب'}')">${item.is_student || 'طالب'}</td>
                 <td>${item.institution_name || '-'}</td>
             `;
 
@@ -476,9 +495,46 @@
 
         if (filteredData.length > 500) {
             let noteTr = document.createElement('tr');
-            noteTr.innerHTML = `<td colspan="8" style="background-color: #fff3cd; color: #856404; font-weight: bold;">ملاحظة: يتم عرض أول 500 سجل من أصل ${filteredData.length} لتسريع التصفح. يمكنك استخدام خانة البحث لتصفية النتائج بدقة.</td>`;
+            noteTr.innerHTML = `<td colspan="9" style="background-color: #fff3cd; color: #856404; font-weight: bold;">ملاحظة: يتم عرض أول 500 سجل من أصل ${filteredData.length} لتسريع التصفح. يمكنك استخدام خانة البحث لتصفية النتائج بدقة.</td>`;
             tbody.appendChild(noteTr);
         }
+    }
+
+    async function makeEditableSelect(cell, recordIndex, fieldName, currentValue) {
+        if (cell.querySelector('select')) return;
+
+        cell.innerHTML = `
+            <select class="inline-edit-input">
+                <option value="طالب" ${currentValue === 'طالب' ? 'selected' : ''}>طالب</option>
+                <option value="استثناء" ${currentValue === 'استثناء' ? 'selected' : ''}>استثناء</option>
+            </select>
+        `;
+        const select = cell.querySelector('select');
+        select.focus();
+
+        select.onchange = async function() {
+            const newValue = select.value;
+            cell.innerHTML = newValue;
+
+            try {
+                await fetch(`/api/records/update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ index: recordIndex, field: fieldName, value: newValue })
+                });
+                loadIssuedList();
+            } catch (err) {
+                alert('⚠️ خطأ في الاتصال بالشبكة');
+            }
+        };
+
+        select.onblur = function() {
+            setTimeout(() => {
+                if (cell.querySelector('select')) {
+                    cell.innerHTML = currentValue;
+                }
+            }, 200);
+        };
     }
 
     async function makeEditable(cell, recordIndex, fieldName, currentValue) {
@@ -503,6 +559,8 @@
                     const result = await res.json();
                     if (!result.success) {
                         alert('❌ فشل حفظ التعديل في السحابة');
+                    } else {
+                        loadIssuedList();
                     }
                 } catch (err) {
                     alert('⚠️ خطأ في الاتصال بالشبكة');
