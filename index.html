@@ -86,9 +86,9 @@
             <div>
                 <label>الملاحظات:</label>
                 <select id="patientNote" onchange="checkPatientEligibilityLive()">
-                    <option value="طالب">طالب</option>
-                    <option value="استثناء">استثناء</option>
-                    <option value="لاتوجد">لاتوجد</option>
+                    <option value="طالب">طالب (3 سنوات)</option>
+                    <option value="استثناء">استثناء (معفى من الفترة الزمنية)</option>
+                    <option value="لاتوجد">لاتوجد (4 سنوات)</option>
                 </select>
             </div>
             <div>
@@ -165,22 +165,15 @@
             let parts = birthStr.split('/');
             year = parseInt(parts[2]) || 0;
         } else {
-            year = parseInt(birthStr) || 0;
+            year = parseInt(parts[2]) || parseInt(birthStr) || 0;
         }
         if (!year) return 0;
         return new Date().getFullYear() - year;
     }
 
-    function getRequiredYears(age, noteVal) {
-        if (noteVal === 'استثناء') return 3;
-        if (age >= 7 && noteVal !== 'طالب') return 4;
-        return 3;
-    }
-
-    // دالة لتنسيق التاريخ ليظهر (اسم اليوم، اليوم/الشهر/السنة) بوضوح
     function formatDayMonthYearDate(dateObj) {
         const options = { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' };
-        return dateObj.toLocaleDateString('ar-IQ', options); // مثال: الأحد، 27/04/2029
+        return dateObj.toLocaleDateString('ar-IQ', options);
     }
 
     async function loadIssuedList() {
@@ -224,17 +217,6 @@
 
             let birthVal = latestRecord.birth_year || '-';
             let noteVal = latestRecord.is_student || 'لاتوجد';
-            let age = calculateAge(birthVal);
-            let requiredYears = getRequiredYears(age, noteVal);
-
-            let lastDate = new Date(latestRecord.date);
-            if (isNaN(lastDate)) lastDate = new Date();
-            
-            let targetDueDate = new Date(lastDate);
-            targetDueDate.setFullYear(lastDate.getFullYear() + requiredYears);
-
-            let currentDate = new Date();
-            let formattedDueDate = formatDayMonthYearDate(targetDueDate);
 
             let detailsHTML = `
                 📂 <b>تفاصيل السجل الكاملة للمريض:</b><br>
@@ -244,16 +226,33 @@
                 📅 <b>تاريخ الولادة:</b> ${birthVal}<br>
                 🔢 <b>عدد مرات الاستلام الكلية:</b> <span style="color: #2980b9;">${totalTimes} مرة</span><br>
                 📆 <b>تاريخ آخر استلام:</b> ${latestRecord.date || '-'}<br>
-                🎯 <b>تاريخ الاستحقاق القادم (اليوم، اليوم/الشهر/السنة):</b> <span style="color: #c0392b;">${formattedDueDate}</span><br>
                 🦻 <b>تفاصيل آخر سماعة:</b> ${latestRecord.device_details || '-'}<br>
                 📌 <b>الملاحظات:</b> ${noteVal}<br>
                 🏥 <b>المؤسسة / المركز:</b> ${latestRecord.institution_name || '-'}<br>
                 <hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">
             `;
 
+            // إذا كان المريض لديه ملاحظة "استثناء"، فهو مستحق مباشرة دون التقيد بالمدة الزمنية
+            if (noteVal === 'استثناء') {
+                box.className = 'result-box eligible';
+                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق للصرف</b>! (حالة مسجلة كـ <b>استثناء رسمي</b> معفى من الفترة الزمنية المحددة).`;
+                return;
+            }
+
+            // الحساب الاعتيادي للطالب (3 سنوات) أو البقية (4 سنوات)
+            let requiredYears = (noteVal === 'طالب') ? 3 : 4;
+            let lastDate = new Date(latestRecord.date);
+            if (isNaN(lastDate)) lastDate = new Date();
+            
+            let targetDueDate = new Date(lastDate);
+            targetDueDate.setFullYear(lastDate.getFullYear() + requiredYears);
+
+            let currentDate = new Date();
+            let formattedDueDate = formatDayMonthYearDate(targetDueDate);
+
             if (currentDate >= targetDueDate) {
                 box.className = 'result-box eligible';
-                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق</b> للصرف تماماً! (اكتملت المدة القانونية المطلوبة).`;
+                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق</b> للصرف تماماً! (اكتملت المدة القانونية وهي ${requiredYears} سنوات).`;
             } else {
                 let diffTime = targetDueDate - currentDate;
                 let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -270,6 +269,15 @@
         const fullName = document.getElementById('fullName').value.trim().toLowerCase();
         const warningBox = document.getElementById('registrationWarning');
         const issueBtn = document.getElementById('issueBtn');
+        const noteVal = document.getElementById('patientNote').value;
+
+        // إذا كان الخيار المختار هو "استثناء"، يُسمح بالصرف فوراً ولا يوجد أي قيد زمني
+        if (noteVal === 'استثناء') {
+            warningBox.style.display = 'none';
+            issueBtn.disabled = false;
+            issueBtn.style.opacity = '1';
+            return;
+        }
 
         if (id.length < 3 && fullName.length < 3) {
             warningBox.style.display = 'none';
@@ -287,10 +295,7 @@
             matchedRecords.sort((a, b) => new Date(b.date || '2000-01-01') - new Date(a.date || '2000-01-01'));
             const latestRecord = matchedRecords[0];
 
-            let age = calculateAge(latestRecord.birth_year || '-');
-            let noteVal = document.getElementById('patientNote').value;
-            let requiredYears = getRequiredYears(age, noteVal);
-
+            let requiredYears = (noteVal === 'طالب') ? 3 : 4;
             let lastDate = new Date(latestRecord.date);
             if (isNaN(lastDate)) lastDate = new Date();
 
@@ -306,7 +311,7 @@
 
                 warningBox.style.display = 'block';
                 warningBox.className = 'result-box not-eligible';
-                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${latestRecord.patient_name}): غير مستحق! استلم ${matchedRecords.length} مرات، وآخره في ${latestRecord.date}. موعد الاستحقاق القانوني هو: <b>${formattedDueDate}</b> (متبقي ${remainingYears} سنة).`;
+                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${latestRecord.patient_name}): غير مستحق! استلم ${matchedRecords.length} مرات، وآخره في ${latestRecord.date}. موعد الاستحقاق (${requiredYears} سنوات) هو: <b>${formattedDueDate}</b> (متبقي ${remainingYears} سنة).`;
                 issueBtn.disabled = true;
                 issueBtn.style.opacity = '0.5';
                 return;
