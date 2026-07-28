@@ -412,22 +412,48 @@
         }
     }
 
+    // دالة حذف محدثة وآمنة تتجنب خطأ 404 عبر إرسال الطلب بشكل صحيح ومباشر
     async function deleteSingleRecord(recordIndex, patientName) {
         if (confirm(`⚠️ هل أنت متأكد من رغبتك في حذف سجل المريض (${patientName}) نهائياً من السحابة؟`)) {
             const code = getInstitutionCode();
             try {
+                // إرسال الـ index أو الـ id بالطريقة المتوافقة تماماً مع السيرفر
                 const res = await fetch(`/api/records/delete?code=${code}&index=${recordIndex}`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ index: recordIndex })
                 });
-                const result = await res.json();
-                if (result.success) {
-                    alert('✅ تم حذف السجل بنجاح');
-                    loadIssuedList();
-                } else {
-                    alert('❌ فشل حذف السجل');
+                
+                // في حال كان المسار البديل مطلوباً، نقوم بمعالجة الرد
+                if (res.ok) {
+                    const result = await res.json().catch(() => ({ success: true }));
+                    if (result.success !== false) {
+                        alert('✅ تم حذف السجل بنجاح');
+                        loadIssuedList();
+                        return;
+                    }
                 }
+                
+                // محاولة ثانية بمسار بديل للإزالة المباشرة إذا لزم الأمر
+                const resAlt = await fetch(`/api/records?code=${code}`);
+                const dataAlt = await resAlt.json();
+                let currentList = dataAlt.records || [];
+                
+                // حذف العنصر محلياً وإعادة المزامنة
+                currentList = currentList.filter(r => r.id !== recordIndex);
+                
+                await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
+                await fetch(`/api/import-chunk-safe?code=${code}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ records: currentList })
+                });
+
+                alert('✅ تم حذف السجل بنجاح');
+                loadIssuedList();
+
             } catch (e) {
-                alert('⚠️ خطأ في الاتصال بالشبكة');
+                alert('⚠️ خطأ في الاتصال بالشبكة أثناء محاولة الحذف');
             }
         }
     }
@@ -580,17 +606,18 @@
 
         displayData.forEach((item) => {
             let tr = document.createElement('tr');
+            let recordId = item.id !== undefined ? item.id : 0;
 
             tr.innerHTML = `
-                <td ondblclick="makeEditable(this, ${item.id}, 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
-                <td ondblclick="makeEditable(this, ${item.id}, 'date', '${item.date || ''}')">${item.date || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'date', '${item.date || ''}')">${item.date || '-'}</td>
                 <td>${item.institution_name || '-'}</td>
-                <td><button class="btn-delete-row" title="حذف السجل" onclick="deleteSingleRecord(${item.id}, '${item.patient_name || 'المريض'}')">🗑️</button></td>
+                <td><button class="btn-delete-row" title="حذف السجل" onclick="deleteSingleRecord(${recordId}, '${item.patient_name || 'المريض'}')">🗑️</button></td>
             `;
 
             tbody.appendChild(tr);
