@@ -121,7 +121,7 @@
                     <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV السحابي (8000+ سجل)</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ تفريغ السجل السحابي</button>
                 </div>
-                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة..." oninput="filterTableLive()">
+                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة ذكية..." oninput="filterTableLive()">
             </div>
         </div>
 
@@ -160,6 +160,38 @@
     function getInstitutionCode() {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get('code') || 'yarmok';
+    }
+
+    // دالة التطبيع والتصحيح الذكي للنصوص العربية (معالجة الهمزات، الحروف المتقاربة لفظاً، والمسافات)
+    function smartNormalizeArabic(text) {
+        if (!text) return '';
+        let str = String(text).toLowerCase().trim();
+
+        // إزالة الحركات والتنوين
+        str = str.replace(/[\u064b-\u0652]/g, '');
+
+        // توحيد أشكال الألف (أ، إ، آ، ا -> ا)
+        str = str.replace(/[أإآا]/g, 'ا');
+
+        // توحيد الهاء والتاء المربوطة (ة -> ه)
+        str = str.replace(/ة/g, 'ه');
+
+        // توحيد الياء والالف المقصورة (ى -> ي)
+        str = str.replace(/ى/g, 'ي');
+
+        // توحيد الحروف المتشابهة إملائياً/لفظياً لتجنب أخطاء الكتابة (مثل فاضل / فاظل، عبد الله / عبدالله)
+        str = str.replace(/ظ/g, 'ض'); // مثل فاظل / فاضل
+        str = str.replace(/ص/g, 'س'); 
+        str = str.replace(/ث/g, 'س'); 
+        str = str.replace(/ذ/g, 'ز'); 
+        str = str.replace(/ؤ/g, 'و');
+        str = str.replace(/ئ/g, 'ي');
+        str = str.replace(/أ/g, 'ا');
+
+        // إزالة المسافات الزائدة بين الكلمات تماماً (مثل "عبد الله" تصبح "عبدالله")
+        str = str.replace(/\s+/g, '');
+
+        return str;
     }
 
     function getPatientAgeInMonths(birthStr) {
@@ -225,10 +257,13 @@
         const queryText = document.getElementById('searchId').value.trim().toLowerCase();
         if(!queryText) return alert('يرجى إدخال الرقم الوطني أو اسم المريض للبحث');
 
-        const matchedRecords = cachedRecords.filter(r => 
-            (queryText && r.national_id && String(r.national_id).toLowerCase() === queryText) || 
-            (queryText && r.patient_name && String(r.patient_name).toLowerCase().includes(queryText))
-        );
+        const normQuery = smartNormalizeArabic(queryText);
+
+        const matchedRecords = cachedRecords.filter(r => {
+            const normNatId = smartNormalizeArabic(r.national_id);
+            const normName = smartNormalizeArabic(r.patient_name);
+            return (normQuery && normNatId.includes(normQuery)) || (normQuery && normName.includes(normQuery));
+        });
 
         const box = document.getElementById('searchResult');
         box.style.display = 'block';
@@ -292,8 +327,8 @@
     }
 
     function checkPatientEligibilityLive() {
-        const id = document.getElementById('newNationalId').value.trim().toLowerCase();
-        const fullName = document.getElementById('fullName').value.trim().toLowerCase();
+        const id = smartNormalizeArabic(document.getElementById('newNationalId').value);
+        const fullName = smartNormalizeArabic(document.getElementById('fullName').value);
         const warningBox = document.getElementById('registrationWarning');
         const issueBtn = document.getElementById('issueBtn');
         const noteVal = document.getElementById('patientNote').value;
@@ -322,10 +357,11 @@
             return;
         }
 
-        const matchedRecords = cachedRecords.filter(r => 
-            (id && r.national_id && String(r.national_id).toLowerCase() === id) || 
-            (fullName && r.patient_name && String(r.patient_name).toLowerCase().includes(fullName))
-        );
+        const matchedRecords = cachedRecords.filter(r => {
+            const normNatId = smartNormalizeArabic(r.national_id);
+            const normName = smartNormalizeArabic(r.patient_name);
+            return (id && normNatId === id) || (fullName && normName.includes(fullName));
+        });
 
         if (matchedRecords.length > 0) {
             matchedRecords.sort((a, b) => new Date(b.date || '2000-01-01') - new Date(a.date || '2000-01-01'));
@@ -577,18 +613,24 @@
     }
 
     function renderTable(data) {
-        const query = document.getElementById('tableSearchInput').value.trim().toLowerCase();
+        const rawQuery = document.getElementById('tableSearchInput').value.trim();
+        const normQuery = smartNormalizeArabic(rawQuery);
         
         const filteredData = data.filter(item => {
-            const name = (item.patient_name || '').toLowerCase();
-            const mother = (item.mother_name || '').toLowerCase();
-            const natId = (item.national_id || '').toLowerCase();
-            const device = (item.device_details || '').toLowerCase();
-            const serial = (item.serial_number || '').toLowerCase();
-            return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
+            const normName = smartNormalizeArabic(item.patient_name);
+            const normMother = smartNormalizeArabic(item.mother_name);
+            const normNatId = smartNormalizeArabic(item.national_id);
+            const normDevice = smartNormalizeArabic(item.device_details);
+            const normSerial = smartNormalizeArabic(item.serial_number);
+
+            return normName.includes(normQuery) || 
+                   normMother.includes(normQuery) || 
+                   normNatId.includes(normQuery) || 
+                   normDevice.includes(normQuery) || 
+                   normSerial.includes(normQuery);
         });
 
-        // ترتيب الصفوف حسب تاريخ الصرف من الحديث إلى القديم (تنازلياً)
+        // ترتيب الصفوف حسب تاريخ الصرف من الحديث إلى القديم
         filteredData.sort((a, b) => {
             let dateA = new Date(a.date || '2000-01-01');
             let dateB = new Date(b.date || '2000-01-01');
