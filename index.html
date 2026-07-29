@@ -121,7 +121,7 @@
                     <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV السحابي (8000+ سجل)</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ تفريغ السجل السحابي</button>
                 </div>
-                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة ذكية..." oninput="filterTableLive()">
+                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة ذكية لكل الحروف..." oninput="filterTableLive()">
             </div>
         </div>
 
@@ -162,33 +162,38 @@
         return urlParams.get('code') || 'yarmok';
     }
 
-    // دالة التطبيع والتصحيح الذكي للنصوص العربية (معالجة الهمزات، الحروف المتقاربة لفظاً، والمسافات)
+    // دالة التطبيع الشامل لكل الحروف العربية (توحيد الألفات، الهمزات، التاء والهاء، الياء، والحروف المتقاربة)
     function smartNormalizeArabic(text) {
         if (!text) return '';
         let str = String(text).toLowerCase().trim();
 
-        // إزالة الحركات والتنوين
+        // 1. إزالة الحركات والتنوين
         str = str.replace(/[\u064b-\u0652]/g, '');
 
-        // توحيد أشكال الألف (أ، إ، آ، ا -> ا)
-        str = str.replace(/[أإآا]/g, 'ا');
+        // 2. توحيد جميع أشكال الألف والهمزات (أ، إ، آ، إ، أ، ٱ -> ا)
+        str = str.replace(/[أإآٱا]/g, 'ا');
 
-        // توحيد الهاء والتاء المربوطة (ة -> ه)
+        // 3. توحيد الهاء والتاء المربوطة (ة -> ه)
         str = str.replace(/ة/g, 'ه');
 
-        // توحيد الياء والالف المقصورة (ى -> ي)
+        // 4. توحيد الياء والالف المقصورة (ى -> ي)
         str = str.replace(/ى/g, 'ي');
 
-        // توحيد الحروف المتشابهة إملائياً/لفظياً لتجنب أخطاء الكتابة (مثل فاضل / فاظل، عبد الله / عبدالله)
-        str = str.replace(/ظ/g, 'ض'); // مثل فاظل / فاضل
+        // 5. توحيد الهمزات على الواو والياء والنبذة (ؤ، ئ -> و، ي)
+        str = str.replace(/ؤ/g, 'و');
+        str = str.replace(/ئ/g, 'ي');
+        str = str.replace(/ء/g, 'ا');
+
+        // 6. توحيد الحروف المتقاربة لفظاً وإملائياً لتجنب الأخطاء الشائعة (مثل ظ/ض، ص/س، ث/س، ذ/ز)
+        str = str.replace(/ظ/g, 'ض');
         str = str.replace(/ص/g, 'س'); 
         str = str.replace(/ث/g, 'س'); 
         str = str.replace(/ذ/g, 'ز'); 
-        str = str.replace(/ؤ/g, 'و');
-        str = str.replace(/ئ/g, 'ي');
-        str = str.replace(/أ/g, 'ا');
 
-        // إزالة المسافات الزائدة بين الكلمات تماماً (مثل "عبد الله" تصبح "عبدالله")
+        // 7. توحيد صيغ الأسماء المركبة الشائعة (مثل عبد الله / عبدالله)
+        str = str.replace(/عبد\s+الله/g, 'عبدالله');
+
+        // 8. إزالة كافة المسافات الفاصلة الزائدة للمقارنة المرنة
         str = str.replace(/\s+/g, '');
 
         return str;
