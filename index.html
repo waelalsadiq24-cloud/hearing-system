@@ -171,7 +171,6 @@
         return urlParams.get('code') || 'yarmok';
     }
 
-    // دالة جلب اسم المؤسسة الصحيح بناءً على الرابط حصرياً
     function getInstitutionDisplayName() {
         const code = getInstitutionCode();
         if (code === 'medcity' || code === 'tibb') {
@@ -326,7 +325,6 @@
         const code = getInstitutionCode();
         const instName = getInstitutionDisplayName();
         
-        // تحديث عنوان الصفحة العلوي بحسب المؤسسة حصرياً
         document.getElementById('pageTitle').innerText = `🏥 نظام فحص وتسجيل وصرف السماعات الطبية - ${instName} (السحابي)`;
 
         try {
@@ -501,7 +499,7 @@
             device_details: cleanDevice,
             serial_number: document.getElementById('serialNumber').value.trim(),
             date: new Date().toISOString().split('T')[0],
-            institution_name: getInstitutionDisplayName() // ربط اسم المركز ديناميكياً بالمؤسسة المفتوحة حالياً
+            institution_name: getInstitutionDisplayName()
         };
 
         if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
@@ -538,7 +536,16 @@
         }
     }
 
-    async function deleteSingleRecord(recordIndex, patientName) {
+    // [قفل أمني صارم] دالة الحذف مع التحقق من أن السجل يتبع نفس المؤسسة المفتوحة حصرياً
+    async function deleteSingleRecord(recordIndex, patientName, recordInstName) {
+        const currentInst = getInstitutionDisplayName();
+        
+        // التحقق الأمني: إذا كان اسم مؤسسة السجل يخالف المؤسسة الحالية للرابط، يتم المنع فوراً
+        if (recordInstName && recordInstName !== '-' && recordInstName !== currentInst) {
+            alert(`⛔ غير مسموح! لا يمكنك حذف سجل يتبع لمؤسسة أخرى (${recordInstName}) وأنت مسجل الدخول بصفتك (${currentInst}).`);
+            return;
+        }
+
         if (confirm(`⚠️ هل أنت متأكد من رغبتك في حذف سجل المريض (${patientName}) نهائياً من السحابة؟`)) {
             const code = getInstitutionCode();
             try {
@@ -617,7 +624,7 @@
                     let device = cols[4] || 'oticon xceed 3 up';
                     let serial = cols[5] || '0000';
                     let csvDate = cols[6] || '-';
-                    let instCol = cols[7] || defaultInstName; // اعتماد اسم المؤسسة من الملف أو افتراضياً حسب الرابط
+                    let instCol = cols[7] || defaultInstName;
 
                     if (patName && patName !== '' && patName !== 'undefined') {
                         parsedRecords.push({
@@ -744,17 +751,18 @@
         displayData.forEach((item) => {
             let tr = document.createElement('tr');
             let recordId = item.id !== undefined ? item.id : 0;
+            let recordInst = item.institution_name || currentInstDisplay;
 
             tr.innerHTML = `
-                <td ondblclick="makeEditable(this, ${recordId}, 'patient_name', '${item.patient_name || ''}')">${item.patient_name || 'غير معروف'}</td>
-                <td ondblclick="makeEditable(this, ${recordId}, 'mother_name', '${item.mother_name || ''}')">${item.mother_name || '-'}</td>
-                <td ondblclick="makeEditable(this, ${recordId}, 'national_id', '${item.national_id || ''}')">${item.national_id || '-'}</td>
-                <td ondblclick="makeEditable(this, ${recordId}, 'birth_year', '${item.birth_year || ''}')">${item.birth_year || '-'}</td>
-                <td ondblclick="makeEditable(this, ${recordId}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
-                <td ondblclick="makeEditable(this, ${recordId}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
-                <td ondblclick="makeEditable(this, ${recordId}, 'date', '${item.date || ''}')">${item.date || '-'}</td>
-                <td>${item.institution_name || currentInstDisplay}</td>
-                <td><button class="btn-delete-row" title="حذف السجل" onclick="deleteSingleRecord(${recordId}, '${item.patient_name || 'المريض'}')">🗑️</button></td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'patient_name', '${item.patient_name || ''}', '${recordInst}')">${item.patient_name || 'غير معروف'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'mother_name', '${item.mother_name || ''}', '${recordInst}')">${item.mother_name || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'national_id', '${item.national_id || ''}', '${recordInst}')">${item.national_id || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'birth_year', '${item.birth_year || ''}', '${recordInst}')">${item.birth_year || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'device_details', '${item.device_details || ''}', '${recordInst}')">${item.device_details || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'serial_number', '${item.serial_number || ''}', '${recordInst}')">${item.serial_number || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'date', '${item.date || ''}', '${recordInst}')">${item.date || '-'}</td>
+                <td>${recordInst}</td>
+                <td><button class="btn-delete-row" title="حذف السجل" onclick="deleteSingleRecord(${recordId}, '${item.patient_name || 'المريض'}', '${recordInst}')">🗑️</button></td>
             `;
 
             tbody.appendChild(tr);
@@ -767,7 +775,15 @@
         }
     }
 
-    async function makeEditable(cell, recordIndex, fieldName, currentValue) {
+    // [قفل أمني صارم] دالة التعديل مع التحقق من أن السجل يتبع نفس المؤسسة المفتوحة حصرياً
+    async function makeEditable(cell, recordIndex, fieldName, currentValue, recordInstName) {
+        const currentInst = getInstitutionDisplayName();
+
+        if (recordInstName && recordInstName !== '-' && recordInstName !== currentInst) {
+            alert(`⛔ غير مسموح! لا يمكنك تعديل خلية في سجل يتبع لمؤسسة أخرى (${recordInstName}) وأنت مسجل الدخول بصفتك (${currentInst}).`);
+            return;
+        }
+
         if (cell.querySelector('input')) return;
 
         cell.innerHTML = `<input type="text" class="inline-edit-input" value="${currentValue === '-' ? '' : currentValue}">`;
