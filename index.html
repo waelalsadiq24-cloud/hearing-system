@@ -171,7 +171,15 @@
         return urlParams.get('code') || 'yarmok';
     }
 
-    // دالة تصحيح وقراءة صحيحة وصارمة للتواريخ مهما كان تنسيقها
+    // دالة جلب اسم المؤسسة الصحيح بناءً على الرابط حصرياً
+    function getInstitutionDisplayName() {
+        const code = getInstitutionCode();
+        if (code === 'medcity' || code === 'tibb') {
+            return 'مدينة الطب';
+        }
+        return 'مستشفى اليرموك';
+    }
+
     function parseValidDate(dateStr) {
         if (!dateStr || dateStr === '-' || dateStr === 'undefined') return '2000-01-01';
         dateStr = String(dateStr).trim();
@@ -234,7 +242,6 @@
                 selectElement.selectedIndex = 0;
             }
         } else if (val && val !== "ADD_NEW_DEVICE") {
-            // السماح بحذف أي سماعة (سواء أساسية أو مضافة) عند النقر عليها في القائمة
             let actualDeviceName = val;
             if (confirm(`⚠️ هل أنت متأكد من حذف السماعة (${actualDeviceName}) من القائمة المنسدلة؟`)) {
                 for (let i = 0; i < selectElement.options.length; i++) {
@@ -317,11 +324,10 @@
 
     async function loadIssuedList() {
         const code = getInstitutionCode();
-        if (code === 'medcity' || code === 'tibb') {
-            document.getElementById('pageTitle').innerText = '🏥 نظام فحص وتسجيل وصرف السماعات الطبية - مدينة الطب (السحابي)';
-        } else {
-            document.getElementById('pageTitle').innerText = '🏥 نظام فحص وتسجيل وصرف السماعات الطبية - مستشفى اليرموك (السحابي)';
-        }
+        const instName = getInstitutionDisplayName();
+        
+        // تحديث عنوان الصفحة العلوي بحسب المؤسسة حصرياً
+        document.getElementById('pageTitle').innerText = `🏥 نظام فحص وتسجيل وصرف السماعات الطبية - ${instName} (السحابي)`;
 
         try {
             const res = await fetch(`/api/records?code=${code}`);
@@ -370,7 +376,7 @@
                 📆 <b>تاريخ آخر استلام:</b> ${latestRecord.date || '-'}<br>
                 🦻 <b>تفاصيل آخر سماعة:</b> ${latestRecord.device_details || '-'}<br>
                 📌 <b>الملاحظات:</b> ${noteVal}<br>
-                🏥 <b>المؤسسة / المركز:</b> ${latestRecord.institution_name || '-'}<br>
+                🏥 <b>المؤسسة / المركز:</b> ${latestRecord.institution_name || getInstitutionDisplayName()}<br>
                 <hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">
             `;
 
@@ -494,7 +500,8 @@
             is_student: noteVal,
             device_details: cleanDevice,
             serial_number: document.getElementById('serialNumber').value.trim(),
-            date: new Date().toISOString().split('T')[0]
+            date: new Date().toISOString().split('T')[0],
+            institution_name: getInstitutionDisplayName() // ربط اسم المركز ديناميكياً بالمؤسسة المفتوحة حالياً
         };
 
         if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
@@ -586,6 +593,7 @@
                 const lines = text.split(/\r\n|\n/);
                 let parsedRecords = [];
                 const code = getInstitutionCode();
+                const defaultInstName = getInstitutionDisplayName();
 
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i] ? lines[i].trim() : '';
@@ -609,6 +617,7 @@
                     let device = cols[4] || 'oticon xceed 3 up';
                     let serial = cols[5] || '0000';
                     let csvDate = cols[6] || '-';
+                    let instCol = cols[7] || defaultInstName; // اعتماد اسم المؤسسة من الملف أو افتراضياً حسب الرابط
 
                     if (patName && patName !== '' && patName !== 'undefined') {
                         parsedRecords.push({
@@ -619,7 +628,8 @@
                             is_student: 'لاتوجد',
                             device_details: device,
                             serial_number: serial,
-                            date: csvDate
+                            date: csvDate,
+                            institution_name: instCol
                         });
                     }
                 }
@@ -729,6 +739,7 @@
         }
 
         const displayData = filteredData.slice(0, 500);
+        const currentInstDisplay = getInstitutionDisplayName();
 
         displayData.forEach((item) => {
             let tr = document.createElement('tr');
@@ -742,7 +753,7 @@
                 <td ondblclick="makeEditable(this, ${recordId}, 'device_details', '${item.device_details || ''}')">${item.device_details || '-'}</td>
                 <td ondblclick="makeEditable(this, ${recordId}, 'serial_number', '${item.serial_number || ''}')">${item.serial_number || '-'}</td>
                 <td ondblclick="makeEditable(this, ${recordId}, 'date', '${item.date || ''}')">${item.date || '-'}</td>
-                <td>${item.institution_name || '-'}</td>
+                <td>${item.institution_name || currentInstDisplay}</td>
                 <td><button class="btn-delete-row" title="حذف السجل" onclick="deleteSingleRecord(${recordId}, '${item.patient_name || 'المريض'}')">🗑️</button></td>
             `;
 
