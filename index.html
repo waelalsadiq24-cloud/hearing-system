@@ -121,7 +121,7 @@
                     <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV السحابي (8000+ سجل)</button>
                     <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ تفريغ السجل السحابي</button>
                 </div>
-                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 تصفية شاملة ذكية لكل الحروف..." oninput="filterTableLive()">
+                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 بحث في بداية الاسم..." oninput="filterTableLive()">
             </div>
         </div>
 
@@ -162,38 +162,25 @@
         return urlParams.get('code') || 'yarmok';
     }
 
-    // دالة التطبيع الشامل لكل الحروف العربية (توحيد الألفات، الهمزات، التاء والهاء، الياء، والحروف المتقاربة)
+    // دالة التطبيع الشامل لكل الحروف العربية
     function smartNormalizeArabic(text) {
         if (!text) return '';
         let str = String(text).toLowerCase().trim();
 
-        // 1. إزالة الحركات والتنوين
         str = str.replace(/[\u064b-\u0652]/g, '');
-
-        // 2. توحيد جميع أشكال الألف والهمزات (أ، إ، آ، إ، أ، ٱ -> ا)
         str = str.replace(/[أإآٱا]/g, 'ا');
-
-        // 3. توحيد الهاء والتاء المربوطة (ة -> ه)
         str = str.replace(/ة/g, 'ه');
-
-        // 4. توحيد الياء والالف المقصورة (ى -> ي)
         str = str.replace(/ى/g, 'ي');
-
-        // 5. توحيد الهمزات على الواو والياء والنبذة (ؤ، ئ -> و، ي)
         str = str.replace(/ؤ/g, 'و');
         str = str.replace(/ئ/g, 'ي');
         str = str.replace(/ء/g, 'ا');
 
-        // 6. توحيد الحروف المتقاربة لفظاً وإملائياً لتجنب الأخطاء الشائعة (مثل ظ/ض، ص/س، ث/س، ذ/ز)
         str = str.replace(/ظ/g, 'ض');
         str = str.replace(/ص/g, 'س'); 
         str = str.replace(/ث/g, 'س'); 
         str = str.replace(/ذ/g, 'ز'); 
 
-        // 7. توحيد صيغ الأسماء المركبة الشائعة (مثل عبد الله / عبدالله)
         str = str.replace(/عبد\s+الله/g, 'عبدالله');
-
-        // 8. إزالة كافة المسافات الفاصلة الزائدة للمقارنة المرنة
         str = str.replace(/\s+/g, '');
 
         return str;
@@ -267,7 +254,7 @@
         const matchedRecords = cachedRecords.filter(r => {
             const normNatId = smartNormalizeArabic(r.national_id);
             const normName = smartNormalizeArabic(r.patient_name);
-            return (normQuery && normNatId.includes(normQuery)) || (normQuery && normName.includes(normQuery));
+            return (normQuery && normNatId.startsWith(normQuery)) || (normQuery && normName.startsWith(normQuery));
         });
 
         const box = document.getElementById('searchResult');
@@ -365,7 +352,7 @@
         const matchedRecords = cachedRecords.filter(r => {
             const normNatId = smartNormalizeArabic(r.national_id);
             const normName = smartNormalizeArabic(r.patient_name);
-            return (id && normNatId === id) || (fullName && normName.includes(fullName));
+            return (id && normNatId === id) || (fullName && normName.startsWith(fullName));
         });
 
         if (matchedRecords.length > 0) {
@@ -628,11 +615,12 @@
             const normDevice = smartNormalizeArabic(item.device_details);
             const normSerial = smartNormalizeArabic(item.serial_number);
 
-            return normName.includes(normQuery) || 
-                   normMother.includes(normQuery) || 
-                   normNatId.includes(normQuery) || 
-                   normDevice.includes(normQuery) || 
-                   normSerial.includes(normQuery);
+            // التحقق مما إذا كان حقل اسم المريض أو الرقم الوطني يبدأ بكلمة البحث
+            return normName.startsWith(normQuery) || 
+                   normNatId.startsWith(normQuery) ||
+                   normMother.startsWith(normQuery) || 
+                   normDevice.startsWith(normQuery) || 
+                   normSerial.startsWith(normQuery);
         });
 
         // ترتيب الصفوف حسب تاريخ الصرف من الحديث إلى القديم
@@ -647,7 +635,7 @@
         tbody.innerHTML = '';
 
         if(filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة في السحابة</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة تبدأ بهذا النص في السحابة</td></tr>';
             return;
         }
 
@@ -690,7 +678,7 @@
         input.onkeydown = async function(e) {
             if (e.key === 'Enter') {
                 const newValue = input.value.trim();
-                cell.innerHTML = newValue === '' ? '-' : newValue;
+                cell.innerHTML = newValue === '-' ? '-' : newValue;
 
                 try {
                     const res = await fetch(`/api/records/update`, {
