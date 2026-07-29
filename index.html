@@ -181,6 +181,34 @@
         return urlParams.get('code') || 'yarmok';
     }
 
+    // دالة تصحيح وصياغة التاريخ لضمان الترتيب الصحيح (سنة-شهر-يوم) للبرمجية
+    function parseValidDate(dateStr) {
+        if (!dateStr || dateStr === '-') return '2000-01-01';
+        dateStr = String(dateStr).trim();
+
+        // معالجة صيغة YYYY/MM/DD أو YYYY-MM-DD
+        if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(dateStr)) {
+            let parts = dateStr.split(/[\/\-]/);
+            return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+        }
+
+        // معالجة صيغة DD/MM/YYYY أو DD-MM-YYYY
+        if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(dateStr)) {
+            let parts = dateStr.split(/[\/\-]/);
+            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+
+        let parsed = new Date(dateStr);
+        if (!isNaN(parsed.getTime())) {
+            let y = parsed.getFullYear();
+            let m = String(parsed.getMonth() + 1).padStart(2, '0');
+            let d = String(parsed.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        return '2000-01-01';
+    }
+
     function handleDeviceSelection(selectElement) {
         const val = selectElement.value;
         if (val === "ADD_NEW_DEVICE") {
@@ -332,7 +360,7 @@
             box.className = 'result-box eligible';
             box.innerHTML = `✅ المريض غير مسجل مسبقاً في السجل السحابي ويمكنه الاستلام لأول مرة.`;
         } else {
-            matchedRecords.sort((a, b) => new Date(b.date || '2000-01-01') - new Date(a.date || '2000-01-01'));
+            matchedRecords.sort((a, b) => new Date(parseValidDate(b.date)) - new Date(parseValidDate(a.date)));
             
             const latestRecord = matchedRecords[0];
             const totalTimes = matchedRecords.length;
@@ -361,7 +389,7 @@
             }
 
             let requiredYears = getRequiredYears(birthVal, noteVal);
-            let lastDate = new Date(latestRecord.date);
+            let lastDate = new Date(parseValidDate(latestRecord.date));
             if (isNaN(lastDate)) lastDate = new Date();
             
             let targetDueDate = new Date(lastDate);
@@ -424,13 +452,13 @@
         });
 
         if (matchedRecords.length > 0) {
-            matchedRecords.sort((a, b) => new Date(b.date || '2000-01-01') - new Date(a.date || '2000-01-01'));
+            matchedRecords.sort((a, b) => new Date(parseValidDate(b.date)) - new Date(parseValidDate(a.date)));
             const latestRecord = matchedRecords[0];
 
             let birthStr = (birthDay && birthMonth && birthYear) ? `${birthDay}/${birthMonth}/${birthYear}` : (latestRecord.birth_year || '-');
             let requiredYears = getRequiredYears(birthStr, noteVal);
 
-            let lastDate = new Date(latestRecord.date);
+            let lastDate = new Date(parseValidDate(latestRecord.date));
             if (isNaN(lastDate)) lastDate = new Date();
 
             let targetDueDate = new Date(lastDate);
@@ -693,10 +721,10 @@
                    normSerial.startsWith(normQuery);
         });
 
-        // ترتيب الصفوف حسب تاريخ الصرف من الحديث إلى القديم تنازلياً
+        // ترتيب دقيق وتنازلي لتواريخ الصرف من الأحدث إلى الأقدم مهما كانت صيغة التاريخ في الملف
         filteredData.sort((a, b) => {
-            let dateA = new Date(a.date || '2000-01-01');
-            let dateB = new Date(b.date || '2000-01-01');
+            let dateA = new Date(parseValidDate(a.date));
+            let dateB = new Date(parseValidDate(b.date));
             return dateB - dateA;
         });
 
