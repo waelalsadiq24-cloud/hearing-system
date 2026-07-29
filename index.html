@@ -10,7 +10,7 @@
         h3 { color: #34495e; border-bottom: 2px solid #27ae60; padding-bottom: 5px; margin-top: 0; }
         .card { background: #eef2f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #dcdcdc; }
         label { display: block; margin-top: 12px; font-weight: bold; color: #333; }
-        input, select, button { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
+        input, select, button { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; background: #fff; }
         button { background-color: #27ae60; color: white; font-weight: bold; cursor: pointer; border: none; margin-top: 18px; font-size: 16px; }
         button:hover { background-color: #219150; }
         .btn-issue { background-color: #2980b9; }
@@ -102,7 +102,16 @@
         <div class="row">
             <div style="flex: 1;">
                 <label>تفاصيل السماعة:</label>
-                <input type="text" id="selectedDeviceDisplay" value="oticon xceed 3 up">
+                <select id="selectedDeviceDisplay" onchange="handleDeviceSelection(this)">
+                    <option value="oticon xceed 3 up" selected>oticon xceed 3 up</option>
+                    <option value="oticon xceed 1 up">oticon xceed 1 up</option>
+                    <option value="oticon xceed 2 up">oticon xceed 2 up</option>
+                    <option value="oticon kit 75">oticon kit 75</option>
+                    <option value="Widex D - FA 220">Widex D - FA 220</option>
+                    <option value="Widex D - 9 220">Widex D - 9 220</option>
+                    <option value="oticon Ria2 85">oticon Ria2 85</option>
+                    <option value="ADD_NEW_DEVICE" style="color: #2980b9; font-weight: bold; background: #eef2f5;">➕ إضافة سماعة جديدة...</option>
+                </select>
             </div>
         </div>
 
@@ -160,6 +169,43 @@
     function getInstitutionCode() {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get('code') || 'yarmok';
+    }
+
+    // دالة التعامل مع القائمة المنسدلة عند اختيار "إضافة سماعة جديدة"
+    function handleDeviceSelection(selectElement) {
+        if (selectElement.value === "ADD_NEW_DEVICE") {
+            let deviceName = prompt("أدخل اسم ومواصفات السماعة الجديدة:");
+            if (deviceName && deviceName.trim() !== "") {
+                deviceName = deviceName.trim();
+                
+                // التأكد من عدم تكرار السماعة
+                let exists = false;
+                for (let i = 0; i < selectElement.options.length; i++) {
+                    if (selectElement.options[i].value.toLowerCase() === deviceName.toLowerCase()) {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (exists) {
+                    alert("⚠️ هذه السماعة موجودة مسبقاً في القائمة.");
+                    selectElement.selectedIndex = 0; // العودة للاختيار الأول
+                } else {
+                    // إنشاء خيار جديد وإضافته قبل خيار الإضافة
+                    let opt = document.createElement('option');
+                    opt.value = deviceName;
+                    opt.text = deviceName;
+                    
+                    let addNewOpt = selectElement.querySelector('option[value="ADD_NEW_DEVICE"]');
+                    selectElement.insertBefore(opt, addNewOpt);
+                    
+                    selectElement.value = deviceName; // اختيار السماعة الجديدة فوراً
+                    alert(`✅ تم إضافة واختيار السماعة (${deviceName}) بنجاح.`);
+                }
+            } else {
+                selectElement.selectedIndex = 0; // إذا ألغى الإدخال يعود للخيار الافتراضي
+            }
+        }
     }
 
     // دالة التطبيع الشامل لكل الحروف العربية
@@ -401,7 +447,7 @@
             mother_name: document.getElementById('motherName').value.trim(),
             birth_year: (document.getElementById('birthDay').value && document.getElementById('birthMonth').value && document.getElementById('birthYear').value) ? `${document.getElementById('birthDay').value}/${document.getElementById('birthMonth').value}/${document.getElementById('birthYear').value}` : (document.getElementById('birthYear').value || '-'),
             is_student: noteVal,
-            device_details: document.getElementById('selectedDeviceDisplay').value.trim(),
+            device_details: document.getElementById('selectedDeviceDisplay').value,
             serial_number: document.getElementById('serialNumber').value.trim(),
             date: new Date().toISOString().split('T')[0]
         };
@@ -615,7 +661,6 @@
             const normDevice = smartNormalizeArabic(item.device_details);
             const normSerial = smartNormalizeArabic(item.serial_number);
 
-            // التحقق مما إذا كان حقل اسم المريض أو الرقم الوطني يبدأ بكلمة البحث
             return normName.startsWith(normQuery) || 
                    normNatId.startsWith(normQuery) ||
                    normMother.startsWith(normQuery) || 
@@ -623,7 +668,6 @@
                    normSerial.startsWith(normQuery);
         });
 
-        // ترتيب الصفوف حسب تاريخ الصرف من الحديث إلى القديم
         filteredData.sort((a, b) => {
             let dateA = new Date(a.date || '2000-01-01');
             let dateB = new Date(b.date || '2000-01-01');
@@ -678,7 +722,7 @@
         input.onkeydown = async function(e) {
             if (e.key === 'Enter') {
                 const newValue = input.value.trim();
-                cell.innerHTML = newValue === '-' ? '-' : newValue;
+                cell.innerHTML = newValue === '' ? '-' : newValue;
 
                 try {
                     const res = await fetch(`/api/records/update`, {
