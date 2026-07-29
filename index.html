@@ -103,13 +103,13 @@
             <div style="flex: 1;">
                 <label>تفاصيل السماعة (اختر أو احذف أو أضف سماعة جديدة):</label>
                 <select id="selectedDeviceDisplay" onchange="handleDeviceSelection(this)">
-                    <option value="oticon xceed 3 up" selected>oticon xceed 3 up</option>
-                    <option value="oticon xceed 1 up">oticon xceed 1 up</option>
-                    <option value="oticon xceed 2 up">oticon xceed 2 up</option>
-                    <option value="oticon kit 75">oticon kit 75</option>
-                    <option value="Widex D - FA 220">Widex D - FA 220</option>
-                    <option value="Widex D - 9 220">Widex D - 9 220</option>
-                    <option value="oticon Ria2 85">oticon Ria2 85</option>
+                    <option value="oticon xceed 3 up" selected>oticon xceed 3 up 🗑️</option>
+                    <option value="oticon xceed 1 up">oticon xceed 1 up 🗑️</option>
+                    <option value="oticon xceed 2 up">oticon xceed 2 up 🗑️</option>
+                    <option value="oticon kit 75">oticon kit 75 🗑️</option>
+                    <option value="Widex D - FA 220">Widex D - FA 220 🗑️</option>
+                    <option value="Widex D - 9 220">Widex D - 9 220 🗑️</option>
+                    <option value="oticon Ria2 85">oticon Ria2 85 🗑️</option>
                     <option value="ADD_NEW_DEVICE" style="color: #2980b9; font-weight: bold; background: #eef2f5;">➕ إضافة سماعة جديدة...</option>
                 </select>
             </div>
@@ -159,16 +159,6 @@
 <script>
     let cachedRecords = [];
 
-    const baseDevices = [
-        "oticon xceed 3 up",
-        "oticon xceed 1 up",
-        "oticon xceed 2 up",
-        "oticon kit 75",
-        "Widex D - FA 220",
-        "Widex D - 9 220",
-        "oticon Ria2 85"
-    ];
-
     function autoTab(current, nextFieldId, maxLen) {
         if (current.value.length >= maxLen) {
             const nextEl = document.getElementById(nextFieldId);
@@ -186,7 +176,6 @@
         if (!dateStr || dateStr === '-' || dateStr === 'undefined') return '2000-01-01';
         dateStr = String(dateStr).trim();
 
-        // إذا كان التاريخ بصيغة يوم/شهر/سنة أو يوم-شهر-سنة (مثال: 26/07/2026 أو 12/10/2025)
         let parts = dateStr.split(/[\/\-]/);
         if (parts.length === 3) {
             let p1 = parts[0].trim();
@@ -194,10 +183,8 @@
             let p3 = parts[2].trim();
 
             if (p3.length === 4) {
-                // التنسيق هو DD/MM/YYYY
                 return `${p3}-${p2.padStart(2, '0')}-${p1.padStart(2, '0')}`;
             } else if (p1.length === 4) {
-                // التنسيق هو YYYY/MM/DD
                 return `${p1}-${p2.padStart(2, '0')}-${p3.padStart(2, '0')}`;
             }
         }
@@ -223,7 +210,7 @@
                 let exists = false;
                 for (let i = 0; i < selectElement.options.length; i++) {
                     let optVal = selectElement.options[i].value;
-                    if (optVal.toLowerCase() === deviceName.toLowerCase() || optVal.replace(' 🗑️', '').toLowerCase() === deviceName.toLowerCase()) {
+                    if (optVal.toLowerCase() === deviceName.toLowerCase()) {
                         exists = true;
                         break;
                     }
@@ -246,8 +233,9 @@
             } else {
                 selectElement.selectedIndex = 0;
             }
-        } else if (val.includes(" 🗑️") || (val && !baseDevices.includes(val) && val !== "ADD_NEW_DEVICE")) {
-            let actualDeviceName = val.replace(" 🗑️", "");
+        } else if (val && val !== "ADD_NEW_DEVICE") {
+            // السماح بحذف أي سماعة (سواء أساسية أو مضافة) عند النقر عليها في القائمة
+            let actualDeviceName = val;
             if (confirm(`⚠️ هل أنت متأكد من حذف السماعة (${actualDeviceName}) من القائمة المنسدلة؟`)) {
                 for (let i = 0; i < selectElement.options.length; i++) {
                     if (selectElement.options[i].value === val) {
@@ -614,7 +602,6 @@
                         continue;
                     }
 
-                    // ترتيب الأعمدة الدقيق والمطابق تماماً للملف المرفق (اسم المريض، اسم الأم، الرقم الوطني، تاريخ الولادة، تفاصيل السماعة، الرقم التسلسلي، تاريخ الصرف)
                     let patName = cols[0] || '';
                     let momName = cols[1] || '-';
                     let natId = cols[2] || '-';
@@ -726,7 +713,6 @@
                    normSerial.startsWith(normQuery);
         });
 
-        // ترتيب دقيق وتنازلي لتواريخ الصرف من الأحدث إلى الأقدم
         filteredData.sort((a, b) => {
             let dateA = new Date(parseValidDate(a.date));
             let dateB = new Date(parseValidDate(b.date));
