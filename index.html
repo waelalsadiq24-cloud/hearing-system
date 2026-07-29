@@ -101,7 +101,7 @@
         </div>
         <div class="row">
             <div style="flex: 1;">
-                <label>تفاصيل السماعة:</label>
+                <label>تفاصيل السماعة (اختر أو احذف أو أضف سماعة جديدة):</label>
                 <select id="selectedDeviceDisplay" onchange="handleDeviceSelection(this)">
                     <option value="oticon xceed 3 up" selected>oticon xceed 3 up</option>
                     <option value="oticon xceed 1 up">oticon xceed 1 up</option>
@@ -159,6 +159,17 @@
 <script>
     let cachedRecords = [];
 
+    // السماعات الافتراضية الأساسية التي لا يمكن حذفها من القائمة
+    const baseDevices = [
+        "oticon xceed 3 up",
+        "oticon xceed 1 up",
+        "oticon xceed 2 up",
+        "oticon kit 75",
+        "Widex D - FA 220",
+        "Widex D - 9 220",
+        "oticon Ria2 85"
+    ];
+
     function autoTab(current, nextFieldId, maxLen) {
         if (current.value.length >= maxLen) {
             const nextEl = document.getElementById(nextFieldId);
@@ -171,17 +182,18 @@
         return urlParams.get('code') || 'yarmok';
     }
 
-    // دالة التعامل مع القائمة المنسدلة عند اختيار "إضافة سماعة جديدة"
+    // دالة التعامل مع القائمة المنسدلة وإضافة أو حذف السماعات مع سلة الحذف بأقصى اليسار
     function handleDeviceSelection(selectElement) {
-        if (selectElement.value === "ADD_NEW_DEVICE") {
+        const val = selectElement.value;
+        if (val === "ADD_NEW_DEVICE") {
             let deviceName = prompt("أدخل اسم ومواصفات السماعة الجديدة:");
             if (deviceName && deviceName.trim() !== "") {
                 deviceName = deviceName.trim();
                 
-                // التأكد من عدم تكرار السماعة
                 let exists = false;
                 for (let i = 0; i < selectElement.options.length; i++) {
-                    if (selectElement.options[i].value.toLowerCase() === deviceName.toLowerCase()) {
+                    let optVal = selectElement.options[i].value;
+                    if (optVal.toLowerCase() === deviceName.toLowerCase() || optVal.replace(' 🗑️', '').toLowerCase() === deviceName.toLowerCase()) {
                         exists = true;
                         break;
                     }
@@ -189,21 +201,35 @@
 
                 if (exists) {
                     alert("⚠️ هذه السماعة موجودة مسبقاً في القائمة.");
-                    selectElement.selectedIndex = 0; // العودة للاختيار الأول
+                    selectElement.selectedIndex = 0;
                 } else {
-                    // إنشاء خيار جديد وإضافته قبل خيار الإضافة
                     let opt = document.createElement('option');
                     opt.value = deviceName;
-                    opt.text = deviceName;
+                    opt.text = deviceName + " 🗑️"; // وضع سلة الحذف بأقصى اليسار للاسم المعروض
                     
                     let addNewOpt = selectElement.querySelector('option[value="ADD_NEW_DEVICE"]');
                     selectElement.insertBefore(opt, addNewOpt);
                     
-                    selectElement.value = deviceName; // اختيار السماعة الجديدة فوراً
+                    selectElement.value = deviceName;
                     alert(`✅ تم إضافة واختيار السماعة (${deviceName}) بنجاح.`);
                 }
             } else {
-                selectElement.selectedIndex = 0; // إذا ألغى الإدخال يعود للخيار الافتراضي
+                selectElement.selectedIndex = 0;
+            }
+        } else if (val.includes(" 🗑️") || (val && !baseDevices.includes(val) && val !== "ADD_NEW_DEVICE")) {
+            // إذا اختار المستخدم خياراً يحتوي على سلة حذف، نقوم بحذفه
+            let actualDeviceName = val.replace(" 🗑️", "");
+            if (confirm(`⚠️ هل أنت متأكد من حذف السماعة (${actualDeviceName}) من القائمة المنسدلة؟`)) {
+                for (let i = 0; i < selectElement.options.length; i++) {
+                    if (selectElement.options[i].value === val) {
+                        selectElement.remove(i);
+                        break;
+                    }
+                }
+                selectElement.selectedIndex = 0;
+                alert("✅ تم حذف السماعة من القائمة.");
+            } else {
+                selectElement.selectedIndex = 0;
             }
         }
     }
@@ -441,13 +467,16 @@
             return alert('⚠️ يرجى اختيار نوع الملاحظات من القائمة المنسدلة قبل إتمام الصرف');
         }
 
+        let rawDevice = document.getElementById('selectedDeviceDisplay').value;
+        let cleanDevice = rawDevice.replace(" 🗑️", "").trim();
+
         const body = {
             national_id: document.getElementById('newNationalId').value.trim(),
             patient_name: document.getElementById('fullName').value.trim(),
             mother_name: document.getElementById('motherName').value.trim(),
             birth_year: (document.getElementById('birthDay').value && document.getElementById('birthMonth').value && document.getElementById('birthYear').value) ? `${document.getElementById('birthDay').value}/${document.getElementById('birthMonth').value}/${document.getElementById('birthYear').value}` : (document.getElementById('birthYear').value || '-'),
             is_student: noteVal,
-            device_details: document.getElementById('selectedDeviceDisplay').value,
+            device_details: cleanDevice,
             serial_number: document.getElementById('serialNumber').value.trim(),
             date: new Date().toISOString().split('T')[0]
         };
