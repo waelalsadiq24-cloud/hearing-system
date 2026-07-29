@@ -159,7 +159,6 @@
 <script>
     let cachedRecords = [];
 
-    // السماعات الافتراضية الأساسية التي لا يمكن حذفها من القائمة
     const baseDevices = [
         "oticon xceed 3 up",
         "oticon xceed 1 up",
@@ -182,7 +181,6 @@
         return urlParams.get('code') || 'yarmok';
     }
 
-    // دالة التعامل مع القائمة المنسدلة وإضافة أو حذف السماعات مع سلة الحذف بأقصى اليسار
     function handleDeviceSelection(selectElement) {
         const val = selectElement.value;
         if (val === "ADD_NEW_DEVICE") {
@@ -205,7 +203,7 @@
                 } else {
                     let opt = document.createElement('option');
                     opt.value = deviceName;
-                    opt.text = deviceName + " 🗑️"; // وضع سلة الحذف بأقصى اليسار للاسم المعروض
+                    opt.text = deviceName + " 🗑️";
                     
                     let addNewOpt = selectElement.querySelector('option[value="ADD_NEW_DEVICE"]');
                     selectElement.insertBefore(opt, addNewOpt);
@@ -217,7 +215,6 @@
                 selectElement.selectedIndex = 0;
             }
         } else if (val.includes(" 🗑️") || (val && !baseDevices.includes(val) && val !== "ADD_NEW_DEVICE")) {
-            // إذا اختار المستخدم خياراً يحتوي على سلة حذف، نقوم بحذفه
             let actualDeviceName = val.replace(" 🗑️", "");
             if (confirm(`⚠️ هل أنت متأكد من حذف السماعة (${actualDeviceName}) من القائمة المنسدلة؟`)) {
                 for (let i = 0; i < selectElement.options.length; i++) {
@@ -234,7 +231,6 @@
         }
     }
 
-    // دالة التطبيع الشامل لكل الحروف العربية
     function smartNormalizeArabic(text) {
         if (!text) return '';
         let str = String(text).toLowerCase().trim();
@@ -697,6 +693,7 @@
                    normSerial.startsWith(normQuery);
         });
 
+        // ترتيب الصفوف حسب تاريخ الصرف من الحديث إلى القديم تنازلياً
         filteredData.sort((a, b) => {
             let dateA = new Date(a.date || '2000-01-01');
             let dateB = new Date(b.date || '2000-01-01');
