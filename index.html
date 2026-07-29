@@ -181,21 +181,25 @@
         return urlParams.get('code') || 'yarmok';
     }
 
-    // دالة تصحيح وصياغة التاريخ لضمان الترتيب الصحيح (سنة-شهر-يوم) للبرمجية
+    // دالة تصحيح وقراءة صحيحة وصارمة للتواريخ مهما كان تنسيقها
     function parseValidDate(dateStr) {
-        if (!dateStr || dateStr === '-') return '2000-01-01';
+        if (!dateStr || dateStr === '-' || dateStr === 'undefined') return '2000-01-01';
         dateStr = String(dateStr).trim();
 
-        // معالجة صيغة YYYY/MM/DD أو YYYY-MM-DD
-        if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(dateStr)) {
-            let parts = dateStr.split(/[\/\-]/);
-            return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-        }
+        // إذا كان التاريخ بصيغة يوم/شهر/سنة أو يوم-شهر-سنة (مثال: 26/07/2026 أو 12/10/2025)
+        let parts = dateStr.split(/[\/\-]/);
+        if (parts.length === 3) {
+            let p1 = parts[0].trim();
+            let p2 = parts[1].trim();
+            let p3 = parts[2].trim();
 
-        // معالجة صيغة DD/MM/YYYY أو DD-MM-YYYY
-        if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(dateStr)) {
-            let parts = dateStr.split(/[\/\-]/);
-            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            if (p3.length === 4) {
+                // التنسيق هو DD/MM/YYYY
+                return `${p3}-${p2.padStart(2, '0')}-${p1.padStart(2, '0')}`;
+            } else if (p1.length === 4) {
+                // التنسيق هو YYYY/MM/DD
+                return `${p1}-${p2.padStart(2, '0')}-${p3.padStart(2, '0')}`;
+            }
         }
 
         let parsed = new Date(dateStr);
@@ -610,6 +614,7 @@
                         continue;
                     }
 
+                    // ترتيب الأعمدة الدقيق والمطابق تماماً للملف المرفق (اسم المريض، اسم الأم، الرقم الوطني، تاريخ الولادة، تفاصيل السماعة، الرقم التسلسلي، تاريخ الصرف)
                     let patName = cols[0] || '';
                     let momName = cols[1] || '-';
                     let natId = cols[2] || '-';
@@ -721,7 +726,7 @@
                    normSerial.startsWith(normQuery);
         });
 
-        // ترتيب دقيق وتنازلي لتواريخ الصرف من الأحدث إلى الأقدم مهما كانت صيغة التاريخ في الملف
+        // ترتيب دقيق وتنازلي لتواريخ الصرف من الأحدث إلى الأقدم
         filteredData.sort((a, b) => {
             let dateA = new Date(parseValidDate(a.date));
             let dateB = new Date(parseValidDate(b.date));
