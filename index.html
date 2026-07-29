@@ -191,7 +191,6 @@
         if (noteVal === 'طالب') return 3;
 
         let ageInMonths = getPatientAgeInMonths(birthStr);
-        // إذا لم يكن هناك تاريخ ولادة صالح (-1)، نعتبر المدة الافتراضية 4 سنوات
         if (ageInMonths !== -1 && ageInMonths >= 1 && ageInMonths <= 72) {
             return 3;
         }
@@ -587,6 +586,13 @@
             const device = (item.device_details || '').toLowerCase();
             const serial = (item.serial_number || '').toLowerCase();
             return name.includes(query) || mother.includes(query) || natId.includes(query) || device.includes(query) || serial.includes(query);
+        });
+
+        // ترتيب الصفوف حسب تاريخ الصرف من الحديث إلى القديم (تنازلياً)
+        filteredData.sort((a, b) => {
+            let dateA = new Date(a.date || '2000-01-01');
+            let dateB = new Date(b.date || '2000-01-01');
+            return dateB - dateA;
         });
 
         const tbody = document.getElementById('issuedTableBody');
