@@ -62,7 +62,7 @@
             const data = await response.json();
 
             if (data.success && Array.isArray(data.records)) {
-                // بحث شامل وذكي يطابق الكلمات المدخلة داخل السجل
+                // البحث الذكي والشامل المطابق لآلية الفلتر
                 const found = data.records.find(p => {
                     const values = Object.values(p).map(v => String(v || '').trim().toLowerCase());
                     const combinedText = values.join(' ');
@@ -80,10 +80,12 @@
                     resultDiv.innerHTML = `<strong>✓ نتيجة الاستعلام (مستحق):</strong><br>` +
                                           `• اسم المريض: <b>${found['اسم المريض'] || found.name || 'غير متوفر'}</b><br>` +
                                           `• اسم الأم: <b>${found['اسم الأم'] || found.motherName || 'غير متوفر'}</b><br>` +
+                                          `• الرقم الوطني: ${found['الرقم الوطني'] || found.nationalId || '-'}<br>` +
+                                          `• تاريخ الولادة: ${found['تاريخ الولادة'] || found.birthDate || '-'}<br>` +
                                           `• تفاصيل السماعة: <b>${found['تفاصيل السماعة'] || found.device || 'غير متوفر'}</b><br>` +
-                                          `• الرقم التسلسلي: ${found['الرقم التسلسلي'] || found.serialNumber || 'غير متوفر'}<br>` +
+                                          `• الرقم التسلسلي: <b>${found['الرقم التسلسلي'] || found.serialNumber || 'غير متوفر'}</b><br>` +
                                           `• تاريخ الصرف: <b>${found['تاريخ الصرف'] || found.date || 'غير متوفر'}</b><br>` +
-                                          `• المؤسسة / المركز: ${found['المؤسسة / المركز'] || found.institution_name || 'غير متوفر'}`;
+                                          `• المؤسسة / المركز: <b>${found['المؤسسة / المركز'] || found.institution_name || 'غير متوفر'}</b>`;
                 } else {
                     resultDiv.className = 'error';
                     resultDiv.innerHTML = '✗ عذراً، لم يتم العثور على سجل مطابق للبيانات المدخلة في السجلات.';
