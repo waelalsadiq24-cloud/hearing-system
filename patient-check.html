@@ -123,7 +123,7 @@
             transform: translateY(-1px);
         }
         
-        /* تصميم صندوق النتائج الراقي الجديد */
+        /* تنسيق بطاقة النتائج المتناسقة 100% */
         .result-box { 
             display: none; 
             margin-top: 25px; 
@@ -135,7 +135,7 @@
             border: 1px solid #e2e8f0;
         }
         .result-header {
-            padding: 15px 20px;
+            padding: 16px 20px;
             font-weight: 700;
             font-size: 15px;
             display: flex;
@@ -147,41 +147,45 @@
             background: #ffffff;
             font-size: 14px;
             color: #334155;
-            line-height: 2;
         }
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px 20px;
-            margin-bottom: 15px;
-        }
-        .info-item {
+        .info-list {
             display: flex;
-            align-items: center;
-            gap: 8px;
+            flex-direction: column;
+            gap: 12px;
         }
-        .info-item.full-width {
-            grid-column: span 2;
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed #f1f5f9;
+        }
+        .info-row:last-child {
+            border-bottom: none;
         }
         .info-label {
             color: #64748b;
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         .info-value {
             color: #0f172a;
             font-weight: 700;
+            text-align: left;
         }
         .status-footer {
-            padding: 15px 20px;
+            padding: 16px 20px;
             font-weight: 700;
             font-size: 14px;
             border-top: 1px solid #e2e8f0;
             display: flex;
             align-items: center;
             gap: 10px;
+            line-height: 1.6;
         }
 
-        /* تخصيص الألوان حسب الحالة */
         .eligible-card .result-header { background: #ecfdf5; color: #065f46; border-bottom: 1px solid #a7f3d0; }
         .eligible-card .status-footer { background: #f0fdf4; color: #047857; }
 
@@ -387,16 +391,16 @@
                 box.innerHTML = `
                     <div class="result-header">📂 ملف السجل الكامل للمريض</div>
                     <div class="result-body">
-                        <div class="info-grid">
-                            <div class="info-item"><span class="info-label">👤 اسم المريض:</span> <span class="info-value">${latestRecord.patient_name || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">👩 اسم الأم:</span> <span class="info-value">${latestRecord.mother_name || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">🆔 الرقم الوطني:</span> <span class="info-value">${latestRecord.national_id || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">📅 تاريخ الولادة:</span> <span class="info-value">${birthVal}</span></div>
-                            <div class="info-item"><span class="info-label">🔢 مرات الاستلام:</span> <span class="info-value" style="color: #059669;">${totalTimes} مرة</span></div>
-                            <div class="info-item"><span class="info-label">📆 تاريخ آخر استلام:</span> <span class="info-value">${latestRecord.date || '-'}</span></div>
-                            <div class="info-item full-width"><span class="info-label">🦻 تفاصيل السماعة:</span> <span class="info-value">${latestRecord.device_details || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">📌 الملاحظات:</span> <span class="info-value">${noteVal}</span></div>
-                            <div class="info-item"><span class="info-label">🏥 المؤسسة:</span> <span class="info-value">${latestRecord.institution_name || 'مستشفى اليرموك'}</span></div>
+                        <div class="info-list">
+                            <div class="info-row"><span class="info-label">👤 اسم المريض:</span> <span class="info-value">${latestRecord.patient_name || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">👩 اسم الأم:</span> <span class="info-value">${latestRecord.mother_name || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">🆔 الرقم الوطني:</span> <span class="info-value">${latestRecord.national_id || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">📅 تاريخ الولادة:</span> <span class="info-value">${birthVal}</span></div>
+                            <div class="info-row"><span class="info-label">🔢 مرات الاستلام:</span> <span class="info-value" style="color: #059669;">${totalTimes} مرة</span></div>
+                            <div class="info-row"><span class="info-label">📆 تاريخ آخر استلام:</span> <span class="info-value">${latestRecord.date || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">🦻 تفاصيل السماعة:</span> <span class="info-value">${latestRecord.device_details || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">📌 الملاحظات:</span> <span class="info-value">${noteVal}</span></div>
+                            <div class="info-row"><span class="info-label">🏥 المؤسسة:</span> <span class="info-value">${latestRecord.institution_name || 'مستشفى اليرموك'}</span></div>
                         </div>
                     </div>
                     <div class="status-footer">✅ حالة الاستحقاق: المريض مستحق للصرف تماماً (حالة مسجلة كـ استثناء رسمي معفى من الفترة الزمنية).</div>
@@ -419,17 +423,17 @@
                 box.innerHTML = `
                     <div class="result-header">📂 ملف السجل الكامل للمريض</div>
                     <div class="result-body">
-                        <div class="info-grid">
-                            <div class="info-item"><span class="info-label">👤 اسم المريض:</span> <span class="info-value">${latestRecord.patient_name || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">👩 اسم الأم:</span> <span class="info-value">${latestRecord.mother_name || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">🆔 الرقم الوطني:</span> <span class="info-value">${latestRecord.national_id || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">📅 تاريخ الولادة:</span> <span class="info-value">${birthVal}</span></div>
-                            <div class="info-item"><span class="info-label">🔢 مرات الاستلام:</span> <span class="info-value" style="color: #059669;">${totalTimes} مرة</span></div>
-                            <div class="info-item"><span class="info-label">📆 تاريخ آخر استلام:</span> <span class="info-value">${latestRecord.date || '-'}</span></div>
-                            <div class="info-item full-width"><span class="info-label">🦻 تفاصيل السماعة:</span> <span class="info-value">${latestRecord.device_details || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">📌 الملاحظات:</span> <span class="info-value">${noteVal}</span></div>
-                            <div class="info-item"><span class="info-label">🏥 المؤسسة:</span> <span class="info-value">${latestRecord.institution_name || 'مستشفى اليرموك'}</span></div>
-                            <div class="info-item full-width"><span class="info-label">🎯 استحقاق (${requiredYears} سنوات):</span> <span class="info-value" style="color: #059669;">${formattedDueDate}</span></div>
+                        <div class="info-list">
+                            <div class="info-row"><span class="info-label">👤 اسم المريض:</span> <span class="info-value">${latestRecord.patient_name || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">👩 اسم الأم:</span> <span class="info-value">${latestRecord.mother_name || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">🆔 الرقم الوطني:</span> <span class="info-value">${latestRecord.national_id || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">📅 تاريخ الولادة:</span> <span class="info-value">${birthVal}</span></div>
+                            <div class="info-row"><span class="info-label">🔢 مرات الاستلام:</span> <span class="info-value" style="color: #059669;">${totalTimes} مرة</span></div>
+                            <div class="info-row"><span class="info-label">📆 تاريخ آخر استلام:</span> <span class="info-value">${latestRecord.date || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">🦻 تفاصيل السماعة:</span> <span class="info-value">${latestRecord.device_details || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">📌 الملاحظات:</span> <span class="info-value">${noteVal}</span></div>
+                            <div class="info-row"><span class="info-label">🏥 المؤسسة:</span> <span class="info-value">${latestRecord.institution_name || 'مستشفى اليرموك'}</span></div>
+                            <div class="info-row"><span class="info-label">🎯 استحقاق (${requiredYears} سنوات):</span> <span class="info-value" style="color: #059669;">${formattedDueDate}</span></div>
                         </div>
                     </div>
                     <div class="status-footer">✅ حالة الاستحقاق: المريض مستحق للصرف تماماً (اكتملت المدة القانونية وهي ${requiredYears} سنوات).</div>
@@ -443,17 +447,17 @@
                 box.innerHTML = `
                     <div class="result-header">📂 ملف السجل الكامل للمريض</div>
                     <div class="result-body">
-                        <div class="info-grid">
-                            <div class="info-item"><span class="info-label">👤 اسم المريض:</span> <span class="info-value">${latestRecord.patient_name || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">👩 اسم الأم:</span> <span class="info-value">${latestRecord.mother_name || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">🆔 الرقم الوطني:</span> <span class="info-value">${latestRecord.national_id || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">📅 تاريخ الولادة:</span> <span class="info-value">${birthVal}</span></div>
-                            <div class="info-item"><span class="info-label">🔢 مرات الاستلام:</span> <span class="info-value" style="color: #b91c1c;">${totalTimes} مرة</span></div>
-                            <div class="info-item"><span class="info-label">📆 تاريخ آخر استلام:</span> <span class="info-value">${latestRecord.date || '-'}</span></div>
-                            <div class="info-item full-width"><span class="info-label">🦻 تفاصيل السماعة:</span> <span class="info-value">${latestRecord.device_details || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">📌 الملاحظات:</span> <span class="info-value">${noteVal}</span></div>
-                            <div class="info-item"><span class="info-label">🏥 المؤسسة:</span> <span class="info-value">${latestRecord.institution_name || 'مستشفى اليرموك'}</span></div>
-                            <div class="info-item full-width"><span class="info-label">🎯 استحقاق (${requiredYears} سنوات):</span> <span class="info-value" style="color: #b91c1c;">${formattedDueDate}</span></div>
+                        <div class="info-list">
+                            <div class="info-row"><span class="info-label">👤 اسم المريض:</span> <span class="info-value">${latestRecord.patient_name || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">👩 اسم الأم:</span> <span class="info-value">${latestRecord.mother_name || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">🆔 الرقم الوطني:</span> <span class="info-value">${latestRecord.national_id || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">📅 تاريخ الولادة:</span> <span class="info-value">${birthVal}</span></div>
+                            <div class="info-row"><span class="info-label">🔢 مرات الاستلام:</span> <span class="info-value" style="color: #b91c1c;">${totalTimes} مرة</span></div>
+                            <div class="info-row"><span class="info-label">📆 تاريخ آخر استلام:</span> <span class="info-value">${latestRecord.date || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">🦻 تفاصيل السماعة:</span> <span class="info-value">${latestRecord.device_details || '-'}</span></div>
+                            <div class="info-row"><span class="info-label">📌 الملاحظات:</span> <span class="info-value">${noteVal}</span></div>
+                            <div class="info-row"><span class="info-label">🏥 المؤسسة:</span> <span class="info-value">${latestRecord.institution_name || 'مستشفى اليرموك'}</span></div>
+                            <div class="info-row"><span class="info-label">🎯 استحقاق (${requiredYears} سنوات):</span> <span class="info-value" style="color: #b91c1c;">${formattedDueDate}</span></div>
                         </div>
                     </div>
                     <div class="status-footer">⚠️ حالة الاستحقاق: المريض غير مستحق حالياً! استلم آخر مرة في ${latestRecord.date} (متبقي حوالي ${remainingYears} سنة).</div>
