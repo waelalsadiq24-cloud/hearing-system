@@ -23,9 +23,8 @@
             border-radius: 16px; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
             width: 100%; 
-            max-width: 550px; 
+            max-width: 580px; 
             text-align: right; 
-            transition: all 0.3s ease;
         }
         .header { 
             text-align: center; 
@@ -46,7 +45,6 @@
             font-weight: 500;
         }
         
-        /* تصميم التبويبات الحديثة */
         .tabs { 
             display: flex; 
             margin-bottom: 25px; 
@@ -121,25 +119,76 @@
             transition: all 0.2s ease;
         }
         button[type="submit"]:hover { 
-            background: linear-gradient(135deg, #059669 0%, #047857 100%); 
+            background: linear-gradient(135deg, #059669 100%, #047857 100%); 
             transform: translateY(-1px);
-            box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3);
         }
         
+        /* تصميم صندوق النتائج الراقي الجديد */
         .result-box { 
-            padding: 20px; 
-            border-radius: 12px; 
-            font-weight: 500; 
-            margin-top: 25px; 
             display: none; 
-            line-height: 1.8; 
-            font-size: 14px; 
-            text-align: right; 
+            margin-top: 25px; 
+            border-radius: 14px; 
+            overflow: hidden; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
             animation: fadeIn 0.3s ease;
+            text-align: right;
+            border: 1px solid #e2e8f0;
         }
-        .eligible { background-color: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
-        .not-eligible { background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-        .error { background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .result-header {
+            padding: 15px 20px;
+            font-weight: 700;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .result-body {
+            padding: 20px;
+            background: #ffffff;
+            font-size: 14px;
+            color: #334155;
+            line-height: 2;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 20px;
+            margin-bottom: 15px;
+        }
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .info-item.full-width {
+            grid-column: span 2;
+        }
+        .info-label {
+            color: #64748b;
+            font-weight: 600;
+        }
+        .info-value {
+            color: #0f172a;
+            font-weight: 700;
+        }
+        .status-footer {
+            padding: 15px 20px;
+            font-weight: 700;
+            font-size: 14px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* تخصيص الألوان حسب الحالة */
+        .eligible-card .result-header { background: #ecfdf5; color: #065f46; border-bottom: 1px solid #a7f3d0; }
+        .eligible-card .status-footer { background: #f0fdf4; color: #047857; }
+
+        .not-eligible-card .result-header { background: #fef2f2; color: #991b1b; border-bottom: 1px solid #fecaca; }
+        .not-eligible-card .status-footer { background: #fff5f5; color: #b91c1c; }
+
+        .error-card { background: #fef2f2; color: #991b1b; padding: 18px; border-radius: 12px; border: 1px solid #fecaca; font-weight: 600; text-align: center; }
     </style>
 </head>
 <body>
@@ -291,13 +340,21 @@
 
         if (mode === 0) {
             const val = document.getElementById('inputNationalId').value.trim();
-            if (!val) { box.className = 'result-box error'; box.innerHTML = '⚠️ يرجى إدخال الرقم الوطني.'; return; }
+            if (!val) { 
+                box.className = 'result-box error-card'; 
+                box.innerHTML = '⚠️ يرجى إدخال الرقم الوطني.'; 
+                return; 
+            }
             const normVal = smartNormalizeArabic(val);
             matchedRecords = cachedRecords.filter(r => smartNormalizeArabic(r.national_id) === normVal);
         } else if (mode === 1) {
             const nameVal = document.getElementById('inputPatientName').value.trim();
             const motherVal = document.getElementById('inputMotherName').value.trim();
-            if (!nameVal || !motherVal) { box.className = 'result-box error'; box.innerHTML = '⚠️ يرجى إدخال اسم المريض واسم الأم.'; return; }
+            if (!nameVal || !motherVal) { 
+                box.className = 'result-box error-card'; 
+                box.innerHTML = '⚠️ يرجى إدخال اسم المريض واسم الأم.'; 
+                return; 
+            }
             
             const normName = smartNormalizeArabic(nameVal);
             const normMother = smartNormalizeArabic(motherVal);
@@ -310,8 +367,13 @@
         }
 
         if (matchedRecords.length === 0) {
-            box.className = 'result-box eligible';
-            box.innerHTML = `✅ المريض غير مسجل مسبقاً في السجل السحابي ويمكنه الاستلام لأول مرة.`;
+            box.className = 'result-box eligible-card';
+            box.innerHTML = `
+                <div class="result-header">✅ حالة المريض</div>
+                <div class="result-body" style="text-align: center; padding: 25px;">
+                    المريض غير مسجل مسبقاً في السجل السحابي ويمكنه الاستلام لأول مرة.
+                </div>
+            `;
         } else {
             matchedRecords.sort((a, b) => new Date(parseValidDate(b.date)) - new Date(parseValidDate(a.date)));
             const latestRecord = matchedRecords[0];
@@ -320,23 +382,25 @@
             let birthVal = latestRecord.birth_year || '-';
             let noteVal = latestRecord.is_student || 'لاتوجد';
 
-            let detailsHTML = `
-                📂 <b>تفاصيل السجل الكاملة للمريض:</b><br>
-                👤 <b>اسم المريض:</b> ${latestRecord.patient_name || '-'}<br>
-                👩 <b>اسم الأم:</b> ${latestRecord.mother_name || '-'}<br>
-                🆔 <b>الرقم الوطني:</b> ${latestRecord.national_id || '-'}<br>
-                📅 <b>تاريخ الولادة:</b> ${birthVal}<br>
-                🔢 <b>عدد مرات الاستلام الكلية:</b> <span style="color: #047857;">${totalTimes} مرة</span><br>
-                📆 <b>تاريخ آخر استلام:</b> ${latestRecord.date || '-'}<br>
-                🦻 <b>تفاصيل آخر سماعة:</b> ${latestRecord.device_details || '-'}<br>
-                📌 <b>الملاحظات:</b> ${noteVal}<br>
-                🏥 <b>المؤسسة / المركز:</b> ${latestRecord.institution_name || 'مستشفى اليرموك'}<br>
-                <hr style="border:0; border-top:1px solid rgba(0,0,0,0.1); margin:10px 0;">
-            `;
-
             if (noteVal === 'استثناء') {
-                box.className = 'result-box eligible';
-                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق للصرف</b>! (حالة مسجلة كـ <b>استثناء رسمي</b>).`;
+                box.className = 'result-box eligible-card';
+                box.innerHTML = `
+                    <div class="result-header">📂 ملف السجل الكامل للمريض</div>
+                    <div class="result-body">
+                        <div class="info-grid">
+                            <div class="info-item"><span class="info-label">👤 اسم المريض:</span> <span class="info-value">${latestRecord.patient_name || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">👩 اسم الأم:</span> <span class="info-value">${latestRecord.mother_name || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">🆔 الرقم الوطني:</span> <span class="info-value">${latestRecord.national_id || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">📅 تاريخ الولادة:</span> <span class="info-value">${birthVal}</span></div>
+                            <div class="info-item"><span class="info-label">🔢 مرات الاستلام:</span> <span class="info-value" style="color: #059669;">${totalTimes} مرة</span></div>
+                            <div class="info-item"><span class="info-label">📆 تاريخ آخر استلام:</span> <span class="info-value">${latestRecord.date || '-'}</span></div>
+                            <div class="info-item full-width"><span class="info-label">🦻 تفاصيل السماعة:</span> <span class="info-value">${latestRecord.device_details || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">📌 الملاحظات:</span> <span class="info-value">${noteVal}</span></div>
+                            <div class="info-item"><span class="info-label">🏥 المؤسسة:</span> <span class="info-value">${latestRecord.institution_name || 'مستشفى اليرموك'}</span></div>
+                        </div>
+                    </div>
+                    <div class="status-footer">✅ حالة الاستحقاق: المريض مستحق للصرف تماماً (حالة مسجلة كـ استثناء رسمي معفى من الفترة الزمنية).</div>
+                `;
                 return;
             }
 
@@ -350,18 +414,50 @@
             let currentDate = new Date();
             let formattedDueDate = formatDayMonthYearDate(targetDueDate);
 
-            detailsHTML = detailsHTML.replace('<hr style="border:0; border-top:1px solid rgba(0,0,0,0.1); margin:10px 0;">', `🎯 <b>تاريخ الاستحقاق القادم (${requiredYears} سنوات):</b> <span style="color: #b91c1c;">${formattedDueDate}</span><hr style="border:0; border-top:1px solid rgba(0,0,0,0.1); margin:10px 0;">`);
-
             if (currentDate >= targetDueDate) {
-                box.className = 'result-box eligible';
-                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق</b> للصرف تماماً! (اكتملت المدة القانونية وهي ${requiredYears} سنوات).`;
+                box.className = 'result-box eligible-card';
+                box.innerHTML = `
+                    <div class="result-header">📂 ملف السجل الكامل للمريض</div>
+                    <div class="result-body">
+                        <div class="info-grid">
+                            <div class="info-item"><span class="info-label">👤 اسم المريض:</span> <span class="info-value">${latestRecord.patient_name || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">👩 اسم الأم:</span> <span class="info-value">${latestRecord.mother_name || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">🆔 الرقم الوطني:</span> <span class="info-value">${latestRecord.national_id || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">📅 تاريخ الولادة:</span> <span class="info-value">${birthVal}</span></div>
+                            <div class="info-item"><span class="info-label">🔢 مرات الاستلام:</span> <span class="info-value" style="color: #059669;">${totalTimes} مرة</span></div>
+                            <div class="info-item"><span class="info-label">📆 تاريخ آخر استلام:</span> <span class="info-value">${latestRecord.date || '-'}</span></div>
+                            <div class="info-item full-width"><span class="info-label">🦻 تفاصيل السماعة:</span> <span class="info-value">${latestRecord.device_details || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">📌 الملاحظات:</span> <span class="info-value">${noteVal}</span></div>
+                            <div class="info-item"><span class="info-label">🏥 المؤسسة:</span> <span class="info-value">${latestRecord.institution_name || 'مستشفى اليرموك'}</span></div>
+                            <div class="info-item full-width"><span class="info-label">🎯 استحقاق (${requiredYears} سنوات):</span> <span class="info-value" style="color: #059669;">${formattedDueDate}</span></div>
+                        </div>
+                    </div>
+                    <div class="status-footer">✅ حالة الاستحقاق: المريض مستحق للصرف تماماً (اكتملت المدة القانونية وهي ${requiredYears} سنوات).</div>
+                `;
             } else {
                 let diffTime = targetDueDate - currentDate;
                 let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 let remainingYears = (diffDays / 365.25).toFixed(1);
 
-                box.className = 'result-box not-eligible';
-                box.innerHTML = detailsHTML + `⚠️ <b>حالة الاستحقاق:</b> المريض <b>غير مستحق</b> حالياً! استلم آخر مرة في ${latestRecord.date}، وموعد الاستحقاق القانوني (بعد ${requiredYears} سنوات) هو: <b>${formattedDueDate}</b> (متبقي حوالي ${remainingYears} سنة).`;
+                box.className = 'result-box not-eligible-card';
+                box.innerHTML = `
+                    <div class="result-header">📂 ملف السجل الكامل للمريض</div>
+                    <div class="result-body">
+                        <div class="info-grid">
+                            <div class="info-item"><span class="info-label">👤 اسم المريض:</span> <span class="info-value">${latestRecord.patient_name || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">👩 اسم الأم:</span> <span class="info-value">${latestRecord.mother_name || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">🆔 الرقم الوطني:</span> <span class="info-value">${latestRecord.national_id || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">📅 تاريخ الولادة:</span> <span class="info-value">${birthVal}</span></div>
+                            <div class="info-item"><span class="info-label">🔢 مرات الاستلام:</span> <span class="info-value" style="color: #b91c1c;">${totalTimes} مرة</span></div>
+                            <div class="info-item"><span class="info-label">📆 تاريخ آخر استلام:</span> <span class="info-value">${latestRecord.date || '-'}</span></div>
+                            <div class="info-item full-width"><span class="info-label">🦻 تفاصيل السماعة:</span> <span class="info-value">${latestRecord.device_details || '-'}</span></div>
+                            <div class="info-item"><span class="info-label">📌 الملاحظات:</span> <span class="info-value">${noteVal}</span></div>
+                            <div class="info-item"><span class="info-label">🏥 المؤسسة:</span> <span class="info-value">${latestRecord.institution_name || 'مستشفى اليرموك'}</span></div>
+                            <div class="info-item full-width"><span class="info-label">🎯 استحقاق (${requiredYears} سنوات):</span> <span class="info-value" style="color: #b91c1c;">${formattedDueDate}</span></div>
+                        </div>
+                    </div>
+                    <div class="status-footer">⚠️ حالة الاستحقاق: المريض غير مستحق حالياً! استلم آخر مرة في ${latestRecord.date} (متبقي حوالي ${remainingYears} سنة).</div>
+                `;
             }
         }
     }
