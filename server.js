@@ -61,6 +61,41 @@ app.get('/api/records', (req, res) => {
   }
 });
 
+// مسار البحث والاستعلام الخاص بواجهة المرضى (patient-check.html)
+app.get('/api/check-eligibility', (req, res) => {
+  try {
+    const searchName = (req.query.name || '').trim();
+    const searchMother = (req.query.mother || '').trim();
+    const searchId = (req.query.id || '').trim();
+
+    const db = readDatabase();
+    
+    // البحث في السجلات بناءً على الرقم الوطني أو تطابق اسم المريض واسم الأم
+    const foundPatient = db.find(p => {
+      const matchId = searchId && p.nationalId && p.nationalId.toString() === searchId;
+      const matchNameAndMother = searchName && searchMother &&
+          p.name && p.name.includes(searchName) &&
+          p.motherName && p.motherName.includes(searchMother);
+      
+      return matchId || matchNameAndMother;
+    });
+
+    if (foundPatient) {
+      res.json({
+        found: true,
+        name: foundPatient.name,
+        status: foundPatient.status || 'مستحق لصرف المعينة السمعية الجديدة',
+        lastDate: foundPatient.dispenseDate || foundPatient.date || 'غير متوفر'
+      });
+    } else {
+      res.json({ found: false });
+    }
+  } catch (error) {
+    console.error('Error in check-eligibility:', error);
+    res.status(500).json({ found: false });
+  }
+});
+
 app.post('/api/records', (req, res) => {
   try {
     const code = req.query.code || 'yarmok';
