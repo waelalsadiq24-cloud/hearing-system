@@ -58,35 +58,33 @@
         resultDiv.innerHTML = 'جاري البحث في السجلات...';
 
         try {
-            // جلب كافة السجلات من مسار البيانات الموجود في سيرفرك الأصلي
             const response = await fetch('/api/records');
             const data = await response.json();
 
             if (data.success && Array.isArray(data.records)) {
-                // البحث عن المريض بمطابقة الاسم واسم الأم تماماً
+                // البحث الذكي الذي يتفحص كافة مفاتيح القيم داخل السجل الواحد
                 const found = data.records.find(p => {
-                    const pName = (p['اسم المريض'] || p.name || '').trim();
-                    const pMother = (p['اسم الأم'] || p.motherName || '').trim();
-                    return pName === fullName && pMother === motherName;
+                    const values = Object.values(p).map(v => String(v).trim());
+                    const hasName = values.some(v => v.includes(fullName));
+                    const hasMother = values.some(v => v.includes(motherName));
+                    return hasName && hasMother;
                 });
 
                 if (found) {
                     resultDiv.className = 'success';
-                    resultDiv.innerHTML = `<strong>✓ نتيجة الاستعلام (المريض موجود في السجلات):</strong><br>` +
-                                          `• اسم المريض: <b>${found['اسم المريض'] || found.name}</b><br>` +
-                                          `• اسم الأم: <b>${found['اسم الأم'] || found.motherName}</b><br>` +
-                                          `• تاريخ الولادة: ${found['تاريخ الولادة'] || found.birthDate || 'غير متوفر'}<br>` +
+                    resultDiv.innerHTML = `<strong>✓ نتيجة الاستعلام:</strong><br>` +
+                                          `• اسم المريض: <b>${found['اسم المريض'] || found.name || fullName}</b><br>` +
+                                          `• اسم الأم: <b>${found['اسم الأم'] || found.motherName || motherName}</b><br>` +
                                           `• تفاصيل السماعة: <b>${found['تفاصيل السماعة'] || found.device || 'غير متوفر'}</b><br>` +
-                                          `• الرقم التسلسلي: ${found['الرقم التسلسلي'] || found.serialNumber || 'غير متوفر'}<br>` +
                                           `• تاريخ الصرف: <b>${found['تاريخ الصرف'] || found.date || 'غير متوفر'}</b><br>` +
-                                          `• المؤسسة / المركز: ${found['المؤسسة / المركز'] || found.institution_name || 'غير متوفر'}`;
+                                          `• المؤسسة: ${found['المؤسسة / المركز'] || found.institution_name || 'غير متوفر'}`;
                 } else {
                     resultDiv.className = 'error';
                     resultDiv.innerHTML = '✗ عذراً، لم يتم العثور على سجل مطابق للاسم واسم الأم المدخلة.';
                 }
             } else {
                 resultDiv.className = 'error';
-                resultDiv.innerHTML = '✗ تعذر الوصول إلى قاعدة البيانات حالياً.';
+                resultDiv.innerHTML = '✗ تعذر الوصول إلى قاعدة البيانات.';
             }
         } catch (err) {
             resultDiv.className = 'error';
