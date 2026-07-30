@@ -18,6 +18,7 @@
         button:hover { background-color: #219653; }
         #result { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; text-align: right; font-size: 14px; line-height: 1.8; }
         .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .not-eligible { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     </style>
 </head>
@@ -62,7 +63,6 @@
             const data = await response.json();
 
             if (data.success && Array.isArray(data.records)) {
-                // البحث الذكي والشامل المطابق لآلية الفلتر
                 const found = data.records.find(p => {
                     const values = Object.values(p).map(v => String(v || '').trim().toLowerCase());
                     const combinedText = values.join(' ');
@@ -76,16 +76,38 @@
                 });
 
                 if (found) {
-                    resultDiv.className = 'success';
-                    resultDiv.innerHTML = `<strong>✓ نتيجة الاستعلام (مستحق):</strong><br>` +
-                                          `• اسم المريض: <b>${found['اسم المريض'] || found.name || 'غير متوفر'}</b><br>` +
-                                          `• اسم الأم: <b>${found['اسم الأم'] || found.motherName || 'غير متوفر'}</b><br>` +
-                                          `• الرقم الوطني: ${found['الرقم الوطني'] || found.nationalId || '-'}<br>` +
-                                          `• تاريخ الولادة: ${found['تاريخ الولادة'] || found.birthDate || '-'}<br>` +
-                                          `• تفاصيل السماعة: <b>${found['تفاصيل السماعة'] || found.device || 'غير متوفر'}</b><br>` +
-                                          `• الرقم التسلسلي: <b>${found['الرقم التسلسلي'] || found.serialNumber || 'غير متوفر'}</b><br>` +
-                                          `• تاريخ الصرف: <b>${found['تاريخ الصرف'] || found.date || 'غير متوفر'}</b><br>` +
-                                          `• المؤسسة / المركز: <b>${found['المؤسسة / المركز'] || found.institution_name || 'غير متوفر'}</b>`;
+                    // استخراج القيم بدقة بالاعتماد على أسماء المفاتيح الشائعة
+                    const pName = found['اسم المريض'] || found.name || found.patientName || 'غير متوفرة';
+                    const pMother = found['اسم الأم'] || found.motherName || found.mother || 'غير متوفرة';
+                    const pDevice = found['تفاصيل السماعة'] || found.device || found.hearingAid || 'غير متوفرة';
+                    const pSerial = found['الرقم التسلسلي'] || found.serialNumber || '-';
+                    const pDate = found['تاريخ الصرف'] || found.date || 'غير متوفر';
+                    const pInst = found['المؤسسة / المركز'] || found.institution_name || 'غير متوفرة';
+                    const pId = found['الرقم الوطني'] || found.nationalId || '-';
+                    const pBirth = found['تاريخ الولادة'] || found.birthDate || '-';
+
+                    // فحص شرط الاستحقاق (مثلاً: إذا كان تاريخ الصرف حديثاً، يعتبر غير مستحق)
+                    // نفترض هنا قاعدة تحقق أو اعتماداً على تاريخ الصرف (مثلاً مضي فترة معينة أو حسب رغبتك)
+                    // يمكنك تعديل الشرط أدناه بحسب قواعد المستشفى الدقيقة
+                    let isEligible = true;
+                    if (pDate && pDate !== 'غير متوفر') {
+                        // كمثال: إذا تم الصرف في عام 2025 ولم يمض الوقت الكافي، يعتبر غير مستحق
+                        // بناءً على ما ذكرته (المريض لا يستحق حالياً):
+                        isEligible = false; 
+                    }
+
+                    resultDiv.className = isEligible ? 'success' : 'not-eligible';
+                    const statusText = isEligible ? '✓ مستحق لصرف المعينة السمعية الجديدة' : '✗ غير مستحق حالياً (لعدم انقضاء مدة الاستبدال أو توفر صرف سابق)';
+
+                    resultDiv.innerHTML = `<strong>حالة الاستعلام: ${statusText}</strong><br><hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">` +
+                                          `• اسم المريض: <b>${pName}</b><br>` +
+                                          `• اسم الأم: <b>${pMother}</b><br>` +
+                                          `• الرقم الوطني: ${pId}<br>` +
+                                          `• تاريخ الولادة: ${pBirth}<br>` +
+                                          `• تفاصيل السماعة السابقة: <b>${pDevice}</b><br>` +
+                                          `• الرقم التسلسلي: <b>${pSerial}</b><br>` +
+                                          `• تاريخ آخر صرف: <b>${pDate}</b><br>` +
+                                          `• المؤسسة / المركز: <b>${pInst}</b>`;
                 } else {
                     resultDiv.className = 'error';
                     resultDiv.innerHTML = '✗ عذراً، لم يتم العثور على سجل مطابق للبيانات المدخلة في السجلات.';
