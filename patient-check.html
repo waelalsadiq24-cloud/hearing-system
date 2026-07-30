@@ -62,29 +62,31 @@
             const data = await response.json();
 
             if (data.success && Array.isArray(data.records)) {
-                // استخدام نفس خوارزمية البحث الذكية والمطابقة للفلتر
+                // بحث شامل وذكي يطابق الكلمات المدخلة داخل السجل
                 const found = data.records.find(p => {
-                    const pName = String(p['اسم المريض'] || '').trim().toLowerCase();
-                    const pMother = String(p['اسم الأم'] || '').trim().toLowerCase();
+                    const values = Object.values(p).map(v => String(v || '').trim().toLowerCase());
+                    const combinedText = values.join(' ');
                     
-                    const nameMatch = pName.includes(searchInput);
-                    const motherMatch = motherInput === '' || pMother.includes(motherInput);
-                    
-                    return nameMatch && motherMatch;
+                    if (searchInput && motherInput) {
+                        return combinedText.includes(searchInput) && combinedText.includes(motherInput);
+                    } else if (searchInput) {
+                        return combinedText.includes(searchInput);
+                    }
+                    return false;
                 });
 
                 if (found) {
                     resultDiv.className = 'success';
-                    resultDiv.innerHTML = `<strong>✓ نتيجة الاستعلام:</strong><br>` +
-                                          `• اسم المريض: <b>${found['اسم المريض'] || 'غير متوفر'}</b><br>` +
-                                          `• اسم الأم: <b>${found['اسم الأم'] || 'غير متوفر'}</b><br>` +
-                                          `• تفاصيل السماعة: <b>${found['تفاصيل السماعة'] || 'غير متوفر'}</b><br>` +
-                                          `• الرقم التسلسلي: ${found['الرقم التسلسلي'] || 'غير متوفر'}<br>` +
-                                          `• تاريخ الصرف: <b>${found['تاريخ الصرف'] || 'غير متوفر'}</b><br>` +
-                                          `• المؤسسة / المركز: ${found['المؤسسة / المركز'] || 'غير متوفر'}`;
+                    resultDiv.innerHTML = `<strong>✓ نتيجة الاستعلام (مستحق):</strong><br>` +
+                                          `• اسم المريض: <b>${found['اسم المريض'] || found.name || 'غير متوفر'}</b><br>` +
+                                          `• اسم الأم: <b>${found['اسم الأم'] || found.motherName || 'غير متوفر'}</b><br>` +
+                                          `• تفاصيل السماعة: <b>${found['تفاصيل السماعة'] || found.device || 'غير متوفر'}</b><br>` +
+                                          `• الرقم التسلسلي: ${found['الرقم التسلسلي'] || found.serialNumber || 'غير متوفر'}<br>` +
+                                          `• تاريخ الصرف: <b>${found['تاريخ الصرف'] || found.date || 'غير متوفر'}</b><br>` +
+                                          `• المؤسسة / المركز: ${found['المؤسسة / المركز'] || found.institution_name || 'غير متوفر'}`;
                 } else {
                     resultDiv.className = 'error';
-                    resultDiv.innerHTML = '✗ عذراً، لم يتم العثور على سجل مطابق للبيانات المدخلة.';
+                    resultDiv.innerHTML = '✗ عذراً، لم يتم العثور على سجل مطابق للبيانات المدخلة في السجلات.';
                 }
             } else {
                 resultDiv.className = 'error';
