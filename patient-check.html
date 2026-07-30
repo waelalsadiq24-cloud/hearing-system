@@ -5,19 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>استعلام عن استحقاق المعينة السمعية</title>
     <style>
-        body { font-family: Tahoma, sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 500px; text-align: right; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; direction: rtl; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 600px; text-align: right; }
         .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #eaeaea; padding-bottom: 15px; }
-        .header h2 { color: #1b4f72; margin: 0 0 5px 0; }
+        .header h2 { color: #2c3e50; margin: 0 0 5px 0; font-size: 22px; }
         .header p { color: #666; font-size: 13px; margin: 0; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px; }
         input { width: 100%; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; background: #fafafa; }
-        input:focus { border-color: #1b4f72; background: #fff; outline: none; }
+        input:focus { border-color: #27ae60; background: #fff; outline: none; }
         button { background-color: #27ae60; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        button:hover { background-color: #219653; }
-        #result { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; text-align: right; font-size: 14px; line-height: 1.8; }
-        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        button:hover { background-color: #219150; }
+        .result-box { padding: 18px; border-radius: 8px; font-weight: bold; margin-top: 20px; display: none; line-height: 1.8; font-size: 14px; text-align: right; }
+        .eligible { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .not-eligible { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     </style>
@@ -26,93 +26,221 @@
 
 <div class="container">
     <div class="header">
-        <h2>استعلام عن استحقاق المعينة السمعية</h2>
-        <p>مستشفى اليرموك والمدينة الطبية - إدارة السجلات</p>
+        <h2>🏥 الاستعلام عن استحقاق المعينة السمعية</h2>
+        <p>مستشفى اليرموك والمدينة الطبية - نظام السجلات السحابي</p>
     </div>
     
     <form id="patientSearchForm">
         <div class="form-group">
-            <label for="fullName">اسم المريض الثلاثي:</label>
-            <input type="text" id="fullName" required placeholder="أدخل اسم المريض الثلاثي">
+            <label for="searchQuery">أدخل اسم المريض الثلاثي أو الرقم الوطني:</label>
+            <input type="text" id="searchQuery" required placeholder="مثال: وائل صادق جعفر أو الرقم الوطني">
         </div>
 
-        <div class="form-group">
-            <label for="motherName">اسم الأم:</label>
-            <input type="text" id="motherName" required placeholder="أدخل اسم الأم">
-        </div>
-
-        <button type="submit">بحث عن حالة الاستحقاق</button>
+        <button type="submit">بحث وفحص الاستحقاق التفصيلي</button>
     </form>
 
-    <div id="result"></div>
+    <div id="searchResult" class="result-box"></div>
 </div>
 
 <script>
+    let cachedRecords = [];
+
+    // تحميل السجلات عند فتح الصفحة للمقارنة الفورية
+    async function initRecords() {
+        try {
+            const res = await fetch('/api/records');
+            const data = await res.json();
+            cachedRecords = data.records || [];
+        } catch (e) {
+            cachedRecords = [];
+        }
+    }
+
+    // دالة المعالجة والتطبيع الذكية للأحرف العربية (مطابقة تماماً لملف index.html)
+    function smartNormalizeArabic(text) {
+        if (!text) return '';
+        let str = String(text).toLowerCase().trim();
+
+        str = str.replace(/[\u064b-\u0652]/g, '');
+        str = str.replace(/[أإآٱا]/g, 'ا');
+        str = str.replace(/ة/g, 'ه');
+        str = str.replace(/ى/g, 'ي');
+        str = str.replace(/ؤ/g, 'و');
+        str = str.replace(/ئ/g, 'ي');
+        str = str.replace(/ء/g, 'ا');
+        str = str.replace(/ظ/g, 'ض');
+        str = str.replace(/ص/g, 'س'); 
+        str = str.replace(/ث/g, 'س'); 
+        str = str.replace(/ذ/g, 'ز'); 
+        str = str.replace(/عبد\s+الله/g, 'عبدالله');
+        str = str.replace(/\s+/g, '');
+
+        return str;
+    }
+
+    function parseValidDate(dateStr) {
+        if (!dateStr || dateStr === '-' || dateStr === 'undefined') return '2000-01-01';
+        dateStr = String(dateStr).trim();
+
+        let parts = dateStr.split(/[\/\-]/);
+        if (parts.length === 3) {
+            let p1 = parts[0].trim();
+            let p2 = parts[1].trim();
+            let p3 = parts[2].trim();
+
+            if (p3.length === 4) {
+                return `${p3}-${p2.padStart(2, '0')}-${p1.padStart(2, '0')}`;
+            } else if (p1.length === 4) {
+                return `${p1}-${p2.padStart(2, '0')}-${p3.padStart(2, '0')}`;
+            }
+        }
+
+        let parsed = new Date(dateStr);
+        if (!isNaN(parsed.getTime())) {
+            let y = parsed.getFullYear();
+            let m = String(parsed.getMonth() + 1).padStart(2, '0');
+            let d = String(parsed.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        return '2000-01-01';
+    }
+
+    function getPatientAgeInMonths(birthStr) {
+        if (!birthStr || birthStr === '-') return -1;
+        let day = 1, month = 1, year = 0;
+        
+        if (birthStr.includes('/')) {
+            let parts = birthStr.split('/');
+            day = parseInt(parts[0]) || 1;
+            month = parseInt(parts[1]) || 1;
+            year = parseInt(parts[2]) || 0;
+        } else {
+            year = parseInt(birthStr) || 0;
+        }
+
+        if (!year) return -1;
+
+        let birthDate = new Date(year, month - 1, day);
+        let currentDate = new Date();
+
+        let diffMonths = (currentDate.getFullYear() - birthDate.getFullYear()) * 12 + (currentDate.getMonth() - birthDate.getMonth());
+        if (currentDate.getDate() < birthDate.getDate()) diffMonths--;
+
+        return diffMonths >= 0 ? diffMonths : -1;
+    }
+
+    function getRequiredYears(birthStr, noteVal) {
+        if (noteVal === 'استثناء') return 0;
+        if (noteVal === 'طالب') return 3;
+
+        let ageInMonths = getPatientAgeInMonths(birthStr);
+        if (ageInMonths !== -1 && ageInMonths >= 1 && ageInMonths <= 72) {
+            return 3;
+        }
+
+        return 4;
+    }
+
+    function formatDayMonthYearDate(dateObj) {
+        const options = { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' };
+        return dateObj.toLocaleDateString('ar-IQ', options);
+    }
+
+    // تنفيذ عملية البحث والتحقق الذكي عند تقديم النموذج
     document.getElementById('patientSearchForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const searchInput = document.getElementById('fullName').value.trim().toLowerCase();
-        const motherInput = document.getElementById('motherName').value.trim().toLowerCase();
-        const resultDiv = document.getElementById('result');
+        
+        if (cachedRecords.length === 0) {
+            await initRecords();
+        }
 
-        resultDiv.style.display = 'block';
-        resultDiv.className = '';
-        resultDiv.innerHTML = 'جاري البحث في السجلات...';
+        const queryText = document.getElementById('searchQuery').value.trim().toLowerCase();
+        const box = document.getElementById('searchResult');
+        box.style.display = 'block';
 
-        try {
-            const response = await fetch('/api/records');
-            const data = await response.json();
+        if (!queryText) {
+            box.className = 'result-box error';
+            box.innerHTML = '⚠️ يرجى إدخال اسم المريض أو الرقم الوطني للبحث.';
+            return;
+        }
 
-            if (data.success && Array.isArray(data.records)) {
-                const found = data.records.find(p => {
-                    const pName = String(p['اسم المريض'] || '').trim().toLowerCase();
-                    const pMother = String(p['اسم الأم'] || '').trim().toLowerCase();
-                    
-                    return pName.includes(searchInput) && pMother.includes(motherInput);
-                });
+        const normQuery = smartNormalizeArabic(queryText);
 
-                if (found) {
-                    // قراءة الأعمدة العربية المطابقة تماماً لجدولك
-                    const pName = found['اسم المريض'] || 'غير متوفر';
-                    const pMother = found['اسم الأم'] || 'غير متوفر';
-                    const pDevice = found['تفاصيل السماعة'] || 'غير متوفر';
-                    const pSerial = found['الرقم التسلسلي'] || '-';
-                    const pDate = found['تاريخ الصرف'] || 'غير متوفر';
-                    const pInst = found['المؤسسة / المركز'] || 'غير متوفر';
-                    const pId = found['الرقم الوطني'] && found['الرقم الوطني'] !== '-' ? found['الرقم الوطني'] : null;
-                    const pBirth = found['تاريخ الولادة'] && found['تاريخ الولادة'] !== '-' ? found['تاريخ الولادة'] : null;
+        // استخدام نفس منطق الفلترة الذكية المعتمد في ملف index.html
+        const matchedRecords = cachedRecords.filter(r => {
+            const normNatId = smartNormalizeArabic(r.national_id);
+            const normName = smartNormalizeArabic(r.patient_name);
+            const normMother = smartNormalizeArabic(r.mother_name);
+            
+            return (normQuery && normNatId.includes(normQuery)) || 
+                   (normQuery && normName.includes(normQuery)) ||
+                   (normQuery && normMother.includes(normQuery));
+        });
 
-                    // المريض صرف مسبقاً في تاريخ 27/04/2025 إذن هو غير مستحق حالياً
-                    let isEligible = false; 
+        if (matchedRecords.length === 0) {
+            box.className = 'result-box eligible';
+            box.innerHTML = `✅ المريض غير مسجل مسبقاً في السجل السحابي ويمكنه الاستلام لأول مرة.`;
+        } else {
+            // ترتيب السجلات حسب الأحدث تاريخاً
+            matchedRecords.sort((a, b) => new Date(parseValidDate(b.date)) - new Date(parseValidDate(a.date)));
+            
+            const latestRecord = matchedRecords[0];
+            const totalTimes = matchedRecords.length;
 
-                    resultDiv.className = isEligible ? 'success' : 'not-eligible';
-                    const statusText = isEligible ? '✓ مستحق لصرف المعينة السمعية الجديدة' : '✗ غير مستحق حالياً (لوجود صرف سابق بتاريخ ' + pDate + ')';
+            let birthVal = latestRecord.birth_year || '-';
+            let noteVal = latestRecord.is_student || 'لاتوجد';
 
-                    let htmlContent = `<strong>حالة الاستعلام: ${statusText}</strong><br><hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">`;
-                    htmlContent += `• اسم المريض: <b>${pName}</b><br>`;
-                    htmlContent += `• اسم الأم: <b>${pMother}</b><br>`;
-                    
-                    if (pId) htmlContent += `• الرقم الوطني: ${pId}<br>`;
-                    if (pBirth) htmlContent += `• تاريخ الولادة: ${pBirth}<br>`;
-                    
-                    htmlContent += `• تفاصيل السماعة السابقة: <b>${pDevice}</b><br>`;
-                    htmlContent += `• الرقم التسلسلي: <b>${pSerial}</b><br>`;
-                    htmlContent += `• تاريخ آخر صرف: <b>${pDate}</b><br>`;
-                    htmlContent += `• المؤسسة / المركز: <b>${pInst}</b>`;
+            let detailsHTML = `
+                📂 <b>تفاصيل السجل الكاملة للمريض:</b><br>
+                👤 <b>اسم المريض:</b> ${latestRecord.patient_name || '-'}<br>
+                👩 <b>اسم الأم:</b> ${latestRecord.mother_name || '-'}<br>
+                🆔 <b>الرقم الوطني:</b> ${latestRecord.national_id || '-'}<br>
+                📅 <b>تاريخ الولادة:</b> ${birthVal}<br>
+                🔢 <b>عدد مرات الاستلام الكلية:</b> <span style="color: #2980b9;">${totalTimes} مرة</span><br>
+                📆 <b>تاريخ آخر استلام:</b> ${latestRecord.date || '-'}<br>
+                🦻 <b>تفاصيل آخر سماعة:</b> ${latestRecord.device_details || '-'}<br>
+                📌 <b>الملاحظات:</b> ${noteVal}<br>
+                🏥 <b>المؤسسة / المركز:</b> ${latestRecord.institution_name || 'مستشفى اليرموك'}<br>
+                <hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">
+            `;
 
-                    resultDiv.innerHTML = htmlContent;
-                } else {
-                    resultDiv.className = 'error';
-                    resultDiv.innerHTML = '✗ عذراً، لم يتم العثور على سجل مطابق للبيانات المدخلة في السجلات.';
-                }
-            } else {
-                resultDiv.className = 'error';
-                resultDiv.innerHTML = '✗ تعذر الوصول إلى قاعدة البيانات.';
+            if (noteVal === 'استثناء') {
+                box.className = 'result-box eligible';
+                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق للصرف</b>! (حالة مسجلة كـ <b>استثناء رسمي</b> معفى من الفترة الزمنية المحددة).`;
+                return;
             }
-        } catch (err) {
-            resultDiv.className = 'error';
-            resultDiv.innerHTML = '✗ حدث خطأ في الاتصال بالسيرفر.';
+
+            let requiredYears = getRequiredYears(birthVal, noteVal);
+            let lastDate = new Date(parseValidDate(latestRecord.date));
+            if (isNaN(lastDate)) lastDate = new Date();
+            
+            let targetDueDate = new Date(lastDate);
+            targetDueDate.setFullYear(lastDate.getFullYear() + requiredYears);
+
+            let currentDate = new Date();
+            let formattedDueDate = formatDayMonthYearDate(targetDueDate);
+
+            detailsHTML = detailsHTML.replace('<hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">', `🎯 <b>تاريخ الاستحقاق القادم (${requiredYears} سنوات):</b> <span style="color: #c0392b;">${formattedDueDate}</span><hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">`);
+
+            if (currentDate >= targetDueDate) {
+                box.className = 'result-box eligible';
+                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق</b> للصرف تماماً! (اكتملت المدة القانونية وهي ${requiredYears} سنوات).`;
+            } else {
+                let diffTime = targetDueDate - currentDate;
+                let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                let remainingYears = (diffDays / 365.25).toFixed(1);
+
+                box.className = 'result-box not-eligible';
+                box.innerHTML = detailsHTML + `⚠️ <b>حالة الاستحقاق:</b> المريض <b>غير مستحق</b> حالياً! استلم آخر مرة في ${latestRecord.date}، وموعد الاستحقاق القانوني (بعد ${requiredYears} سنوات) هو: <b>${formattedDueDate}</b> (متبقي حوالي ${remainingYears} سنة).`;
+            }
         }
     });
+
+    // تحميل السجلات عند تحميل الصفحة أول مرة
+    window.onload = () => {
+        initRecords();
+    };
 </script>
 
 </body>
