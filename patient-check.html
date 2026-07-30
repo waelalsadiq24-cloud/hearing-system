@@ -5,26 +5,141 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>استعلام عن استحقاق المعينة السمعية</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; direction: rtl; }
-        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 600px; text-align: right; }
-        .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #eaeaea; padding-bottom: 15px; }
-        .header h2 { color: #2c3e50; margin: 0 0 5px 0; font-size: 22px; }
-        .header p { color: #555; font-size: 14px; margin: 0; font-weight: bold; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px; }
-        input { width: 100%; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; background: #fafafa; }
-        input:focus { border-color: #27ae60; background: #fff; outline: none; }
-        button { background-color: #27ae60; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        button:hover { background-color: #219150; }
-        .result-box { padding: 18px; border-radius: 8px; font-weight: bold; margin-top: 20px; display: none; line-height: 1.8; font-size: 14px; text-align: right; }
-        .eligible { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .not-eligible { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #ddd; }
-        .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; font-weight: bold; color: #666; background: #f8f9fa; border: 1px solid #ddd; border-bottom: none; }
-        .tab.active { background: #fff; color: #2c3e50; border-top: 3px solid #27ae60; }
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            direction: rtl; 
+        }
+        .container { 
+            background: #ffffff; 
+            padding: 35px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
+            width: 100%; 
+            max-width: 550px; 
+            text-align: right; 
+            transition: all 0.3s ease;
+        }
+        .header { 
+            text-align: center; 
+            margin-bottom: 25px; 
+            border-bottom: 2px solid #f0f2f5; 
+            padding-bottom: 20px; 
+        }
+        .header h2 { 
+            color: #1e293b; 
+            margin: 0 0 8px 0; 
+            font-size: 24px; 
+            font-weight: 700;
+        }
+        .header p { 
+            color: #64748b; 
+            font-size: 14px; 
+            margin: 0; 
+            font-weight: 500;
+        }
+        
+        /* تصميم التبويبات الحديثة */
+        .tabs { 
+            display: flex; 
+            margin-bottom: 25px; 
+            background: #f1f5f9; 
+            border-radius: 10px; 
+            padding: 5px;
+            gap: 5px;
+        }
+        .tab { 
+            flex: 1; 
+            padding: 12px; 
+            text-align: center; 
+            cursor: pointer; 
+            font-weight: 600; 
+            color: #64748b; 
+            background: transparent; 
+            border-radius: 8px;
+            transition: all 0.25s ease;
+            font-size: 14px;
+        }
+        .tab.active { 
+            background: #ffffff; 
+            color: #0f172a; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        }
+        
         .search-section { display: none; }
-        .search-section.active { display: block; }
+        .search-section.active { display: block; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group { margin-bottom: 20px; }
+        label { 
+            display: block; 
+            margin-bottom: 8px; 
+            font-weight: 600; 
+            color: #334155; 
+            font-size: 14px; 
+        }
+        input { 
+            width: 100%; 
+            padding: 14px 16px; 
+            border: 2px solid #e2e8f0; 
+            border-radius: 10px; 
+            font-size: 15px; 
+            background: #f8fafc; 
+            color: #1e293b;
+            transition: all 0.2s ease;
+        }
+        input:focus { 
+            border-color: #10b981; 
+            background: #ffffff; 
+            outline: none; 
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1); 
+        }
+        
+        button[type="submit"] { 
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+            color: white; 
+            border: none; 
+            padding: 14px; 
+            width: 100%; 
+            border-radius: 10px; 
+            font-size: 16px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            margin-top: 5px; 
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+            transition: all 0.2s ease;
+        }
+        button[type="submit"]:hover { 
+            background: linear-gradient(135deg, #059669 0%, #047857 100%); 
+            transform: translateY(-1px);
+            box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3);
+        }
+        
+        .result-box { 
+            padding: 20px; 
+            border-radius: 12px; 
+            font-weight: 500; 
+            margin-top: 25px; 
+            display: none; 
+            line-height: 1.8; 
+            font-size: 14px; 
+            text-align: right; 
+            animation: fadeIn 0.3s ease;
+        }
+        .eligible { background-color: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .not-eligible { background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .error { background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
     </style>
 </head>
 <body>
@@ -35,13 +150,13 @@
         <p>يمكنك التحقق باختيار رقم 1 أو 2 وملء الحقول</p>
     </div>
 
-    <!-- التبويبان للطريقتين -->
+    <!-- التبويبات -->
     <div class="tabs">
         <div class="tab active" onclick="switchTab(0)">1. الرقم الوطني</div>
         <div class="tab" onclick="switchTab(1)">2. الاسم الثلاثي + اسم الأم</div>
     </div>
     
-    <!-- الطريقة الأولى: الرقم الوطني -->
+    <!-- الطريقة الأولى -->
     <div id="section0" class="search-section active">
         <form onsubmit="handleSearch(event, 0)">
             <div class="form-group">
@@ -52,7 +167,7 @@
         </form>
     </div>
 
-    <!-- الطريقة الثانية: الاسم الثلاثي + اسم الأم -->
+    <!-- الطريقة الثانية -->
     <div id="section1" class="search-section">
         <form onsubmit="handleSearch(event, 1)">
             <div class="form-group">
@@ -211,12 +326,12 @@
                 👩 <b>اسم الأم:</b> ${latestRecord.mother_name || '-'}<br>
                 🆔 <b>الرقم الوطني:</b> ${latestRecord.national_id || '-'}<br>
                 📅 <b>تاريخ الولادة:</b> ${birthVal}<br>
-                🔢 <b>عدد مرات الاستلام الكلية:</b> <span style="color: #2980b9;">${totalTimes} مرة</span><br>
+                🔢 <b>عدد مرات الاستلام الكلية:</b> <span style="color: #047857;">${totalTimes} مرة</span><br>
                 📆 <b>تاريخ آخر استلام:</b> ${latestRecord.date || '-'}<br>
                 🦻 <b>تفاصيل آخر سماعة:</b> ${latestRecord.device_details || '-'}<br>
                 📌 <b>الملاحظات:</b> ${noteVal}<br>
                 🏥 <b>المؤسسة / المركز:</b> ${latestRecord.institution_name || 'مستشفى اليرموك'}<br>
-                <hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">
+                <hr style="border:0; border-top:1px solid rgba(0,0,0,0.1); margin:10px 0;">
             `;
 
             if (noteVal === 'استثناء') {
@@ -235,7 +350,7 @@
             let currentDate = new Date();
             let formattedDueDate = formatDayMonthYearDate(targetDueDate);
 
-            detailsHTML = detailsHTML.replace('<hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">', `🎯 <b>تاريخ الاستحقاق القادم (${requiredYears} سنوات):</b> <span style="color: #c0392b;">${formattedDueDate}</span><hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">`);
+            detailsHTML = detailsHTML.replace('<hr style="border:0; border-top:1px solid rgba(0,0,0,0.1); margin:10px 0;">', `🎯 <b>تاريخ الاستحقاق القادم (${requiredYears} سنوات):</b> <span style="color: #b91c1c;">${formattedDueDate}</span><hr style="border:0; border-top:1px solid rgba(0,0,0,0.1); margin:10px 0;">`);
 
             if (currentDate >= targetDueDate) {
                 box.className = 'result-box eligible';
