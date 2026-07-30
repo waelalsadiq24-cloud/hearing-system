@@ -64,43 +64,42 @@
 
             if (data.success && Array.isArray(data.records)) {
                 const found = data.records.find(p => {
-                    const values = Object.values(p).map(v => String(v || '').trim().toLowerCase());
-                    const combinedText = values.join(' ');
+                    const pName = String(p['اسم المريض'] || '').trim().toLowerCase();
+                    const pMother = String(p['اسم الأم'] || '').trim().toLowerCase();
                     
-                    if (searchInput && motherInput) {
-                        return combinedText.includes(searchInput) && combinedText.includes(motherInput);
-                    } else if (searchInput) {
-                        return combinedText.includes(searchInput);
-                    }
-                    return false;
+                    return pName.includes(searchInput) && pMother.includes(motherInput);
                 });
 
                 if (found) {
-                    // استخراج المفاتيح بدقة مع تغطية كافة الاحتمالات لأسماء الحقول في قاعدة البيانات
-                    const pName = found['اسم المريض'] || found.name || found.patientName || found.fullName || 'غير متوفرة';
-                    const pMother = found['اسم الأم'] || found.motherName || found.mother || found.mName || 'غير متوفرة';
-                    const pDevice = found['تفاصيل السماعة'] || found.device || found.hearingAid || found.details || 'غير متوفرة';
-                    const pSerial = found['الرقم التسلسلي'] || found.serialNumber || found.serial || '-';
-                    const pDate = found['تاريخ الصرف'] || found.date || found.dispenseDate || 'غير متوفر';
-                    const pInst = found['المؤسسة / المركز'] || found.institution_name || found.center || 'غير متوفرة';
-                    const pId = found['الرقم الوطني'] || found.nationalId || found.id || '-';
-                    const pBirth = found['تاريخ الولادة'] || found.birthDate || found.dob || '-';
+                    // قراءة الأعمدة العربية المطابقة تماماً لجدولك
+                    const pName = found['اسم المريض'] || 'غير متوفر';
+                    const pMother = found['اسم الأم'] || 'غير متوفر';
+                    const pDevice = found['تفاصيل السماعة'] || 'غير متوفر';
+                    const pSerial = found['الرقم التسلسلي'] || '-';
+                    const pDate = found['تاريخ الصرف'] || 'غير متوفر';
+                    const pInst = found['المؤسسة / المركز'] || 'غير متوفر';
+                    const pId = found['الرقم الوطني'] && found['الرقم الوطني'] !== '-' ? found['الرقم الوطني'] : null;
+                    const pBirth = found['تاريخ الولادة'] && found['تاريخ الولادة'] !== '-' ? found['تاريخ الولادة'] : null;
 
-                    // تحديد حالة الاستحقاق (هنا كمثال محدد على أنه غير مستحق بناءً على توفر صرف سابق)
+                    // المريض صرف مسبقاً في تاريخ 27/04/2025 إذن هو غير مستحق حالياً
                     let isEligible = false; 
 
                     resultDiv.className = isEligible ? 'success' : 'not-eligible';
-                    const statusText = isEligible ? '✓ مستحق لصرف المعينة السمعية الجديدة' : '✗ غير مستحق حالياً (لعدم انقضاء مدة الاستبدال أو توفر صرف سابق)';
+                    const statusText = isEligible ? '✓ مستحق لصرف المعينة السمعية الجديدة' : '✗ غير مستحق حالياً (لوجود صرف سابق بتاريخ ' + pDate + ')';
 
-                    resultDiv.innerHTML = `<strong>حالة الاستعلام: ${statusText}</strong><br><hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">` +
-                                          `• اسم المريض: <b>${pName}</b><br>` +
-                                          `• اسم الأم: <b>${pMother}</b><br>` +
-                                          `• الرقم الوطني: ${pId}<br>` +
-                                          `• تاريخ الولادة: ${pBirth}<br>` +
-                                          `• تفاصيل السماعة السابقة: <b>${pDevice}</b><br>` +
-                                          `• الرقم التسلسلي: <b>${pSerial}</b><br>` +
-                                          `• تاريخ آخر صرف: <b>${pDate}</b><br>` +
-                                          `• المؤسسة / المركز: <b>${pInst}</b>`;
+                    let htmlContent = `<strong>حالة الاستعلام: ${statusText}</strong><br><hr style="border:0; border-top:1px solid #ccc; margin:10px 0;">`;
+                    htmlContent += `• اسم المريض: <b>${pName}</b><br>`;
+                    htmlContent += `• اسم الأم: <b>${pMother}</b><br>`;
+                    
+                    if (pId) htmlContent += `• الرقم الوطني: ${pId}<br>`;
+                    if (pBirth) htmlContent += `• تاريخ الولادة: ${pBirth}<br>`;
+                    
+                    htmlContent += `• تفاصيل السماعة السابقة: <b>${pDevice}</b><br>`;
+                    htmlContent += `• الرقم التسلسلي: <b>${pSerial}</b><br>`;
+                    htmlContent += `• تاريخ آخر صرف: <b>${pDate}</b><br>`;
+                    htmlContent += `• المؤسسة / المركز: <b>${pInst}</b>`;
+
+                    resultDiv.innerHTML = htmlContent;
                 } else {
                     resultDiv.className = 'error';
                     resultDiv.innerHTML = '✗ عذراً، لم يتم العثور على سجل مطابق للبيانات المدخلة في السجلات.';
