@@ -2,66 +2,832 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>استعلام عن استحقاق السماعة الطبية</title>
+    <title>نظام سجلات السماعات الطبية (السحابي المؤسسي)</title>
     <style>
-        body { font-family: Tahoma, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; }
-        h2 { color: #333; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; text-align: right; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
-        button { background-color: #007bff; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-size: 16px; cursor: pointer; margin-top: 10px; }
-        button:hover { background-color: #0056b3; }
-        #result { margin-top: 20px; padding: 15px; border-radius: 5px; text-align: right; display: none; }
-        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; direction: rtl; }
+        .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; text-align: center; margin-bottom: 25px; }
+        h3 { color: #34495e; border-bottom: 2px solid #27ae60; padding-bottom: 5px; margin-top: 0; }
+        .card { background: #eef2f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #dcdcdc; }
+        label { display: block; margin-top: 12px; font-weight: bold; color: #333; }
+        input, select, button { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; background: #fff; }
+        button { background-color: #27ae60; color: white; font-weight: bold; cursor: pointer; border: none; margin-top: 18px; font-size: 16px; }
+        button:hover { background-color: #219150; }
+        .btn-issue { background-color: #2980b9; }
+        .btn-issue:hover { background-color: #1f618d; }
+        .btn-excel { background-color: #d35400; width: auto; display: inline-block; padding: 8px 15px; margin-top: 0; font-size: 14px; }
+        .btn-excel:hover { background-color: #ba4a00; }
+        .btn-clear-all { background-color: #c0392b; width: auto; display: inline-block; padding: 8px 12px; margin-top: 0; font-size: 13px; }
+        .btn-clear-all:hover { background-color: #962d22; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; background: #34495e; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
+        .count-badge { font-weight: bold; font-size: 15px; }
+        .actions-group { display: flex; gap: 10px; align-items: center; width: 100%; justify-content: space-between; flex-wrap: wrap; }
+
+        .table-search-box { width: 220px; padding: 6px 10px; font-size: 13px; border-radius: 4px; border: 1px solid #ccc; margin-top: 0; background: #fff; color: #000; }
+
+        .result-box { padding: 15px; border-radius: 5px; font-weight: bold; margin-top: 15px; display: none; line-height: 1.8; font-size: 14px; }
+        .eligible { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .not-eligible { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .row { display: flex; gap: 10px; }
+        .row > div { flex: 1; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 13px; color: #333; cursor: pointer; }
+        th { background-color: #34495e; color: white; cursor: default; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        
+        .birth-group { display: flex; gap: 5px; align-items: center; margin-top: 5px; }
+        .birth-group input { text-align: center; margin-top: 0; }
+        .inline-edit-input { width: 100%; padding: 4px; font-size: 13px; text-align: center; border: 2px solid #27ae60; border-radius: 4px; background: #fff; }
+        .btn-delete-row { background: none; border: none; cursor: pointer; font-size: 16px; padding: 0; margin: 0; width: auto; }
+        .btn-delete-row:hover { transform: scale(1.2); }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>استعلام عن استحقاق السماعة الطبية</h2>
-    <form id="searchForm">
-        <div class="form-group">
-            <label for="query">أدخل الرقم الوطني أو اسم المريض:</label>
-            <input type="text" id="query" required placeholder="مثال: أحمد محمد أو الرقم الوطني">
+    <h2 id="pageTitle">🏥 نظام فحص وتسجيل وصرف السماعات الطبية (السحابي المؤسسي)</h2>
+
+    <div class="card">
+        <h3>🔍 1. البحث عن مريض وفحص الاستحقاق</h3>
+        <label>بحث بالرقم الوطني أو اسم المريض:</label>
+        <input type="text" id="searchId" placeholder="أدخل الرقم الوطني أو اسم المريض">
+        <button onclick="searchPatient()">بحث وفحص الاستحقاق وتاريخه التفصيلي</button>
+        <div id="searchResult" class="result-box"></div>
+    </div>
+
+    <div class="card">
+        <h3>➕ 2. تسجيل مريض جديد وصرف سماعة سحابياً</h3>
+        <div class="row">
+            <div>
+                <label>الرقم الوطني:</label>
+                <input type="text" id="newNationalId" placeholder="الرقم الوطني" oninput="checkPatientEligibilityLive()">
+            </div>
+            <div>
+                <label>اسم المريض:</label>
+                <input type="text" id="fullName" placeholder="الاسم الكامل" oninput="checkPatientEligibilityLive()">
+            </div>
         </div>
-        <button type="submit">بحث</button>
-    </form>
-    <div id="result"></div>
+        <div class="row">
+            <div>
+                <label>اسم الأم:</label>
+                <input type="text" id="motherName" placeholder="اسم الأم">
+            </div>
+            <div>
+                <label>تاريخ الولادة (يوم / شهر / سنة):</label>
+                <div class="birth-group">
+                    <input type="text" id="birthDay" placeholder="اليوم" maxlength="2" oninput="autoTab(this, 'birthMonth', 2)">
+                    <span>/</span>
+                    <input type="text" id="birthMonth" placeholder="الشهر" maxlength="2" oninput="autoTab(this, 'birthYear', 2)">
+                    <span>/</span>
+                    <input type="text" id="birthYear" placeholder="السنة" maxlength="4" oninput="checkPatientEligibilityLive()">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div>
+                <label>الملاحظات:</label>
+                <select id="patientNote" onchange="checkPatientEligibilityLive()">
+                    <option value="" disabled selected>-- اختر الملاحظة --</option>
+                    <option value="طالب">طالب (3 سنوات)</option>
+                    <option value="استثناء">استثناء (معفى من الفترة الزمنية)</option>
+                    <option value="لاتوجد">لاتوجد (حسب العمر)</option>
+                </select>
+            </div>
+            <div>
+                <label>الرقم التسلسلي (Serial Number):</label>
+                <input type="text" id="serialNumber" placeholder="أدخل الرقم التسلسلي للسماعة">
+            </div>
+        </div>
+        <div class="row">
+            <div style="flex: 1;">
+                <label>تفاصيل السماعة (اختر أو احذف أو أضف سماعة جديدة):</label>
+                <select id="selectedDeviceDisplay" onchange="handleDeviceSelection(this)">
+                    <option value="oticon xceed 3 up" selected>oticon xceed 3 up 🗑️</option>
+                    <option value="oticon xceed 1 up">oticon xceed 1 up 🗑️</option>
+                    <option value="oticon xceed 2 up">oticon xceed 2 up 🗑️</option>
+                    <option value="oticon kit 75">oticon kit 75 🗑️</option>
+                    <option value="Widex D - FA 220">Widex D - FA 220 🗑️</option>
+                    <option value="Widex D - 9 220">Widex D - 9 220 🗑️</option>
+                    <option value="oticon Ria2 85">oticon Ria2 85 🗑️</option>
+                    <option value="ADD_NEW_DEVICE" style="color: #2980b9; font-weight: bold; background: #eef2f5;">➕ إضافة سماعة جديدة...</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="registrationWarning" class="result-box" style="margin-top: 10px;"></div>
+        <button class="btn-issue" id="issueBtn" onclick="registerAndIssue()">حفظ وصرف السماعة في السحابة</button>
+    </div>
+
+    <div class="card">
+        <h3>📋 السجل السحابي الدائم (انقر دبل كلك على أي خلية للتعديل واضغط Enter للحفظ)</h3>
+        
+        <div class="header-bar">
+            <span class="count-badge" id="totalCountBadge">مجموع الأسماء: 0</span>
+            <div class="actions-group">
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <input type="file" id="excelFileInput" accept=".csv, .txt" style="display: none;" onchange="importCsvSafely(event)">
+                    <button class="btn-excel" id="importBtn" onclick="document.getElementById('excelFileInput').click()">📥 استيراد ملف CSV السحابي (8000+ سجل)</button>
+                    <button class="btn-clear-all" onclick="clearAllRecords()">🗑️ تفريغ السجل السحابي</button>
+                </div>
+                <input type="text" id="tableSearchInput" class="table-search-box" placeholder="🔍 بحث في بداية الاسم..." oninput="filterTableLive()">
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>اسم المريض</th>
+                    <th>اسم الأم</th>
+                    <th>الرقم الوطني</th>
+                    <th>تاريخ الولادة</th>
+                    <th>تفاصيل السماعة</th>
+                    <th>الرقم التسلسلي</th>
+                    <th>تاريخ الصرف</th>
+                    <th>المؤسسة / المركز</th>
+                    <th>إجراء</th>
+                </tr>
+            </thead>
+            <tbody id="issuedTableBody">
+                <tr><td colspan="9">جاري مزامنة السجلات من السحابة...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
 </div>
 
 <script>
-    document.getElementById('searchForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const query = document.getElementById('query').value;
-        const resultDiv = document.getElementById('result');
+    let cachedRecords = [];
+
+    function autoTab(current, nextFieldId, maxLen) {
+        if (current.value.length >= maxLen) {
+            const nextEl = document.getElementById(nextFieldId);
+            if (nextEl) nextEl.focus();
+        }
+    }
+
+    function getInstitutionCode() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('code') || 'yarmok';
+    }
+
+    function getInstitutionDisplayName() {
+        const code = getInstitutionCode();
+        if (code === 'medcity' || code === 'tibb') {
+            return 'مدينة الطب';
+        }
+        return 'مستشفى اليرموك';
+    }
+
+    function parseValidDate(dateStr) {
+        if (!dateStr || dateStr === '-' || dateStr === 'undefined') return '2000-01-01';
+        dateStr = String(dateStr).trim();
+
+        let parts = dateStr.split(/[\/\-]/);
+        if (parts.length === 3) {
+            let p1 = parts[0].trim();
+            let p2 = parts[1].trim();
+            let p3 = parts[2].trim();
+
+            if (p3.length === 4) {
+                return `${p3}-${p2.padStart(2, '0')}-${p1.padStart(2, '0')}`;
+            } else if (p1.length === 4) {
+                return `${p1}-${p2.padStart(2, '0')}-${p3.padStart(2, '0')}`;
+            }
+        }
+
+        let parsed = new Date(dateStr);
+        if (!isNaN(parsed.getTime())) {
+            let y = parsed.getFullYear();
+            let m = String(parsed.getMonth() + 1).padStart(2, '0');
+            let d = String(parsed.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        return '2000-01-01';
+    }
+
+    function handleDeviceSelection(selectElement) {
+        const val = selectElement.value;
+        if (val === "ADD_NEW_DEVICE") {
+            let deviceName = prompt("أدخل اسم ومواصفات السماعة الجديدة:");
+            if (deviceName && deviceName.trim() !== "") {
+                deviceName = deviceName.trim();
+                
+                let exists = false;
+                for (let i = 0; i < selectElement.options.length; i++) {
+                    let optVal = selectElement.options[i].value;
+                    if (optVal.toLowerCase() === deviceName.toLowerCase()) {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (exists) {
+                    alert("⚠️ هذه السماعة موجودة مسبقاً في القائمة.");
+                    selectElement.selectedIndex = 0;
+                } else {
+                    let opt = document.createElement('option');
+                    opt.value = deviceName;
+                    opt.text = deviceName + " 🗑️";
+                    
+                    let addNewOpt = selectElement.querySelector('option[value="ADD_NEW_DEVICE"]');
+                    selectElement.insertBefore(opt, addNewOpt);
+                    
+                    selectElement.value = deviceName;
+                    alert(`✅ تم إضافة واختيار السماعة (${deviceName}) بنجاح.`);
+                }
+            } else {
+                selectElement.selectedIndex = 0;
+            }
+        } else if (val && val !== "ADD_NEW_DEVICE") {
+            let actualDeviceName = val;
+            if (confirm(`⚠️ هل أنت متأكد من حذف السماعة (${actualDeviceName}) من القائمة المنسدلة؟`)) {
+                for (let i = 0; i < selectElement.options.length; i++) {
+                    if (selectElement.options[i].value === val) {
+                        selectElement.remove(i);
+                        break;
+                    }
+                }
+                selectElement.selectedIndex = 0;
+                alert("✅ تم حذف السماعة من القائمة.");
+            } else {
+                selectElement.selectedIndex = 0;
+            }
+        }
+    }
+
+    function smartNormalizeArabic(text) {
+        if (!text) return '';
+        let str = String(text).toLowerCase().trim();
+
+        str = str.replace(/[\u064b-\u0652]/g, '');
+        str = str.replace(/[أإآٱا]/g, 'ا');
+        str = str.replace(/ة/g, 'ه');
+        str = str.replace(/ى/g, 'ي');
+        str = str.replace(/ؤ/g, 'و');
+        str = str.replace(/ئ/g, 'ي');
+        str = str.replace(/ء/g, 'ا');
+
+        str = str.replace(/ظ/g, 'ض');
+        str = str.replace(/ص/g, 'س'); 
+        str = str.replace(/ث/g, 'س'); 
+        str = str.replace(/ذ/g, 'ز'); 
+
+        str = str.replace(/عبد\s+الله/g, 'عبدالله');
+        str = str.replace(/\s+/g, '');
+
+        return str;
+    }
+
+    function getPatientAgeInMonths(birthStr) {
+        if (!birthStr || birthStr === '-') return -1;
+        let day = 1, month = 1, year = 0;
         
-        resultDiv.style.display = 'block';
-        resultDiv.className = '';
-        resultDiv.innerHTML = 'جاري البحث...';
+        if (birthStr.includes('/')) {
+            let parts = birthStr.split('/');
+            day = parseInt(parts[0]) || 1;
+            month = parseInt(parts[1]) || 1;
+            year = parseInt(parts[2]) || 0;
+        } else {
+            year = parseInt(birthStr) || 0;
+        }
+
+        if (!year) return -1;
+
+        let birthDate = new Date(year, month - 1, day);
+        let currentDate = new Date();
+
+        let diffMonths = (currentDate.getFullYear() - birthDate.getFullYear()) * 12 + (currentDate.getMonth() - birthDate.getMonth());
+        if (currentDate.getDate() < birthDate.getDate()) diffMonths--;
+
+        return diffMonths >= 0 ? diffMonths : -1;
+    }
+
+    function getRequiredYears(birthStr, noteVal) {
+        if (noteVal === 'استثناء') return 0;
+        if (noteVal === 'طالب') return 3;
+
+        let ageInMonths = getPatientAgeInMonths(birthStr);
+        if (ageInMonths !== -1 && ageInMonths >= 1 && ageInMonths <= 72) {
+            return 3;
+        }
+
+        return 4;
+    }
+
+    function formatDayMonthYearDate(dateObj) {
+        const options = { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' };
+        return dateObj.toLocaleDateString('ar-IQ', options);
+    }
+
+    async function loadIssuedList() {
+        const code = getInstitutionCode();
+        const instName = getInstitutionDisplayName();
+        
+        document.getElementById('pageTitle').innerText = `🏥 نظام فحص وتسجيل وصرف السماعات الطبية - ${instName} (السحابي)`;
 
         try {
-            const response = await fetch(`/api/public-search?q=${encodeURIComponent(query)}`);
-            const data = await response.json();
-
-            if (data.found) {
-                resultDiv.className = 'result success';
-                resultDiv.innerHTML = `<strong>نتيجة البحث:</strong><br>
-                    المريض: ${data.patient.name}<br>
-                    حالة الاستحقاق: ${data.patient.status}<br>
-                    تاريخ آخر صرف: ${data.patient.lastDate || 'غير متوفر'}
-                `;
-            } else {
-                resultDiv.className = 'result error';
-                resultDiv.innerHTML = 'عذراً، لم يتم العثور على بيانات مطابقة أو أن المريض غير مستحق حالياً.';
-            }
-        } catch (error) {
-            resultDiv.className = 'result error';
-            resultDiv.innerHTML = 'حدث خطأ في الاتصال بالسيرفر، يرجى المحاولة لاحقاً.';
+            const res = await fetch(`/api/records?code=${code}`);
+            const data = await res.json();
+            cachedRecords = data.records || [];
+        } catch (e) {
+            cachedRecords = [];
         }
-    });
+        renderTable(cachedRecords);
+    }
+
+    function searchPatient() {
+        const queryText = document.getElementById('searchId').value.trim().toLowerCase();
+        if(!queryText) return alert('يرجى إدخال الرقم الوطني أو اسم المريض للبحث');
+
+        const normQuery = smartNormalizeArabic(queryText);
+
+        const matchedRecords = cachedRecords.filter(r => {
+            const normNatId = smartNormalizeArabic(r.national_id);
+            const normName = smartNormalizeArabic(r.patient_name);
+            return (normQuery && normNatId.startsWith(normQuery)) || (normQuery && normName.startsWith(normQuery));
+        });
+
+        const box = document.getElementById('searchResult');
+        box.style.display = 'block';
+
+        if(matchedRecords.length === 0) {
+            box.className = 'result-box eligible';
+            box.innerHTML = `✅ المريض غير مسجل مسبقاً في السجل السحابي ويمكنه الاستلام لأول مرة.`;
+        } else {
+            matchedRecords.sort((a, b) => new Date(parseValidDate(b.date)) - new Date(parseValidDate(a.date)));
+            
+            const latestRecord = matchedRecords[0];
+            const totalTimes = matchedRecords.length;
+
+            let birthVal = latestRecord.birth_year || '-';
+            let noteVal = latestRecord.is_student || 'لاتوجد';
+
+            let detailsHTML = `
+                📂 <b>تفاصيل السجل الكاملة للمريض:</b><br>
+                👤 <b>اسم المريض:</b> ${latestRecord.patient_name || '-'}<br>
+                👩 <b>اسم الأم:</b> ${latestRecord.mother_name || '-'}<br>
+                🆔 <b>الرقم الوطني:</b> ${latestRecord.national_id || '-'}<br>
+                📅 <b>تاريخ الولادة:</b> ${birthVal}<br>
+                🔢 <b>عدد مرات الاستلام الكلية:</b> <span style="color: #2980b9;">${totalTimes} مرة</span><br>
+                📆 <b>تاريخ آخر استلام:</b> ${latestRecord.date || '-'}<br>
+                🦻 <b>تفاصيل آخر سماعة:</b> ${latestRecord.device_details || '-'}<br>
+                📌 <b>الملاحظات:</b> ${noteVal}<br>
+                🏥 <b>المؤسسة / المركز:</b> ${latestRecord.institution_name || getInstitutionDisplayName()}<br>
+                <hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">
+            `;
+
+            if (noteVal === 'استثناء') {
+                box.className = 'result-box eligible';
+                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق للصرف</b>! (حالة مسجلة كـ <b>استثناء رسمي</b> معفى من الفترة الزمنية المحددة).`;
+                return;
+            }
+
+            let requiredYears = getRequiredYears(birthVal, noteVal);
+            let lastDate = new Date(parseValidDate(latestRecord.date));
+            if (isNaN(lastDate)) lastDate = new Date();
+            
+            let targetDueDate = new Date(lastDate);
+            targetDueDate.setFullYear(lastDate.getFullYear() + requiredYears);
+
+            let currentDate = new Date();
+            let formattedDueDate = formatDayMonthYearDate(targetDueDate);
+
+            detailsHTML = detailsHTML.replace('<hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">', `🎯 <b>تاريخ الاستحقاق القادم (${requiredYears} سنوات):</b> <span style="color: #c0392b;">${formattedDueDate}</span><hr style="border:0; border-top:1px solid #ccc; margin:8px 0;">`);
+
+            if (currentDate >= targetDueDate) {
+                box.className = 'result-box eligible';
+                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق</b> للصرف تماماً! (اكتملت المدة القانونية وهي ${requiredYears} سنوات).`;
+            } else {
+                let diffTime = targetDueDate - currentDate;
+                let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                let remainingYears = (diffDays / 365.25).toFixed(1);
+
+                box.className = 'result-box not-eligible';
+                box.innerHTML = detailsHTML + `⚠️ <b>حالة الاستحقاق:</b> المريض <b>غير مستحق</b> حالياً! استلم آخر مرة في ${latestRecord.date}، وموعد الاستحقاق القانوني (بعد ${requiredYears} سنوات) هو: <b>${formattedDueDate}</b> (متبقي حوالي ${remainingYears} سنة).`;
+            }
+        }
+    }
+
+    function checkPatientEligibilityLive() {
+        const id = smartNormalizeArabic(document.getElementById('newNationalId').value);
+        const fullName = smartNormalizeArabic(document.getElementById('fullName').value);
+        const warningBox = document.getElementById('registrationWarning');
+        const issueBtn = document.getElementById('issueBtn');
+        const noteVal = document.getElementById('patientNote').value;
+        const birthDay = document.getElementById('birthDay').value;
+        const birthMonth = document.getElementById('birthMonth').value;
+        const birthYear = document.getElementById('birthYear').value;
+
+        if (!noteVal) {
+            warningBox.style.display = 'none';
+            issueBtn.disabled = false;
+            issueBtn.style.opacity = '1';
+            return;
+        }
+
+        if (noteVal === 'استثناء') {
+            warningBox.style.display = 'none';
+            issueBtn.disabled = false;
+            issueBtn.style.opacity = '1';
+            return;
+        }
+
+        if (id.length < 3 && fullName.length < 3) {
+            warningBox.style.display = 'none';
+            issueBtn.disabled = false;
+            issueBtn.style.opacity = '1';
+            return;
+        }
+
+        const matchedRecords = cachedRecords.filter(r => {
+            const normNatId = smartNormalizeArabic(r.national_id);
+            const normName = smartNormalizeArabic(r.patient_name);
+            return (id && normNatId === id) || (fullName && normName.startsWith(fullName));
+        });
+
+        if (matchedRecords.length > 0) {
+            matchedRecords.sort((a, b) => new Date(parseValidDate(b.date)) - new Date(parseValidDate(a.date)));
+            const latestRecord = matchedRecords[0];
+
+            let birthStr = (birthDay && birthMonth && birthYear) ? `${birthDay}/${birthMonth}/${birthYear}` : (latestRecord.birth_year || '-');
+            let requiredYears = getRequiredYears(birthStr, noteVal);
+
+            let lastDate = new Date(parseValidDate(latestRecord.date));
+            if (isNaN(lastDate)) lastDate = new Date();
+
+            let targetDueDate = new Date(lastDate);
+            targetDueDate.setFullYear(lastDate.getFullYear() + requiredYears);
+
+            let currentDate = new Date();
+            let formattedDueDate = formatDayMonthYearDate(targetDueDate);
+
+            if (currentDate < targetDueDate) {
+                let diffTime = targetDueDate - currentDate;
+                let remainingYears = (diffTime / (1000 * 60 * 60 * 24 * 365.25)).toFixed(1);
+
+                warningBox.style.display = 'block';
+                warningBox.className = 'result-box not-eligible';
+                warningBox.innerHTML = `⚠️ تنبيه منع الصرف للمريض (${latestRecord.patient_name}): غير مستحق! استلم ${matchedRecords.length} مرات، وآخره في ${latestRecord.date}. موعد الاستحقاق (${requiredYears} سنوات) هو: <b>${formattedDueDate}</b> (متبقي ${remainingYears} سنة).`;
+                issueBtn.disabled = true;
+                issueBtn.style.opacity = '0.5';
+                return;
+            }
+        }
+
+        warningBox.style.display = 'none';
+        issueBtn.disabled = false;
+        issueBtn.style.opacity = '1';
+    }
+
+    async function registerAndIssue() {
+        const noteVal = document.getElementById('patientNote').value;
+        if (!noteVal) {
+            return alert('⚠️ يرجى اختيار نوع الملاحظات من القائمة المنسدلة قبل إتمام الصرف');
+        }
+
+        let rawDevice = document.getElementById('selectedDeviceDisplay').value;
+        let cleanDevice = rawDevice.replace(" 🗑️", "").trim();
+
+        const body = {
+            national_id: document.getElementById('newNationalId').value.trim(),
+            patient_name: document.getElementById('fullName').value.trim(),
+            mother_name: document.getElementById('motherName').value.trim(),
+            birth_year: (document.getElementById('birthDay').value && document.getElementById('birthMonth').value && document.getElementById('birthYear').value) ? `${document.getElementById('birthDay').value}/${document.getElementById('birthMonth').value}/${document.getElementById('birthYear').value}` : (document.getElementById('birthYear').value || '-'),
+            is_student: noteVal,
+            device_details: cleanDevice,
+            serial_number: document.getElementById('serialNumber').value.trim(),
+            date: new Date().toISOString().split('T')[0],
+            institution_name: getInstitutionDisplayName()
+        };
+
+        if(!body.national_id || !body.patient_name || !body.device_details || !body.serial_number) {
+            return alert('يرجى تعبئة الحقول المطلوبة');
+        }
+
+        const code = getInstitutionCode();
+        try {
+            const res = await fetch(`/api/records?code=${code}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert('✅ تم حفظ وصرف السماعة في السحابة بنجاح');
+                document.getElementById('newNationalId').value = '';
+                document.getElementById('fullName').value = '';
+                document.getElementById('motherName').value = '';
+                document.getElementById('birthDay').value = '';
+                document.getElementById('birthMonth').value = '';
+                document.getElementById('birthYear').value = '';
+                document.getElementById('serialNumber').value = '';
+                document.getElementById('patientNote').selectedIndex = 0;
+                document.getElementById('registrationWarning').style.display = 'none';
+                document.getElementById('issueBtn').disabled = false;
+                document.getElementById('issueBtn').style.opacity = '1';
+                loadIssuedList();
+            } else {
+                alert('❌ فشل الحفظ');
+            }
+        } catch(e) {
+            alert('❌ خطأ في الاتصال بالشبكة');
+        }
+    }
+
+    // [قفل أمني صارم] دالة الحذف مع التحقق من أن السجل يتبع نفس المؤسسة المفتوحة حصرياً
+    async function deleteSingleRecord(recordIndex, patientName, recordInstName) {
+        const currentInst = getInstitutionDisplayName();
+        
+        // التحقق الأمني: إذا كان اسم مؤسسة السجل يخالف المؤسسة الحالية للرابط، يتم المنع فوراً
+        if (recordInstName && recordInstName !== '-' && recordInstName !== currentInst) {
+            alert(`⛔ غير مسموح! لا يمكنك حذف سجل يتبع لمؤسسة أخرى (${recordInstName}) وأنت مسجل الدخول بصفتك (${currentInst}).`);
+            return;
+        }
+
+        if (confirm(`⚠️ هل أنت متأكد من رغبتك في حذف سجل المريض (${patientName}) نهائياً من السحابة؟`)) {
+            const code = getInstitutionCode();
+            try {
+                const res = await fetch(`/api/records/delete?code=${code}&index=${recordIndex}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ index: recordIndex })
+                });
+                
+                if (res.ok) {
+                    const result = await res.json().catch(() => ({ success: true }));
+                    if (result.success !== false) {
+                        alert('✅ تم حذف السجل بنجاح');
+                        loadIssuedList();
+                        return;
+                    }
+                }
+                
+                const resAlt = await fetch(`/api/records?code=${code}`);
+                const dataAlt = await resAlt.json();
+                let currentList = dataAlt.records || [];
+                
+                currentList = currentList.filter(r => r.id !== recordIndex);
+                
+                await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
+                await fetch(`/api/import-chunk-safe?code=${code}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ records: currentList })
+                });
+
+                alert('✅ تم حذف السجل بنجاح');
+                loadIssuedList();
+
+            } catch (e) {
+                alert('⚠️ خطأ في الاتصال بالشبكة أثناء محاولة الحذف');
+            }
+        }
+    }
+
+    function importCsvSafely(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.readAsText(file, 'UTF-8');
+        
+        reader.onload = async function(e) {
+            const importBtn = document.getElementById('importBtn');
+            try {
+                const text = e.target.result;
+                const lines = text.split(/\r\n|\n/);
+                let parsedRecords = [];
+                const code = getInstitutionCode();
+                const defaultInstName = getInstitutionDisplayName();
+
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i] ? lines[i].trim() : '';
+                    if (!line) continue;
+
+                    let cols = line.split(/,|;|\t/);
+                    cols = cols.map(c => (c ? c.replace(/^["']|["']$/g, '').trim() : ''));
+
+                    let validCols = cols.filter(c => c !== '');
+                    if (validCols.length === 0) continue;
+
+                    let firstCol = validCols[0];
+                    if (i === 0 && (firstCol.includes('اسم') || firstCol.includes('الاسم') || firstCol.includes('patient') || firstCol.includes('name') || firstCol.includes('تاريخ'))) {
+                        continue;
+                    }
+
+                    let patName = cols[0] || '';
+                    let momName = cols[1] || '-';
+                    let natId = cols[2] || '-';
+                    let birth = cols[3] || '-';
+                    let device = cols[4] || 'oticon xceed 3 up';
+                    let serial = cols[5] || '0000';
+                    let csvDate = cols[6] || '-';
+                    let instCol = cols[7] || defaultInstName;
+
+                    if (patName && patName !== '' && patName !== 'undefined') {
+                        parsedRecords.push({
+                            national_id: String(natId),
+                            patient_name: patName,
+                            mother_name: momName,
+                            birth_year: birth,
+                            is_student: 'لاتوجد',
+                            device_details: device,
+                            serial_number: serial,
+                            date: csvDate,
+                            institution_name: instCol
+                        });
+                    }
+                }
+
+                if (parsedRecords.length === 0) {
+                    alert('⚠️ لم يتم قراءة أي سجلات صالحة.');
+                    importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
+                    importBtn.disabled = false;
+                    event.target.value = '';
+                    return;
+                }
+
+                importBtn.disabled = true;
+                importBtn.innerText = `⏳ جاري تفريغ السجلات القديمة بالسحابة...`;
+
+                try {
+                    await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
+                } catch(err) {}
+
+                const chunkSize = 100;
+                let uploadedCount = 0;
+                const totalChunks = Math.ceil(parsedRecords.length / chunkSize);
+
+                for (let i = 0; i < parsedRecords.length; i += chunkSize) {
+                    const chunk = parsedRecords.slice(i, i + chunkSize);
+                    let currentChunkNum = Math.floor(i / chunkSize) + 1;
+                    importBtn.innerText = `⏳ جاري رفع السجلات سحابياً (${currentChunkNum} من ${totalChunks})...`;
+
+                    try {
+                        let res = await fetch(`/api/import-chunk-safe?code=${code}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ records: chunk })
+                        });
+                        let data = await res.json();
+                        if (data.success) {
+                            uploadedCount += chunk.length;
+                        }
+                    } catch (err) {}
+
+                    await new Promise(r => setTimeout(r, 30));
+                }
+
+                importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
+                importBtn.disabled = false;
+
+                alert(`🎉 تم رفع وحفظ كافة السجلات (${uploadedCount} سجل) بنجاح تام!`);
+                await loadIssuedList();
+
+            } catch (err) {
+                alert('⚠️ حدث خطأ أثناء معالجة الملف.');
+                importBtn.innerText = '📥 استيراد ملف CSV السحابي (8000+ سجل)';
+                importBtn.disabled = false;
+            }
+            event.target.value = '';
+        };
+    }
+
+    async function clearAllRecords() {
+        if (confirm("⚠️ تحذير حكومي: هل أنت متأكد تماماً من رغبتك في تفريغ السجل السحابي للمؤسسة؟")) {
+            const code = getInstitutionCode();
+            try {
+                await fetch(`/api/clear-records?code=${code}`, { method: 'POST' });
+                alert('✅ تم تفريغ السجل السحابي بنجاح.');
+                loadIssuedList();
+            } catch(e) {
+                alert('خطأ في الاتصال');
+            }
+        }
+    }
+
+    function filterTableLive() {
+        renderTable(cachedRecords);
+    }
+
+    function renderTable(data) {
+        const rawQuery = document.getElementById('tableSearchInput').value.trim();
+        const normQuery = smartNormalizeArabic(rawQuery);
+        
+        const filteredData = data.filter(item => {
+            const normName = smartNormalizeArabic(item.patient_name);
+            const normMother = smartNormalizeArabic(item.mother_name);
+            const normNatId = smartNormalizeArabic(item.national_id);
+            const normDevice = smartNormalizeArabic(item.device_details);
+            const normSerial = smartNormalizeArabic(item.serial_number);
+
+            return normName.startsWith(normQuery) || 
+                   normNatId.startsWith(normQuery) ||
+                   normMother.startsWith(normQuery) || 
+                   normDevice.startsWith(normQuery) || 
+                   normSerial.startsWith(normQuery);
+        });
+
+        filteredData.sort((a, b) => {
+            let dateA = new Date(parseValidDate(a.date));
+            let dateB = new Date(parseValidDate(b.date));
+            return dateB - dateA;
+        });
+
+        const tbody = document.getElementById('issuedTableBody');
+        document.getElementById('totalCountBadge').innerText = `مجموع الأسماء: ${filteredData.length}`;
+        tbody.innerHTML = '';
+
+        if(filteredData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9">لا توجد سجلات مطابقة تبدأ بهذا النص في السحابة</td></tr>';
+            return;
+        }
+
+        const displayData = filteredData.slice(0, 500);
+        const currentInstDisplay = getInstitutionDisplayName();
+
+        displayData.forEach((item) => {
+            let tr = document.createElement('tr');
+            let recordId = item.id !== undefined ? item.id : 0;
+            let recordInst = item.institution_name || currentInstDisplay;
+
+            tr.innerHTML = `
+                <td ondblclick="makeEditable(this, ${recordId}, 'patient_name', '${item.patient_name || ''}', '${recordInst}')">${item.patient_name || 'غير معروف'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'mother_name', '${item.mother_name || ''}', '${recordInst}')">${item.mother_name || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'national_id', '${item.national_id || ''}', '${recordInst}')">${item.national_id || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'birth_year', '${item.birth_year || ''}', '${recordInst}')">${item.birth_year || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'device_details', '${item.device_details || ''}', '${recordInst}')">${item.device_details || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'serial_number', '${item.serial_number || ''}', '${recordInst}')">${item.serial_number || '-'}</td>
+                <td ondblclick="makeEditable(this, ${recordId}, 'date', '${item.date || ''}', '${recordInst}')">${item.date || '-'}</td>
+                <td>${recordInst}</td>
+                <td><button class="btn-delete-row" title="حذف السجل" onclick="deleteSingleRecord(${recordId}, '${item.patient_name || 'المريض'}', '${recordInst}')">🗑️</button></td>
+            `;
+
+            tbody.appendChild(tr);
+        });
+
+        if (filteredData.length > 500) {
+            let noteTr = document.createElement('tr');
+            noteTr.innerHTML = `<td colspan="9" style="background-color: #fff3cd; color: #856404; font-weight: bold;">ملاحظة: يتم عرض أول 500 سجل من أصل ${filteredData.length} لتسريع التصفح. يمكنك استخدام خانة البحث لتصفية النتائج بدقة.</td>`;
+            tbody.appendChild(noteTr);
+        }
+    }
+
+    // [قفل أمني صارم] دالة التعديل مع التحقق من أن السجل يتبع نفس المؤسسة المفتوحة حصرياً
+    async function makeEditable(cell, recordIndex, fieldName, currentValue, recordInstName) {
+        const currentInst = getInstitutionDisplayName();
+
+        if (recordInstName && recordInstName !== '-' && recordInstName !== currentInst) {
+            alert(`⛔ غير مسموح! لا يمكنك تعديل خلية في سجل يتبع لمؤسسة أخرى (${recordInstName}) وأنت مسجل الدخول بصفتك (${currentInst}).`);
+            return;
+        }
+
+        if (cell.querySelector('input')) return;
+
+        cell.innerHTML = `<input type="text" class="inline-edit-input" value="${currentValue === '-' ? '' : currentValue}">`;
+        const input = cell.querySelector('input');
+        input.focus();
+        input.select();
+
+        input.onkeydown = async function(e) {
+            if (e.key === 'Enter') {
+                const newValue = input.value.trim();
+                cell.innerHTML = newValue === '' ? '-' : newValue;
+
+                try {
+                    const res = await fetch(`/api/records/update`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ index: recordIndex, field: fieldName, value: newValue })
+                    });
+                    const result = await res.json();
+                    if (!result.success) {
+                        alert('❌ فشل حفظ التعديل في السحابة');
+                    } else {
+                        loadIssuedList();
+                    }
+                } catch (err) {
+                    alert('⚠️ خطأ في الاتصال بالشبكة');
+                }
+            } else if (e.key === 'Escape') {
+                cell.innerHTML = currentValue === '-' ? '-' : currentValue;
+            }
+        };
+
+        input.onblur = function() {
+            setTimeout(() => {
+                if (cell.querySelector('input')) {
+                    cell.innerHTML = currentValue === '-' ? '-' : currentValue;
+                }
+            }, 200);
+        };
+    }
+
+    window.onload = () => {
+        loadIssuedList();
+    };
 </script>
 
 </body>
