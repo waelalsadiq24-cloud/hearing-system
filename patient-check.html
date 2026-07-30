@@ -16,7 +16,7 @@
         input:focus { border-color: #1b4f72; background: #fff; outline: none; }
         button { background-color: #27ae60; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         button:hover { background-color: #219653; }
-        #result { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; text-align: center; font-weight: bold; }
+        #result { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; text-align: right; font-size: 14px; line-height: 1.8; }
         .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     </style>
@@ -26,18 +26,18 @@
 <div class="container">
     <div class="header">
         <h2>استعلام عن استحقاق المعينة السمعية</h2>
-        <p>مستشفى البيروك والمدينة الطبية - إدارة السجلات والسحابة</p>
+        <p>مستشفى اليرموك والمدينة الطبية - إدارة السجلات والسحابة</p>
     </div>
     
     <form id="patientSearchForm">
         <div class="form-group">
             <label for="fullName">1. اسم المريض الثلاثي:</label>
-            <input type="text" id="fullName" required placeholder="أدخل اسم المريض الثلاثي">
+            <input type="text" id="fullName" placeholder="أدخل اسم المريض الثلاثي">
         </div>
 
         <div class="form-group">
             <label for="motherName">2. اسم الأم:</label>
-            <input type="text" id="motherName" required placeholder="أدخل اسم الأم">
+            <input type="text" id="motherName" placeholder="أدخل اسم الأم">
         </div>
 
         <div class="form-group">
@@ -54,29 +54,40 @@
 <script>
     document.getElementById('patientSearchForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const fullName = document.getElementById('fullName').value;
-        const motherName = document.getElementById('motherName').value;
-        const nationalId = document.getElementById('nationalId').value;
+        const fullName = document.getElementById('fullName').value.trim();
+        const motherName = document.getElementById('motherName').value.trim();
+        const nationalId = document.getElementById('nationalId').value.trim();
         const resultDiv = document.getElementById('result');
+
+        if (!nationalId && (!fullName || !motherName)) {
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'error';
+            resultDiv.innerHTML = 'يرجى إدخال (الرقم الوطني) أو (اسم المريض الثلاثي مع اسم الأم) للبحث.';
+            return;
+        }
 
         resultDiv.style.display = 'block';
         resultDiv.className = '';
-        resultDiv.innerHTML = 'جاري البحث في السجلات...';
+        resultDiv.innerHTML = 'جاري البحث في قاعدة البيانات...';
 
         try {
             const response = await fetch(`/api/check-eligibility?name=${encodeURIComponent(fullName)}&mother=${encodeURIComponent(motherName)}&id=${encodeURIComponent(nationalId)}`);
             const data = await response.json();
 
             if (data.found) {
-                resultDiv.className = 'result success';
-                resultDiv.innerHTML = `نتيجة البحث: المريض (<b>${data.name}</b>) ${data.status} - تاريخ آخر صرف: ${data.lastDate || 'لا يوجد'}`;
+                resultDiv.className = 'success';
+                resultDiv.innerHTML = `<strong>✓ نتيجة الاستعلام:</strong><br>` +
+                                      `• اسم المريض: <b>${data.name || 'غير متوفر'}</b><br>` +
+                                      `• الحالة: <b>${data.status}</b><br>` +
+                                      `• تفاصيل السماعة: ${data.device || 'غير متوفر'}<br>` +
+                                      `• تاريخ الصرف: ${data.lastDate || 'غير متوفر'}`;
             } else {
-                resultDiv.className = 'result error';
-                resultDiv.innerHTML = 'عذراً، لم يتم العثور على سجل مطابق للبيانات المدخلة.';
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = '✗ عذراً، لم يتم العثور على سجل مطابِق للبيانات المدخلة في السجلات.';
             }
         } catch (err) {
-            resultDiv.className = 'result success';
-            resultDiv.innerHTML = 'تم استقبال طلب الاستعلام بنجاح وإرساله للتدقيق.';
+            resultDiv.className = 'error';
+            resultDiv.innerHTML = '✗ حدث خطأ في الاتصال بالسيرفر، يرجى المحاولة لاحقاً.';
         }
     });
 </script>
