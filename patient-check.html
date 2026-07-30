@@ -9,7 +9,7 @@
         .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 600px; text-align: right; }
         .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #eaeaea; padding-bottom: 15px; }
         .header h2 { color: #2c3e50; margin: 0 0 5px 0; font-size: 22px; }
-        .header p { color: #666; font-size: 13px; margin: 0; }
+        .header p { color: #555; font-size: 14px; margin: 0; font-weight: bold; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px; }
         input { width: 100%; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; background: #fafafa; }
@@ -20,38 +20,54 @@
         .eligible { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .not-eligible { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .card { background: #eef2f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #dcdcdc; }
-        .row { display: flex; gap: 10px; }
-        .row > div { flex: 1; }
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #ddd; }
+        .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; font-weight: bold; color: #666; background: #f8f9fa; border: 1px solid #ddd; border-bottom: none; }
+        .tab.active { background: #fff; color: #2c3e50; border-top: 3px solid #27ae60; }
+        .search-section { display: none; }
+        .search-section.active { display: block; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h2>🏥 الاستعلام عن استحقاق المعينة السمعية</h2>
-        <p>مستشفى اليرموك والمدينة الطبية - نظام السجلات السحابي</p>
+        <h2>الاستعلام عن استحقاق المعينة السمعية</h2>
+        <p>يمكنك التحقق باختيار رقم 1 أو 2 وملء الحقول</p>
     </div>
 
-    <div class="card">
-        <h3>🔍 استعلام عن حالة المريض</h3>
-        <div class="form-group">
-            <label>1. الرقم الوطني (اختياري للبحث المباشر):</label>
-            <input type="text" id="searchNatId" placeholder="أدخل الرقم الوطني">
-        </div>
-        <div class="row">
+    <!-- التبويبان للطريقتين -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab(0)">1. الرقم الوطني</div>
+        <div class="tab" onclick="switchTab(1)">2. الاسم الثلاثي + اسم الأم</div>
+    </div>
+    
+    <!-- الطريقة الأولى: الرقم الوطني -->
+    <div id="section0" class="search-section active">
+        <form onsubmit="handleSearch(event, 0)">
             <div class="form-group">
-                <label>2. اسم المريض:</label>
-                <input type="text" id="searchName" placeholder="أدخل اسم المريض">
+                <label>الرقم الوطني:</label>
+                <input type="text" id="inputNationalId" placeholder="أدخل الرقم الوطني للمريض">
+            </div>
+            <button type="submit">بحث بالرقم الوطني</button>
+        </form>
+    </div>
+
+    <!-- الطريقة الثانية: الاسم الثلاثي + اسم الأم -->
+    <div id="section1" class="search-section">
+        <form onsubmit="handleSearch(event, 1)">
+            <div class="form-group">
+                <label>اسم المريض الثلاثي:</label>
+                <input type="text" id="inputPatientName" placeholder="أدخل اسم المريض الثلاثي">
             </div>
             <div class="form-group">
                 <label>اسم الأم:</label>
-                <input type="text" id="searchMother" placeholder="أدخل اسم الأم">
+                <input type="text" id="inputMotherName" placeholder="أدخل اسم الأم">
             </div>
-        </div>
-        <button onclick="searchPatient()">بحث وفحص الاستحقاق التفصيلي</button>
-        <div id="searchResult" class="result-box"></div>
+            <button type="submit">بحث بالاسم واسم الأم</button>
+        </form>
     </div>
+
+    <div id="searchResult" class="result-box"></div>
 </div>
 
 <script>
@@ -67,11 +83,19 @@
         }
     }
 
-    // دالة المطابقة والتطبيع الذكية المأخوذة من ملف index.html بالحرف
+    function switchTab(index) {
+        document.querySelectorAll('.tab').forEach((t, i) => {
+            t.classList.toggle('active', i === index);
+        });
+        document.querySelectorAll('.search-section').forEach((s, i) => {
+            s.classList.toggle('active', i === index);
+        });
+        document.getElementById('searchResult').style.display = 'none';
+    }
+
     function smartNormalizeArabic(text) {
         if (!text) return '';
         let str = String(text).toLowerCase().trim();
-
         str = str.replace(/[\u064b-\u0652]/g, '');
         str = str.replace(/[أإآٱا]/g, 'ا');
         str = str.replace(/ة/g, 'ه');
@@ -79,35 +103,26 @@
         str = str.replace(/ؤ/g, 'و');
         str = str.replace(/ئ/g, 'ي');
         str = str.replace(/ء/g, 'ا');
-
         str = str.replace(/ظ/g, 'ض');
         str = str.replace(/ص/g, 'س'); 
         str = str.replace(/ث/g, 'س'); 
         str = str.replace(/ذ/g, 'ز'); 
-
         str = str.replace(/عبد\s+الله/g, 'عبدالله');
         str = str.replace(/\s+/g, '');
-
         return str;
     }
 
     function parseValidDate(dateStr) {
         if (!dateStr || dateStr === '-' || dateStr === 'undefined') return '2000-01-01';
         dateStr = String(dateStr).trim();
-
         let parts = dateStr.split(/[\/\-]/);
         if (parts.length === 3) {
             let p1 = parts[0].trim();
             let p2 = parts[1].trim();
             let p3 = parts[2].trim();
-
-            if (p3.length === 4) {
-                return `${p3}-${p2.padStart(2, '0')}-${p1.padStart(2, '0')}`;
-            } else if (p1.length === 4) {
-                return `${p1}-${p2.padStart(2, '0')}-${p3.padStart(2, '0')}`;
-            }
+            if (p3.length === 4) return `${p3}-${p2.padStart(2, '0')}-${p1.padStart(2, '0')}`;
+            else if (p1.length === 4) return `${p1}-${p2.padStart(2, '0')}-${p3.padStart(2, '0')}`;
         }
-
         let parsed = new Date(dateStr);
         if (!isNaN(parsed.getTime())) {
             let y = parsed.getFullYear();
@@ -115,14 +130,12 @@
             let d = String(parsed.getDate()).padStart(2, '0');
             return `${y}-${m}-${d}`;
         }
-
         return '2000-01-01';
     }
 
     function getPatientAgeInMonths(birthStr) {
         if (!birthStr || birthStr === '-') return -1;
         let day = 1, month = 1, year = 0;
-        
         if (birthStr.includes('/')) {
             let parts = birthStr.split('/');
             day = parseInt(parts[0]) || 1;
@@ -131,27 +144,19 @@
         } else {
             year = parseInt(birthStr) || 0;
         }
-
         if (!year) return -1;
-
         let birthDate = new Date(year, month - 1, day);
         let currentDate = new Date();
-
         let diffMonths = (currentDate.getFullYear() - birthDate.getFullYear()) * 12 + (currentDate.getMonth() - birthDate.getMonth());
         if (currentDate.getDate() < birthDate.getDate()) diffMonths--;
-
         return diffMonths >= 0 ? diffMonths : -1;
     }
 
     function getRequiredYears(birthStr, noteVal) {
         if (noteVal === 'استثناء') return 0;
         if (noteVal === 'طالب') return 3;
-
         let ageInMonths = getPatientAgeInMonths(birthStr);
-        if (ageInMonths !== -1 && ageInMonths >= 1 && ageInMonths <= 72) {
-            return 3;
-        }
-
+        if (ageInMonths !== -1 && ageInMonths >= 1 && ageInMonths <= 72) return 3;
         return 4;
     }
 
@@ -160,50 +165,40 @@
         return dateObj.toLocaleDateString('ar-IQ', options);
     }
 
-    async function searchPatient() {
-        if (cachedRecords.length === 0) {
-            await initRecords();
-        }
+    async function handleSearch(event, mode) {
+        event.preventDefault();
+        if (cachedRecords.length === 0) await initRecords();
 
-        const natIdInput = document.getElementById('searchNatId').value.trim();
-        const nameInput = document.getElementById('searchName').value.trim();
-        const motherInput = document.getElementById('searchMother').value.trim();
         const box = document.getElementById('searchResult');
-        
         box.style.display = 'block';
 
-        if (!natIdInput && !nameInput) {
-            box.className = 'result-box error';
-            box.innerHTML = '⚠️ يرجى إدخال الرقم الوطني أو اسم المريض على الأقل للبحث.';
-            return;
+        let matchedRecords = [];
+
+        if (mode === 0) {
+            const val = document.getElementById('inputNationalId').value.trim();
+            if (!val) { box.className = 'result-box error'; box.innerHTML = '⚠️ يرجى إدخال الرقم الوطني.'; return; }
+            const normVal = smartNormalizeArabic(val);
+            matchedRecords = cachedRecords.filter(r => smartNormalizeArabic(r.national_id) === normVal);
+        } else if (mode === 1) {
+            const nameVal = document.getElementById('inputPatientName').value.trim();
+            const motherVal = document.getElementById('inputMotherName').value.trim();
+            if (!nameVal || !motherVal) { box.className = 'result-box error'; box.innerHTML = '⚠️ يرجى إدخال اسم المريض واسم الأم.'; return; }
+            
+            const normName = smartNormalizeArabic(nameVal);
+            const normMother = smartNormalizeArabic(motherVal);
+            
+            matchedRecords = cachedRecords.filter(r => {
+                const rName = smartNormalizeArabic(r.patient_name);
+                const rMother = smartNormalizeArabic(r.mother_name);
+                return rName.includes(normName) && rMother.includes(normMother);
+            });
         }
 
-        const normNatQuery = smartNormalizeArabic(natIdInput);
-        const normNameQuery = smartNormalizeArabic(nameInput);
-        const normMotherQuery = smartNormalizeArabic(motherInput);
-
-        // تطبيق نفس منطق فلترة وفحص السجلات تماماً مثل لوحة التحكم
-        const matchedRecords = cachedRecords.filter(r => {
-            const normNatId = smartNormalizeArabic(r.national_id);
-            const normName = smartNormalizeArabic(r.patient_name);
-            const normMother = smartNormalizeArabic(r.mother_name);
-
-            if (normNatQuery) {
-                return normNatId === normNatQuery;
-            } else if (normName && normMotherQuery) {
-                return normName.includes(normNameQuery) && normMother.includes(normMotherQuery);
-            } else if (normName) {
-                return normName.includes(normNameQuery);
-            }
-            return false;
-        });
-
-        if(matchedRecords.length === 0) {
+        if (matchedRecords.length === 0) {
             box.className = 'result-box eligible';
             box.innerHTML = `✅ المريض غير مسجل مسبقاً في السجل السحابي ويمكنه الاستلام لأول مرة.`;
         } else {
             matchedRecords.sort((a, b) => new Date(parseValidDate(b.date)) - new Date(parseValidDate(a.date)));
-            
             const latestRecord = matchedRecords[0];
             const totalTimes = matchedRecords.length;
 
@@ -226,7 +221,7 @@
 
             if (noteVal === 'استثناء') {
                 box.className = 'result-box eligible';
-                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق للصرف</b>! (حالة مسجلة كـ <b>استثناء رسمي</b> معفى من الفترة الزمنية المحددة).`;
+                box.innerHTML = detailsHTML + `✅ <b>حالة الاستحقاق:</b> المريض <b>مستحق للصرف</b>! (حالة مسجلة كـ <b>استثناء رسمي</b>).`;
                 return;
             }
 
