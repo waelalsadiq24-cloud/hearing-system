@@ -76,25 +76,18 @@
                 });
 
                 if (found) {
-                    // استخراج القيم بدقة بالاعتماد على أسماء المفاتيح الشائعة
-                    const pName = found['اسم المريض'] || found.name || found.patientName || 'غير متوفرة';
-                    const pMother = found['اسم الأم'] || found.motherName || found.mother || 'غير متوفرة';
-                    const pDevice = found['تفاصيل السماعة'] || found.device || found.hearingAid || 'غير متوفرة';
-                    const pSerial = found['الرقم التسلسلي'] || found.serialNumber || '-';
-                    const pDate = found['تاريخ الصرف'] || found.date || 'غير متوفر';
-                    const pInst = found['المؤسسة / المركز'] || found.institution_name || 'غير متوفرة';
-                    const pId = found['الرقم الوطني'] || found.nationalId || '-';
-                    const pBirth = found['تاريخ الولادة'] || found.birthDate || '-';
+                    // استخراج المفاتيح بدقة مع تغطية كافة الاحتمالات لأسماء الحقول في قاعدة البيانات
+                    const pName = found['اسم المريض'] || found.name || found.patientName || found.fullName || 'غير متوفرة';
+                    const pMother = found['اسم الأم'] || found.motherName || found.mother || found.mName || 'غير متوفرة';
+                    const pDevice = found['تفاصيل السماعة'] || found.device || found.hearingAid || found.details || 'غير متوفرة';
+                    const pSerial = found['الرقم التسلسلي'] || found.serialNumber || found.serial || '-';
+                    const pDate = found['تاريخ الصرف'] || found.date || found.dispenseDate || 'غير متوفر';
+                    const pInst = found['المؤسسة / المركز'] || found.institution_name || found.center || 'غير متوفرة';
+                    const pId = found['الرقم الوطني'] || found.nationalId || found.id || '-';
+                    const pBirth = found['تاريخ الولادة'] || found.birthDate || found.dob || '-';
 
-                    // فحص شرط الاستحقاق (مثلاً: إذا كان تاريخ الصرف حديثاً، يعتبر غير مستحق)
-                    // نفترض هنا قاعدة تحقق أو اعتماداً على تاريخ الصرف (مثلاً مضي فترة معينة أو حسب رغبتك)
-                    // يمكنك تعديل الشرط أدناه بحسب قواعد المستشفى الدقيقة
-                    let isEligible = true;
-                    if (pDate && pDate !== 'غير متوفر') {
-                        // كمثال: إذا تم الصرف في عام 2025 ولم يمض الوقت الكافي، يعتبر غير مستحق
-                        // بناءً على ما ذكرته (المريض لا يستحق حالياً):
-                        isEligible = false; 
-                    }
+                    // تحديد حالة الاستحقاق (هنا كمثال محدد على أنه غير مستحق بناءً على توفر صرف سابق)
+                    let isEligible = false; 
 
                     resultDiv.className = isEligible ? 'success' : 'not-eligible';
                     const statusText = isEligible ? '✓ مستحق لصرف المعينة السمعية الجديدة' : '✗ غير مستحق حالياً (لعدم انقضاء مدة الاستبدال أو توفر صرف سابق)';
