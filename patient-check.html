@@ -49,8 +49,8 @@
 <script>
     document.getElementById('patientSearchForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const fullName = document.getElementById('fullName').value.trim();
-        const motherName = document.getElementById('motherName').value.trim();
+        const searchInput = document.getElementById('fullName').value.trim().toLowerCase();
+        const motherInput = document.getElementById('motherName').value.trim().toLowerCase();
         const resultDiv = document.getElementById('result');
 
         resultDiv.style.display = 'block';
@@ -62,25 +62,29 @@
             const data = await response.json();
 
             if (data.success && Array.isArray(data.records)) {
-                // البحث الذكي الذي يتفحص كافة مفاتيح القيم داخل السجل الواحد
+                // استخدام نفس خوارزمية البحث الذكية والمطابقة للفلتر
                 const found = data.records.find(p => {
-                    const values = Object.values(p).map(v => String(v).trim());
-                    const hasName = values.some(v => v.includes(fullName));
-                    const hasMother = values.some(v => v.includes(motherName));
-                    return hasName && hasMother;
+                    const pName = String(p['اسم المريض'] || '').trim().toLowerCase();
+                    const pMother = String(p['اسم الأم'] || '').trim().toLowerCase();
+                    
+                    const nameMatch = pName.includes(searchInput);
+                    const motherMatch = motherInput === '' || pMother.includes(motherInput);
+                    
+                    return nameMatch && motherMatch;
                 });
 
                 if (found) {
                     resultDiv.className = 'success';
                     resultDiv.innerHTML = `<strong>✓ نتيجة الاستعلام:</strong><br>` +
-                                          `• اسم المريض: <b>${found['اسم المريض'] || found.name || fullName}</b><br>` +
-                                          `• اسم الأم: <b>${found['اسم الأم'] || found.motherName || motherName}</b><br>` +
-                                          `• تفاصيل السماعة: <b>${found['تفاصيل السماعة'] || found.device || 'غير متوفر'}</b><br>` +
-                                          `• تاريخ الصرف: <b>${found['تاريخ الصرف'] || found.date || 'غير متوفر'}</b><br>` +
-                                          `• المؤسسة: ${found['المؤسسة / المركز'] || found.institution_name || 'غير متوفر'}`;
+                                          `• اسم المريض: <b>${found['اسم المريض'] || 'غير متوفر'}</b><br>` +
+                                          `• اسم الأم: <b>${found['اسم الأم'] || 'غير متوفر'}</b><br>` +
+                                          `• تفاصيل السماعة: <b>${found['تفاصيل السماعة'] || 'غير متوفر'}</b><br>` +
+                                          `• الرقم التسلسلي: ${found['الرقم التسلسلي'] || 'غير متوفر'}<br>` +
+                                          `• تاريخ الصرف: <b>${found['تاريخ الصرف'] || 'غير متوفر'}</b><br>` +
+                                          `• المؤسسة / المركز: ${found['المؤسسة / المركز'] || 'غير متوفر'}`;
                 } else {
                     resultDiv.className = 'error';
-                    resultDiv.innerHTML = '✗ عذراً، لم يتم العثور على سجل مطابق للاسم واسم الأم المدخلة.';
+                    resultDiv.innerHTML = '✗ عذراً، لم يتم العثور على سجل مطابق للبيانات المدخلة.';
                 }
             } else {
                 resultDiv.className = 'error';
