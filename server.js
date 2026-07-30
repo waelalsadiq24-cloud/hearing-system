@@ -1,37 +1,27 @@
-// مسار البحث المتوافق تماماً مع الحقول العربية في قاعدة البيانات
+// مسار البحث المباشر المطابق للحقول العربية في قاعدة البيانات
 app.get('/api/check-eligibility', (req, res) => {
   try {
     const searchName = (req.query.name || '').trim();
     const searchMother = (req.query.mother || '').trim();
-    const searchId = (req.query.id || '').trim();
 
     const db = readDatabase();
 
     const foundPatient = db.find(p => {
-      // قراءة الحقول العربية والإنجليزية معاً لضمان التطابق التام
-      const pName = (p['اسم المريض'] || p.name || p.patientName || '').trim();
-      const pMother = (p['اسم الأم'] || p.motherName || p.mother || '').trim();
-      const pId = (p['الرقم الوطني'] || p.nationalId || p.id || '').toString().trim();
+      // قراءة الحقول بحسب أسمائها العربية الدقيقة في السجلات
+      const pName = (p['اسم المريض'] || '').trim();
+      const pMother = (p['اسم الأم'] || '').trim();
 
-      const matchId = searchId && searchId !== '1' && pId === searchId;
-      const matchName = searchName && pName.includes(searchName);
-      const matchMother = searchMother && pMother.includes(searchMother);
-
-      // إذا أدخل الرقم الوطني (غير الواحد الافتراضي) يطابق به، أو يطابق الاسم مع اسم الأم
-      if (searchId && searchId !== '1' && pId) {
-        return pId === searchId;
-      }
-      
-      return matchName && matchMother;
+      // مطابقة تامة للنص المدخل مع السجل
+      return pName === searchName && pMother === searchMother;
     });
 
     if (foundPatient) {
       res.json({
         found: true,
-        name: foundPatient['اسم المريض'] || foundPatient.name || 'مريض',
-        status: foundPatient.status || 'مستحق لصرف المعينة السمعية الجديدة',
-        device: foundPatient['تفاصيل السماعة'] || foundPatient.device || 'غير متوفر',
-        lastDate: foundPatient['تاريخ الصرف'] || foundPatient.dispenseDate || 'غير متوفر'
+        name: foundPatient['اسم المريض'],
+        status: 'مستحق لصرف المعينة السمعية الجديدة',
+        device: foundPatient['تفاصيل السماعة'] || 'غير متوفر',
+        lastDate: foundPatient['تاريخ الصرف'] || 'غير متوفر'
       });
     } else {
       res.json({ found: false });
